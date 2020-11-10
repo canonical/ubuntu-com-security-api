@@ -145,6 +145,10 @@ class Notice(Base):
     )
 
     @hybrid_property
+    def cves_ids(self):
+        return [cve.id for cve in self.cves]
+
+    @hybrid_property
     def package_list(self):
         if not self.release_packages:
             return []

@@ -1,9 +1,9 @@
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from canonicalwebteam.flask_base.app import FlaskBase
-from flask_apispec.extension import FlaskApiSpec
+from flask_apispec import FlaskApiSpec
 
-from webapp.views import get_cve
+from webapp.views import get_cve, get_notice
 
 app = FlaskBase(
     __name__,
@@ -29,5 +29,13 @@ app.add_url_rule(
     provide_automatic_options=False,
 )
 
+app.add_url_rule(
+    "/notices/<notice_id>",
+    view_func=get_notice,
+    provide_automatic_options=False,
+)
+
+
 docs = FlaskApiSpec(app)
 docs.register(get_cve)
+docs.register(get_notice)
