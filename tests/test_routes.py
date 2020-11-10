@@ -1,22 +1,47 @@
-# Standard library
 import unittest
+from unittest.mock import patch
 
-# Local
 from webapp.app import app
+from webapp.models import CVE
 
 
 class TestRoutes(unittest.TestCase):
     def setUp(self):
         app.testing = True
-        self.client = app.test_client()
 
+        self.client = app.test_client()
         return super().setUp()
 
-    def test_hello_world(self):
-        self.assertEqual(self.client.get("/hello-world").status_code, 200)
-
     def test_spec(self):
-        self.assertEqual(self.client.get("/spec").status_code, 200)
+        response = self.client.get("/spec")
+
+        assert response.status_code == 200
 
     def test_docs(self):
-        self.assertEqual(self.client.get("/docs").status_code, 200)
+        response = self.client.get("/docs")
+
+        assert response.status_code == 200
+
+    @patch("webapp.views.db_session")
+    def test_cve_not_exists(self, db_session):
+        mocked_query = db_session.query.return_value
+        mocked_filter = mocked_query.filter.return_value
+        mocked_filter.one_or_none.return_value = None
+
+        response = self.client.get("/cves/CVE-TEST")
+
+        assert response.status_code == 404
+
+    @patch("webapp.views.db_session")
+    def test_cve(self, db_session):
+        mocked_query = db_session.query.return_value
+        mocked_filter = mocked_query.filter.return_value
+        mocked_filter.one_or_none.return_value = CVE(id="CVE-TEST-1")
+
+        response = self.client.get("/cves/CVE-TEST-1")
+
+        assert response.status_code == 200
+
+
+if __name__ == "__main__":
+    unittest.main()

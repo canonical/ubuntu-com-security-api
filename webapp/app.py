@@ -1,8 +1,9 @@
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from canonicalwebteam.flask_base.app import FlaskBase
-from flask import jsonify
 from flask_apispec.extension import FlaskApiSpec
+
+from webapp.views import get_cve
 
 app = FlaskBase(
     __name__,
@@ -22,12 +23,11 @@ app.config.update(
     }
 )
 
+app.add_url_rule(
+    "/cves/<cve_id>",
+    view_func=get_cve,
+    provide_automatic_options=False,
+)
+
 docs = FlaskApiSpec(app)
-
-
-@app.route("/hello-world")
-def get_hello_world():
-    return jsonify({"message": "Hello World!"})
-
-
-docs.register(get_hello_world)
+docs.register(get_cve)
