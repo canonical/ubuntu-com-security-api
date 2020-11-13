@@ -98,6 +98,21 @@ class NoticeSchema(Schema):
     )
 
 
+class NoticeModelSchema(Schema):
+    id = String(required=True, validate=Regexp(r"USN-\d{1,5}-\d{1,2}"))
+    title = String(required=True)
+    summary = String(required=True)
+    instructions = String(required=True)
+    references = List(String())
+    cves_ids = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
+    published = ParsedDateTime(required=True)
+    description = String(allow_none=True)
+    release_packages = Dict(
+        keys=ReleaseCodename(),
+        values=List(Nested(NoticePackage), required=True),
+    )
+
+
 # Release
 # --
 class ReleaseSchema(Schema):
