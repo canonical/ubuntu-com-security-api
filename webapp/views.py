@@ -3,10 +3,10 @@ from flask_apispec import marshal_with
 
 from webapp.database import db_session
 from webapp.models import CVE, Notice
-from webapp.schemas import CVEModelSchema, NoticeModelSchema
+from webapp.schemas import CVEAPISchema, NoticeAPISchema
 
 
-@marshal_with(CVEModelSchema, code=200)
+@marshal_with(CVEAPISchema, code=200)
 def get_cve(cve_id):
     cve = db_session.query(CVE).filter(CVE.id == cve_id).one_or_none()
 
@@ -19,7 +19,7 @@ def get_cve(cve_id):
     return cve
 
 
-@marshal_with(NoticeModelSchema, code=200)
+@marshal_with(NoticeAPISchema, code=200)
 def get_notice(notice_id):
     notice = (
         db_session.query(Notice).filter(Notice.id == notice_id).one_or_none()

@@ -75,6 +75,36 @@ class CVE(Base):
         return packages
 
     @hybrid_property
+    def package_statuses(self):
+        packages = []
+        for package_name in self.packages:
+            statuses = []
+            for release, status in self.packages[package_name].items():
+                statuses.append(
+                    {
+                        "release_codename": status.release_codename,
+                        "status": status.status,
+                        "description": status.description,
+                        "component": status.component,
+                        "pocket": status.pocket,
+                    }
+                )
+
+            pkg = {
+                "name": package_name,
+                "source": f"https://ubuntu.com/security/cve?"
+                f"package={package_name}",
+                "ubuntu": f"https://packages.ubuntu.com/search?"
+                f"suite=all&section=all&arch=any&"
+                f"searchon=sourcenames&keywords={package_name}",
+                "debian": f"https://tracker.debian.org/pkg/{package_name}",
+                "statuses": statuses,
+            }
+            packages.append(pkg)
+
+        return packages
+
+    @hybrid_property
     def notices_ids(self):
         return [notice.id for notice in self.notices]
 
