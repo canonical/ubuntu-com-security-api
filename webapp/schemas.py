@@ -89,7 +89,6 @@ class NoticeSchema(Schema):
     summary = String(required=True)
     instructions = String(required=True)
     references = List(String())
-    cves = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
     published = ParsedDateTime(required=True)
     description = String(allow_none=True)
     release_packages = Dict(
@@ -98,18 +97,13 @@ class NoticeSchema(Schema):
     )
 
 
-class NoticeModelSchema(Schema):
-    id = String(required=True, validate=Regexp(r"USN-\d{1,5}-\d{1,2}"))
-    title = String(required=True)
-    summary = String(required=True)
-    instructions = String(required=True)
-    references = List(String())
-    cves_ids = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
-    published = ParsedDateTime(required=True)
-    description = String(allow_none=True)
-    release_packages = Dict(
-        keys=ReleaseCodename(),
-        values=List(Nested(NoticePackage), required=True),
+class NoticeImportSchema(NoticeSchema):
+    cves = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
+
+
+class NoticeAPISchema(NoticeSchema):
+    cves_ids = List(
+        String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")), data_key="cves"
     )
 
 
@@ -158,49 +152,26 @@ class CVESchema(Schema):
     priority = String(allow_none=True)
     status = String(allow_none=True)
     cvss3 = Float(allow_none=True)
+    references = List(String())
+    bugs = List(String())
+    patches = Dict(
+        keys=String(),
+        values=List(String(), required=False),
+        allow_none=True,
+    )
+    tags = Dict(
+        keys=String(),
+        values=List(String(), required=False),
+        allow_none=True,
+    )
+
+
+class CVEImportSchema(CVESchema):
     packages = List(Nested(CvePackage))
-    references = List(String())
-    bugs = List(String())
-    patches = Dict(
-        keys=String(),
-        values=List(String(), required=False),
-        allow_none=True,
-    )
-    tags = Dict(
-        keys=String(),
-        values=List(String(), required=False),
-        allow_none=True,
-    )
 
 
-class CVEModelSchema(Schema):
-    id = String(required=True)
-    published = ParsedDateTime(allow_none=True)
-    description = String(allow_none=True)
-    ubuntu_description = String(allow_none=True)
-    notes = List(Nested(Note))
-    priority = String(allow_none=True)
-    cvss3 = Float(allow_none=True)
-    references = List(String())
-    patches = Dict(
-        keys=String(),
-        values=List(String(), required=False),
-        allow_none=True,
-    )
-    tags = Dict(
-        keys=String(),
-        values=List(String(), required=False),
-        allow_none=True,
-    )
-    bugs = List(String())
-    status = String(allow_none=True)
-    packages = Dict(
-        keys=String(),
-        values=Dict(
-            keys=String(),
-            values=Nested(Status),
-        ),
-    )
+class CVEAPISchema(CVESchema):
+    package_statuses = List(Nested(CvePackage), data_key="packages")
     notices_ids = List(
         String(validate=Regexp(r"USN-\d{1,5}-\d{1,2}")), required=False
     )
