@@ -1,6 +1,6 @@
-domain: security.ubuntu.com
+domain: security-metadata.canonical.com
 
-image: prod-comms.docker-registry.canonical.com/security.ubuntu.com
+image: prod-comms.docker-registry.canonical.com/security-metadata.canonical.com
 
 env:
   - name: DATABASE_URL
