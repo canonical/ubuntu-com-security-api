@@ -12,6 +12,8 @@ from webapp.schemas import (
     NoticeAPISchema,
     CVEsAPISchema,
     CVEsParameters,
+    NoticesParameters,
+    NoticesAPISchema,
 )
 
 
@@ -234,3 +236,46 @@ def get_notice(notice_id):
         )
 
     return notice
+
+
+@use_kwargs(NoticesParameters, location="query")
+@marshal_with(NoticesAPISchema, code=200)
+def get_notices(**kwargs):
+    details = kwargs.get("details")
+    release = kwargs.get("release")
+    offset = kwargs.get("offset")
+    limit = kwargs.get("limit")
+    order_by = kwargs.get("order")
+
+    notices_query = db_session.query(Notice)
+
+    if release:
+        notices_query = notices_query.join(Release, Notice.releases).filter(
+            Release.codename == release
+        )
+
+    if details:
+        notices_query = notices_query.filter(
+            or_(
+                Notice.id.like(f"%{details}%"),
+                Notice.details.like(f"%{details}%"),
+                Notice.cves.any(CVE.id.like(f"%{details}%")),
+            )
+        )
+
+    total_results = notices_query.count()
+    sort = asc if order_by == "oldest" else desc
+
+    notices = (
+        notices_query.order_by(sort(Notice.published))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "notices": notices,
+        "offset": offset,
+        "limit": limit,
+        "total_results": total_results,
+    }

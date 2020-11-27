@@ -108,6 +108,23 @@ class NoticeAPISchema(NoticeSchema):
     )
 
 
+class NoticesAPISchema(Schema):
+    notices = List(Nested(NoticeAPISchema))
+    offset = Int(allow_none=True)
+    limit = Int(allow_none=True)
+    total_results = Int()
+
+
+# TODO: This should be a Schema object, but parameters won't load that way
+NoticesParameters = {
+    "details": String(allow_none=True),
+    "release": String(allow_none=True),
+    "limit": Int(allow_none=True),
+    "offset": Int(allow_none=True),
+    "order": String(allow_none=True),
+}
+
+
 # Release
 # --
 class ReleaseSchema(Schema):
