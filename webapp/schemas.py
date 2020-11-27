@@ -8,6 +8,7 @@ from marshmallow.fields import (
     List,
     Nested,
     String,
+    Int,
 )
 from marshmallow.validate import Regexp
 
@@ -90,7 +91,7 @@ class NoticeSchema(Schema):
     instructions = String(required=True)
     references = List(String())
     published = ParsedDateTime(required=True)
-    description = String(allow_none=True)
+    details = String(allow_none=True)
     release_packages = Dict(
         keys=ReleaseCodename(),
         values=List(Nested(NoticePackage), required=True),
@@ -173,5 +174,25 @@ class CVEImportSchema(CVESchema):
 class CVEAPISchema(CVESchema):
     package_statuses = List(Nested(CvePackage), data_key="packages")
     notices_ids = List(
-        String(validate=Regexp(r"USN-\d{1,5}-\d{1,2}")), required=False
+        String(validate=Regexp(r"USN-\d{1,5}-\d{1,2}")), data_key="notices"
     )
+
+
+class CVEsAPISchema(Schema):
+    cves = List(Nested(CVEAPISchema))
+    offset = Int(allow_none=True)
+    limit = Int(allow_none=True)
+    total_results = Int()
+
+
+# TODO: This should be a Schema object, but parameters won't load that way
+CVEsParameters = {
+    "q": String(allow_none=True),
+    "priority": String(allow_none=True),
+    "package": String(allow_none=True),
+    "limit": Int(allow_none=True),
+    "offset": Int(allow_none=True),
+    "component": String(allow_none=True),
+    "versions": List(String(), allow_none=True),
+    "statuses": List(String(), allow_none=True),
+}
