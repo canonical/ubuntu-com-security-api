@@ -85,7 +85,7 @@ class NoticePackage(Schema):
 
 
 class NoticeSchema(Schema):
-    id = String(required=True, validate=Regexp(r"USN-\d{1,5}-\d{1,2}"))
+    id = String(required=True, validate=Regexp(r"(USN|LSN)-\d{1,5}-\d{1,2}"))
     title = String(required=True)
     summary = String(required=True)
     instructions = String(required=True)
@@ -191,7 +191,8 @@ class CVEImportSchema(CVESchema):
 class CVEAPISchema(CVESchema):
     package_statuses = List(Nested(CvePackage), data_key="packages")
     notices_ids = List(
-        String(validate=Regexp(r"USN-\d{1,5}-\d{1,2}")), data_key="notices"
+        String(validate=Regexp(r"(USN|LSN)-\d{1,5}-\d{1,2}")),
+        data_key="notices",
     )
 
 
