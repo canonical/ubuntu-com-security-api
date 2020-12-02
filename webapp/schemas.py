@@ -116,6 +116,7 @@ class NoticesAPISchema(Schema):
 
 
 # TODO: This should be a Schema object, but parameters won't load that way
+# https://github.com/canonical-web-and-design/security-metadata.canonical.com/issues/15
 NoticesParameters = {
     "details": String(allow_none=True),
     "release": String(allow_none=True),
@@ -204,6 +205,7 @@ class CVEsAPISchema(Schema):
 
 
 # TODO: This should be a Schema object, but parameters won't load that way
+# https://github.com/canonical-web-and-design/security-metadata.canonical.com/issues/15
 CVEsParameters = {
     "q": String(allow_none=True),
     "priority": String(allow_none=True),
@@ -211,6 +213,6 @@ CVEsParameters = {
     "limit": Int(allow_none=True),
     "offset": Int(allow_none=True),
     "component": String(allow_none=True),
-    "versions": List(String(), allow_none=True),
-    "statuses": List(String(), allow_none=True),
+    "version": List(String(), allow_none=True),
+    "status": List(String(), allow_none=True),
 }
