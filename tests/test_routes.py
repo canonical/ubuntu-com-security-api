@@ -13,12 +13,12 @@ class TestRoutes(unittest.TestCase):
         return super().setUp()
 
     def test_spec(self):
-        response = self.client.get("/spec.json")
+        response = self.client.get("/security/spec.json")
 
         assert response.status_code == 200
 
     def test_docs(self):
-        response = self.client.get("/docs")
+        response = self.client.get("/security/docs")
 
         assert response.status_code == 200
 
@@ -28,7 +28,7 @@ class TestRoutes(unittest.TestCase):
         mocked_filter = mocked_query.filter.return_value
         mocked_filter.one_or_none.return_value = None
 
-        response = self.client.get("/cves/CVE-TEST.json")
+        response = self.client.get("/security/cves/CVE-TEST.json")
 
         assert response.status_code == 404
 
@@ -38,7 +38,7 @@ class TestRoutes(unittest.TestCase):
         mocked_filter = mocked_query.filter.return_value
         mocked_filter.one_or_none.return_value = CVE(id="CVE-TEST-1")
 
-        response = self.client.get("/cves/CVE-TEST-1.json")
+        response = self.client.get("/security/cves/CVE-TEST-1.json")
 
         assert response.status_code == 200
 
@@ -48,7 +48,7 @@ class TestRoutes(unittest.TestCase):
         mocked_filter = mocked_query.filter.return_value
         mocked_filter.one_or_none.return_value = None
 
-        response = self.client.get("/usn/USN-TEST.json")
+        response = self.client.get("/security/notices/USN-TEST.json")
 
         assert response.status_code == 404
 
@@ -58,7 +58,7 @@ class TestRoutes(unittest.TestCase):
         mocked_filter = mocked_query.filter.return_value
         mocked_filter.one_or_none.return_value = Notice(id="USN-TEST-1")
 
-        response = self.client.get("/notices/USN-TEST-1.json")
+        response = self.client.get("/security/notices/USN-TEST-1.json")
 
         assert response.status_code == 200
 

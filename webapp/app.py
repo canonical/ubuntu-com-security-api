@@ -18,19 +18,19 @@ app.config.update(
             openapi_version="2.0.0",
             plugins=[MarshmallowPlugin()],
         ),
-        "APISPEC_SWAGGER_URL": "/spec.json",
-        "APISPEC_SWAGGER_UI_URL": "/docs",
+        "APISPEC_SWAGGER_URL": "/security/spec.json",
+        "APISPEC_SWAGGER_UI_URL": "/security/docs",
     }
 )
 
 app.add_url_rule(
-    "/cves/<cve_id>.json",
+    "/security/cves/<cve_id>.json",
     view_func=get_cve,
     provide_automatic_options=False,
 )
 
 app.add_url_rule(
-    "/notices/<notice_id>.json",
+    "/security/notices/<notice_id>.json",
     view_func=get_notice,
     provide_automatic_options=False,
 )
