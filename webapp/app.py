@@ -1,13 +1,13 @@
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from canonicalwebteam.flask_base.app import FlaskBase
-from flask_apispec import FlaskApiSpec
 
 from webapp.views import get_cve, get_notice, get_cves, get_notices
+from webapp.api_spec import WebappFlaskApiSpec
 
 app = FlaskBase(
     __name__,
-    "security.ubuntu.com",
+    "ubuntu-com-security-api",
 )
 
 app.config.update(
@@ -47,7 +47,7 @@ app.add_url_rule(
     provide_automatic_options=False,
 )
 
-docs = FlaskApiSpec(app)
+docs = WebappFlaskApiSpec(app)
 docs.register(get_cve)
 docs.register(get_cves)
 docs.register(get_notice)
