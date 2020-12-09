@@ -8,6 +8,7 @@ from marshmallow.fields import (
     List,
     Nested,
     String,
+    Int,
 )
 from marshmallow.validate import Regexp
 
@@ -84,13 +85,13 @@ class NoticePackage(Schema):
 
 
 class NoticeSchema(Schema):
-    id = String(required=True, validate=Regexp(r"USN-\d{1,5}-\d{1,2}"))
+    id = String(required=True, validate=Regexp(r"(USN|LSN)-\d{1,5}-\d{1,2}"))
     title = String(required=True)
     summary = String(required=True)
     instructions = String(required=True)
     references = List(String())
     published = ParsedDateTime(required=True)
-    description = String(allow_none=True)
+    details = String(allow_none=True)
     release_packages = Dict(
         keys=ReleaseCodename(),
         values=List(Nested(NoticePackage), required=True),
@@ -105,6 +106,24 @@ class NoticeAPISchema(NoticeSchema):
     cves_ids = List(
         String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")), data_key="cves"
     )
+
+
+class NoticesAPISchema(Schema):
+    notices = List(Nested(NoticeAPISchema))
+    offset = Int(allow_none=True)
+    limit = Int(allow_none=True)
+    total_results = Int()
+
+
+# TODO: This should be a Schema object, but parameters won't load that way
+# https://github.com/canonical-web-and-design/security-metadata.canonical.com/issues/15
+NoticesParameters = {
+    "details": String(allow_none=True),
+    "release": String(allow_none=True),
+    "limit": Int(allow_none=True),
+    "offset": Int(allow_none=True),
+    "order": String(allow_none=True),
+}
 
 
 # Release
@@ -173,5 +192,27 @@ class CVEImportSchema(CVESchema):
 class CVEAPISchema(CVESchema):
     package_statuses = List(Nested(CvePackage), data_key="packages")
     notices_ids = List(
-        String(validate=Regexp(r"USN-\d{1,5}-\d{1,2}")), required=False
+        String(validate=Regexp(r"(USN|LSN)-\d{1,5}-\d{1,2}")),
+        data_key="notices",
     )
+
+
+class CVEsAPISchema(Schema):
+    cves = List(Nested(CVEAPISchema))
+    offset = Int(allow_none=True)
+    limit = Int(allow_none=True)
+    total_results = Int()
+
+
+# TODO: This should be a Schema object, but parameters won't load that way
+# https://github.com/canonical-web-and-design/security-metadata.canonical.com/issues/15
+CVEsParameters = {
+    "q": String(allow_none=True),
+    "priority": String(allow_none=True),
+    "package": String(allow_none=True),
+    "limit": Int(allow_none=True),
+    "offset": Int(allow_none=True),
+    "component": String(allow_none=True),
+    "version": List(String(), allow_none=True),
+    "status": List(String(), allow_none=True),
+}
