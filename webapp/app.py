@@ -18,8 +18,8 @@ app.config.update(
             openapi_version="2.0.0",
             plugins=[MarshmallowPlugin()],
         ),
-        "APISPEC_SWAGGER_URL": "/security/spec.json",
-        "APISPEC_SWAGGER_UI_URL": "/security/docs",
+        "APISPEC_SWAGGER_URL": "/security/api/spec.json",
+        "APISPEC_SWAGGER_UI_URL": "/security/api/docs",
     }
 )
 

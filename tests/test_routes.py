@@ -13,12 +13,12 @@ class TestRoutes(unittest.TestCase):
         return super().setUp()
 
     def test_spec(self):
-        response = self.client.get("/security/spec.json")
+        response = self.client.get("/security/api/spec.json")
 
         assert response.status_code == 200
 
     def test_docs(self):
-        response = self.client.get("/security/docs")
+        response = self.client.get("/security/api/docs")
 
         assert response.status_code == 200
 

@@ -31,7 +31,7 @@ jobs:
         run: |
           docker run --detach --env SECRET_KEY=insecure_secret_key --network host --env DATABASE_URL=postgres://postgres:pw@localhost:5432/postgres ubuntu-com-security-api
           sleep 1
-          curl --head --fail --retry-delay 1 --retry 30 --retry-connrefused http://localhost/security/docs
+          curl --head --fail --retry-delay 1 --retry 30 --retry-connrefused http://localhost/security/api/docs
 
   run-dotrun:
     runs-on: ubuntu-latest
@@ -63,7 +63,7 @@ jobs:
       - name: Run dotrun
         run: |
           /snap/bin/dotrun &
-          curl --head --fail --retry-delay 1 --retry 30 --retry-connrefused http://localhost:8030/security/docs
+          curl --head --fail --retry-delay 1 --retry 30 --retry-connrefused http://localhost:8030/security/api/docs
 
   lint-python:
     runs-on: ubuntu-latest
