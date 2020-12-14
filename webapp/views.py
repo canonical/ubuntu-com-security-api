@@ -223,11 +223,13 @@ def get_notice(notice_id):
 def get_notices(**kwargs):
     details = kwargs.get("details")
     release = kwargs.get("release")
-    offset = kwargs.get("offset")
-    limit = kwargs.get("limit")
+    limit = kwargs.get("limit", 20)
+    offset = kwargs.get("offset", 0)
     order_by = kwargs.get("order")
 
-    notices_query = db_session.query(Notice)
+    notices_query = db_session.query(
+        Notice, func.count("*").over().label("total")
+    )
 
     if release:
         notices_query = notices_query.join(Release, Notice.releases).filter(
@@ -243,10 +245,9 @@ def get_notices(**kwargs):
             )
         )
 
-    total_results = notices_query.count()
     sort = asc if order_by == "oldest" else desc
 
-    notices = (
+    raw_notices = (
         notices_query.order_by(sort(Notice.published))
         .offset(offset)
         .limit(limit)
@@ -254,10 +255,10 @@ def get_notices(**kwargs):
     )
 
     return {
-        "notices": notices,
+        "notices": [raw_notice[0] for raw_notice in raw_notices],
         "offset": offset,
         "limit": limit,
-        "total_results": total_results,
+        "total_results": raw_notices[0][1] if raw_notices else 0,
     }
 
 
