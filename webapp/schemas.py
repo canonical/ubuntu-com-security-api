@@ -35,7 +35,10 @@ class ReleaseCodename(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value not in self.context["release_codenames"]:
+        if (
+            "release_codenames" in self.context
+            and value not in self.context["release_codenames"]
+        ):
             raise self.make_error("unrecognised_codename", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -91,7 +94,7 @@ class NoticeSchema(Schema):
     instructions = String(required=True)
     references = List(String())
     published = ParsedDateTime(required=True)
-    details = String(allow_none=True)
+    description = String(allow_none=True)
     release_packages = Dict(
         keys=ReleaseCodename(),
         values=List(Nested(NoticePackage), required=True),
@@ -115,8 +118,6 @@ class NoticesAPISchema(Schema):
     total_results = Int()
 
 
-# TODO: This should be a Schema object, but parameters won't load that way
-# https://github.com/canonical-web-and-design/security-metadata.canonical.com/issues/15
 NoticesParameters = {
     "details": String(allow_none=True),
     "release": String(allow_none=True),
@@ -204,8 +205,6 @@ class CVEsAPISchema(Schema):
     total_results = Int()
 
 
-# TODO: This should be a Schema object, but parameters won't load that way
-# https://github.com/canonical-web-and-design/security-metadata.canonical.com/issues/15
 CVEsParameters = {
     "q": String(allow_none=True),
     "priority": String(allow_none=True),
@@ -216,3 +215,12 @@ CVEsParameters = {
     "version": List(String(), allow_none=True),
     "status": List(String(), allow_none=True),
 }
+
+
+class MessageSchema(Schema):
+    message = String()
+
+
+class MessageWithErrorsSchema(Schema):
+    message = String()
+    errors = String()

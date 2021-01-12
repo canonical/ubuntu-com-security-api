@@ -1,11 +1,14 @@
 from datetime import datetime
 
-from flask import make_response, jsonify
+from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, func, and_, case, asc
+from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import contains_eager
 
-from webapp.database import db_session
+from webapp.auth import authorization_required
+from webapp.database import db_session, db_engine
 from webapp.models import CVE, Notice, Release, Status, Package
 from webapp.schemas import (
     CVEAPISchema,
@@ -14,10 +17,14 @@ from webapp.schemas import (
     CVEsParameters,
     NoticesParameters,
     NoticesAPISchema,
+    NoticeImportSchema,
+    MessageSchema,
+    MessageWithErrorsSchema,
 )
 
 
 @marshal_with(CVEAPISchema, code=200)
+@marshal_with(MessageSchema, code=404)
 def get_cve(cve_id):
     cve = db_session.query(CVE).filter(CVE.id == cve_id).one_or_none()
 
@@ -202,6 +209,7 @@ def get_cves(**kwargs):
 
 
 @marshal_with(NoticeAPISchema, code=200)
+@marshal_with(MessageSchema, code=404)
 def get_notice(notice_id):
     notice = (
         db_session.query(Notice).filter(Notice.id == notice_id).one_or_none()
@@ -260,6 +268,87 @@ def get_notices(**kwargs):
         "limit": limit,
         "total_results": raw_notices[0][1] if raw_notices else 0,
     }
+
+
+def _init_notice_import_schema(request):
+    notice_schema = NoticeImportSchema(context={"request": request})
+
+    inspector = Inspector.from_engine(db_engine)
+    if "release" in inspector.get_table_names():
+        notice_schema.context["release_codenames"] = [
+            rel.codename for rel in db_session.query(Release).all()
+        ]
+
+    return notice_schema
+
+
+@authorization_required
+@marshal_with(MessageSchema, code=200)
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(_init_notice_import_schema, location="json")
+def create_notice(**kwargs):
+    notice_data = request.json
+
+    db_session.add(
+        _update_notice_object(Notice(id=notice_data["id"]), notice_data)
+    )
+
+    try:
+        db_session.commit()
+    except IntegrityError:
+        return make_response(
+            jsonify(
+                {
+                    "message": "Invalid payload",
+                    "errors": f"Notice {notice_data['id']} already exists",
+                }
+            ),
+            422,
+        )
+
+    return make_response(jsonify({"message": "Notice created"}), 200)
+
+
+@authorization_required
+@marshal_with(MessageSchema, code=200)
+@marshal_with(MessageWithErrorsSchema, code=404)
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(_init_notice_import_schema, location="json")
+def update_notice(notice_id, **kwargs):
+    notice = db_session.query(Notice).get(notice_id)
+
+    if not notice:
+        return make_response(
+            jsonify({"message": f"Notice {notice_id} doesn't exist"}),
+            404,
+        )
+
+    notice = _update_notice_object(notice, request.json)
+
+    db_session.add(notice)
+    db_session.commit()
+
+    return make_response(jsonify({"message": "Notice updated"}), 200)
+
+
+@authorization_required
+@marshal_with(MessageSchema, code=200)
+@marshal_with(MessageSchema, code=404)
+def delete_notice(notice_id):
+    notice = db_session.query(Notice).get(notice_id)
+
+    if not notice:
+        return make_response(
+            jsonify({"message": f"Notice {notice_id} doesn't exist"}),
+            404,
+        )
+
+    db_session.delete(notice)
+    db_session.commit()
+
+    return make_response(
+        jsonify({"message": f"Notice {notice_id} deleted"}), 200
+    )
 
 
 def _get_releases(versions):
@@ -324,3 +413,27 @@ def _get_clean_versions(statuses, versions):
             clean_versions.append([release.codename for release in releases])
 
     return clean_versions
+
+
+def _update_notice_object(notice, data):
+    """
+    Set fields on a Notice model object
+    """
+
+    notice.title = data["title"]
+    notice.summary = data["summary"]
+    notice.details = data["description"]
+    notice.release_packages = data["release_packages"]
+    notice.published = data["published"]
+    notice.references = data["references"]
+    notice.instructions = data["instructions"]
+    notice.releases = [
+        db_session.query(Release).get(codename)
+        for codename in data["release_packages"].keys()
+    ]
+
+    notice.cves.clear()
+    for cve_id in set(data["cves"]):
+        notice.cves.append(db_session.query(CVE).get(cve_id) or CVE(id=cve_id))
+
+    return notice
