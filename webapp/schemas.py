@@ -106,6 +106,7 @@ class NoticeImportSchema(NoticeSchema):
 
 
 class NoticeAPISchema(NoticeSchema):
+    notice_type = String(data_key="type")
     cves_ids = List(
         String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")), data_key="cves"
     )
@@ -138,6 +139,10 @@ class ReleaseSchema(Schema):
     release_date = ParsedDateTime(required=True)
     esm_expires = ParsedDateTime(required=True)
     support_expires = ParsedDateTime(required=True)
+
+
+class ReleaseAPISchema(ReleaseSchema):
+    support_tag = String()
 
 
 # CVEs
