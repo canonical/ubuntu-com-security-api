@@ -219,6 +219,7 @@ CVEsParameters = {
     "component": String(allow_none=True),
     "version": List(String(), allow_none=True),
     "status": List(String(), allow_none=True),
+    "order": String(allow_none=True),
 }
 
 
