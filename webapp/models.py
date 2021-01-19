@@ -108,58 +108,6 @@ class CVE(Base):
     def notices_ids(self):
         return [notice.id for notice in self.notices]
 
-    @hybrid_property
-    def active_status_tree(self):
-        active_package_statuses = {}
-
-        for package_name, release_statuses in self.packages.items():
-            for status in release_statuses.values():
-                if (
-                    status.status in Status.active_statuses
-                    and status.release.version
-                    and status.release.support_tag
-                ):
-                    active_package_statuses[package_name] = release_statuses
-
-        return active_package_statuses
-
-    @hybrid_property
-    def formatted_patches(self):
-        return {
-            package_name: [self._format_patch(p) for p in patches]
-            for (package_name, patches) in self.patches.items()
-        }
-
-    def _format_patch(self, patch):
-        if ":" not in patch:
-            return {"type": "text", "content": patch}
-
-        prefix, suffix = patch.split(":", 1)
-        suffix = suffix.strip()
-        if prefix == "break-fix" and " " in suffix:
-            introduced, fixed = suffix.split(" ", 1)
-            if introduced == "-":
-                # First commit to Linux git tree
-                introduced = "1da177e4c3f41524e886b7f1b8a0c1fc7321cac2"
-
-            return {
-                "type": "break-fix",
-                "content": {"introduced": introduced, "fixed": fixed},
-            }
-        if "ftp://" in suffix or "http://" in suffix or "https://" in suffix:
-            return {
-                "type": "link",
-                "content": {"prefix": prefix.capitalize(), "suffix": suffix},
-            }
-
-        return {"type": "text", "content": patch}
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __setitem__(self, key, value):
-        return setattr(self, key, value)
-
 
 class Notice(Base):
     __tablename__ = "notice"
@@ -185,29 +133,13 @@ class Notice(Base):
         return [cve.id for cve in self.cves]
 
     @hybrid_property
-    def package_list(self):
-        if not self.release_packages:
-            return []
+    def type(self):
+        if "USN-" in self.id.upper():
+            return "USN"
+        if "LSN-" in self.id.upper():
+            return "LSN"
 
-        package_list = []
-        for codename, packages in self.release_packages.items():
-            for package in packages:
-                package_list.append(package["name"])
-
-        return set(sorted(package_list))
-
-    def as_dict(self):
-        return {
-            "id": self.id,
-            "title": self.title,
-            "published": self.published,
-            "summary": self.summary,
-            "details": self.details,
-            "instructions": self.instructions,
-            "references": self.references,
-            "release_packages": self.release_packages,
-            "cves": [c.id for c in self.cves],
-        }
+        return ""
 
 
 class Release(Base):
