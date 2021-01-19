@@ -66,6 +66,7 @@ def get_cves(**kwargs):
     if query:
         cves_query = cves_query.filter(
             or_(
+                CVE.id.ilike(f"%{query}%"),
                 CVE.description.ilike(f"%{query}%"),
                 CVE.ubuntu_description.ilike(f"%{query}%"),
             )
