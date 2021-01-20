@@ -92,6 +92,6 @@ def handle_error(error):
     messages = error.data.get("messages")
 
     return make_response(
-        jsonify({"message": "Invalid payload", "errors": messages["json"]}),
+        jsonify({"message": "Invalid payload", "errors": str(messages)}),
         422,
     )

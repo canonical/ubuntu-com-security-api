@@ -12,6 +12,8 @@ from marshmallow.fields import (
 )
 from marshmallow.validate import Regexp
 
+from webapp.database import release_codenames
+
 
 # Types
 # ===
@@ -35,10 +37,7 @@ class ReleaseCodename(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if (
-            "release_codenames" in self.context
-            and value not in self.context["release_codenames"]
-        ):
+        if value not in release_codenames:
             raise self.make_error("unrecognised_codename", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -46,7 +45,7 @@ class ReleaseCodename(String):
 
 class Component(String):
     default_error_messages = {
-        "unrecognised_component": ("Component must be 'main' or 'universe'")
+        "unrecognised_component": "Component must be 'main' or 'universe'"
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
