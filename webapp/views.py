@@ -3,12 +3,11 @@ from datetime import datetime
 from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, func, and_, case, asc
-from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import contains_eager
 
 from webapp.auth import authorization_required
-from webapp.database import db_session, db_engine
+from webapp.database import db_session, status_statuses
 from webapp.models import CVE, Notice, Release, Status, Package
 from webapp.schemas import (
     CVEAPISchema,
@@ -37,8 +36,9 @@ def get_cve(cve_id):
     return cve
 
 
-@use_kwargs(CVEsParameters, location="query")
 @marshal_with(CVEsAPISchema, code=200)
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(CVEsParameters, location="query")
 def get_cves(**kwargs):
     query = kwargs.get("q", "").strip()
     priority = kwargs.get("priority")
@@ -211,6 +211,7 @@ def get_cves(**kwargs):
 
 @marshal_with(NoticeAPISchema, code=200)
 @marshal_with(MessageSchema, code=404)
+@marshal_with(MessageWithErrorsSchema, code=404)
 def get_notice(notice_id):
     notice = (
         db_session.query(Notice).filter(Notice.id == notice_id).one_or_none()
@@ -227,8 +228,9 @@ def get_notice(notice_id):
     return notice
 
 
-@use_kwargs(NoticesParameters, location="query")
 @marshal_with(NoticesAPISchema, code=200)
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(NoticesParameters, location="query")
 def get_notices(**kwargs):
     details = kwargs.get("details")
     release = kwargs.get("release")
@@ -271,22 +273,10 @@ def get_notices(**kwargs):
     }
 
 
-def _init_notice_import_schema(request):
-    notice_schema = NoticeImportSchema(context={"request": request})
-
-    inspector = Inspector.from_engine(db_engine)
-    if "release" in inspector.get_table_names():
-        notice_schema.context["release_codenames"] = [
-            rel.codename for rel in db_session.query(Release).all()
-        ]
-
-    return notice_schema
-
-
 @authorization_required
 @marshal_with(MessageSchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
-@use_kwargs(_init_notice_import_schema, location="json")
+@use_kwargs(NoticeImportSchema, location="json")
 def create_notice(**kwargs):
     notice_data = request.json
 
@@ -301,7 +291,16 @@ def create_notice(**kwargs):
             jsonify(
                 {
                     "message": "Invalid payload",
-                    "errors": f"Notice {notice_data['id']} already exists",
+                    "errors": str(
+                        {
+                            "json": {
+                                "id": [
+                                    f"Notice '{notice_data['id']}' "
+                                    f"already exists"
+                                ]
+                            },
+                        }
+                    ),
                 }
             ),
             422,
@@ -314,13 +313,13 @@ def create_notice(**kwargs):
 @marshal_with(MessageSchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=404)
 @marshal_with(MessageWithErrorsSchema, code=422)
-@use_kwargs(_init_notice_import_schema, location="json")
+@use_kwargs(NoticeImportSchema, location="json")
 def update_notice(notice_id, **kwargs):
     notice = db_session.query(Notice).get(notice_id)
 
     if not notice:
         return make_response(
-            jsonify({"message": f"Notice {notice_id} doesn't exist"}),
+            jsonify({"message": f"Notice '{notice_id}' doesn't exist"}),
             404,
         )
 
@@ -372,29 +371,17 @@ def _should_filter_by_version_and_status(statuses, versions):
     return versions and statuses and len(versions) == len(statuses)
 
 
-def _get_statuses():
-    raw_all_statuses = db_session.execute(
-        "SELECT unnest(enum_range(NULL::statuses));"
-    ).fetchall()
-
-    all_statuses = ["".join(s) for s in raw_all_statuses]
-
-    return all_statuses
-
-
 def _get_clean_statuses(statuses, versions):
     clean_statuses = []
 
     if not _should_filter_by_version_and_status(statuses, versions):
         return clean_statuses
 
-    all_statuses = _get_statuses()
-
     for status in statuses:
         if status != "":
             clean_statuses.append([status])
         else:
-            clean_statuses.append(all_statuses)
+            clean_statuses.append(status_statuses)
 
     return clean_statuses
 
