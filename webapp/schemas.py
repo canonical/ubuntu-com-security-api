@@ -12,7 +12,7 @@ from marshmallow.fields import (
 )
 from marshmallow.validate import Regexp
 
-from webapp.database import release_codenames
+from webapp.database import release_codenames, status_statuses
 
 
 # Types
@@ -119,11 +119,33 @@ class NoticesAPISchema(Schema):
 
 
 NoticesParameters = {
-    "details": String(allow_none=True),
-    "release": String(allow_none=True),
-    "limit": Int(allow_none=True),
-    "offset": Int(allow_none=True),
-    "order": String(allow_none=True),
+    "details": String(
+        description=(
+            "Any string -  Selects notices that have either "
+            "id, details or cves.id matching it"
+        ),
+        allow_none=True,
+    ),
+    "release": String(
+        description="List of release codenames",
+        allow_none=True,
+    ),
+    "limit": Int(
+        description="Number of CVEs per response. Defaults to 20.",
+        allow_none=True,
+    ),
+    "offset": Int(
+        description="Number of CVEs to omit from response. Defaults to 0.",
+        allow_none=True,
+    ),
+    "order": String(
+        enum=["oldest"],
+        description=(
+            "Select order: choose `oldest` for ASC order; "
+            "leave empty for DESC order"
+        ),
+        allow_none=True,
+    ),
 }
 
 
@@ -210,15 +232,50 @@ class CVEsAPISchema(Schema):
 
 
 CVEsParameters = {
-    "q": String(allow_none=True),
-    "priority": String(allow_none=True),
-    "package": String(allow_none=True),
-    "limit": Int(allow_none=True),
-    "offset": Int(allow_none=True),
-    "component": String(allow_none=True),
-    "version": List(String(), allow_none=True),
-    "status": List(String(), allow_none=True),
-    "order": String(allow_none=True),
+    "q": String(
+        description=(
+            "Any string -  Selects CVEs that have either "
+            "id, description or ubuntu_description matching it"
+        ),
+        allow_none=True,
+    ),
+    "priority": String(
+        description="CVE priority",
+        enum=["unknown", "negligible", "low", "medium", "high", "critical"],
+        allow_none=True,
+    ),
+    "package": String(description="Package name", allow_none=True),
+    "limit": Int(
+        description="Number of CVEs per response. Defaults to 20.",
+        allow_none=True,
+    ),
+    "offset": Int(
+        description="Number of CVEs to omit from response. Defaults to 0.",
+        allow_none=True,
+    ),
+    "component": String(
+        allow_none=True,
+        enum=["main", "universe"],
+        description="Package component",
+    ),
+    "version": List(
+        String(enum=release_codenames),
+        description="List of release codenames ",
+        allow_none=True,
+    ),
+    "status": List(
+        String(enum=status_statuses),
+        description="List of statuses",
+        allow_none=True,
+    ),
+    "order": String(
+        enum=["oldest"],
+        description=(
+            "Select order: choose `oldest` for ASC order; "
+            "leave empty for DESC order"
+        ),
+        allow_none=True,
+    ),
 }
 
 
