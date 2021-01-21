@@ -18,7 +18,7 @@ from webapp.schemas import (
     NoticesAPISchema,
     NoticeImportSchema,
     MessageSchema,
-    MessageWithErrorsSchema,
+    MessageWithErrorsSchema, CreateNoticeImportSchema,
 )
 
 
@@ -276,7 +276,7 @@ def get_notices(**kwargs):
 @authorization_required
 @marshal_with(MessageSchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
-@use_kwargs(NoticeImportSchema, location="json")
+@use_kwargs(CreateNoticeImportSchema, location="json")
 def create_notice(**kwargs):
     notice_data = request.json
 
@@ -284,27 +284,7 @@ def create_notice(**kwargs):
         _update_notice_object(Notice(id=notice_data["id"]), notice_data)
     )
 
-    try:
-        db_session.commit()
-    except IntegrityError:
-        return make_response(
-            jsonify(
-                {
-                    "message": "Invalid payload",
-                    "errors": str(
-                        {
-                            "json": {
-                                "id": [
-                                    f"Notice '{notice_data['id']}' "
-                                    f"already exists"
-                                ]
-                            },
-                        }
-                    ),
-                }
-            ),
-            422,
-        )
+    db_session.commit()
 
     return make_response(jsonify({"message": "Notice created"}), 200)
 
@@ -378,7 +358,7 @@ def _get_clean_statuses(statuses, versions):
         return clean_statuses
 
     for status in statuses:
-        if status != "":
+        if status != "" and status in status_statuses:
             clean_statuses.append([status])
         else:
             clean_statuses.append(status_statuses)
