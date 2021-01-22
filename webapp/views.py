@@ -3,7 +3,6 @@ from datetime import datetime
 from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, func, and_, case, asc
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import contains_eager
 
 from webapp.auth import authorization_required
@@ -18,7 +17,8 @@ from webapp.schemas import (
     NoticesAPISchema,
     NoticeImportSchema,
     MessageSchema,
-    MessageWithErrorsSchema, CreateNoticeImportSchema,
+    MessageWithErrorsSchema,
+    CreateNoticeImportSchema,
 )
 
 

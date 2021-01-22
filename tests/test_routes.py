@@ -1,8 +1,17 @@
 import unittest
-from unittest.mock import patch
 
-from webapp.app import app
-from webapp.models import CVE, Notice, Status
+from alchemy_mock.mocking import UnifiedAlchemyMagicMock
+
+from tests.auth_mock import mock_auth_decorator
+from tests.db_mock import data
+from tests.inspector_mock import mocked_inspector
+from webapp import auth, database
+
+auth.authorization_required = mock_auth_decorator()
+database.inspector = mocked_inspector
+database.db_session = UnifiedAlchemyMagicMock(data=data)
+
+from webapp.app import app  # noqa
 
 
 class TestRoutes(unittest.TestCase):
@@ -22,41 +31,12 @@ class TestRoutes(unittest.TestCase):
 
         assert response.status_code == 200
 
-    @patch("webapp.views.db_session")
-    def test_cve_not_exists(self, db_session):
-        mocked_query = db_session.query.return_value
-        mocked_filter = mocked_query.filter.return_value
-        mocked_filter.one_or_none.return_value = None
-
+    def test_cve_not_exists(self):
         response = self.client.get("/security/cves/CVE-TEST.json")
 
         assert response.status_code == 404
 
-    @patch("webapp.views.db_session")
-    def test_cve(self, db_session):
-        cve = CVE(
-            id="CVE-TEST-1",
-            notices=[Notice(id="USN-TEST-1"), Notice(id="USN-TEST-2")],
-            statuses=[
-                Status(
-                    cve_id="CVE-TEST-1",
-                    release_codename="focal",
-                    package_name="test_package",
-                    status="ignored",
-                ),
-                Status(
-                    cve_id="CVE-TEST-1",
-                    release_codename="bionic",
-                    package_name="test_package",
-                    status="released",
-                ),
-            ],
-        )
-
-        mocked_query = db_session.query.return_value
-        mocked_filter = mocked_query.filter.return_value
-        mocked_filter.one_or_none.return_value = cve
-
+    def test_cve(self):
         response = self.client.get("/security/cves/CVE-TEST-1.json")
 
         assert response.status_code == 200
@@ -97,27 +77,30 @@ class TestRoutes(unittest.TestCase):
 
         assert response.json["notices"] == expected_cve_notices
 
-    @patch("webapp.views.db_session")
-    def test_usn_not_exists(self, db_session):
-        mocked_query = db_session.query.return_value
-        mocked_filter = mocked_query.filter.return_value
-        mocked_filter.one_or_none.return_value = None
+    def test_cves_returns_422_for_wrong_package_name(self):
+        response = self.client.get("/security/cves.json?package=no-exist")
 
+        assert response.status_code == 422
+        assert "No CVEs with package" in response.json["errors"]
+
+    def test_cves_returns_422_for_non_existing_version(self):
+        response = self.client.get("/security/cves.json?version=no-exist")
+
+        assert response.status_code == 422
+        assert "Cannot find a release with codename" in response.json["errors"]
+
+    def test_cves_returns_422_for_non_existing_status(self):
+        response = self.client.get("/security/cves.json?status=no-exist")
+
+        assert response.status_code == 422
+        assert "Cannot find a status" in response.json["errors"]
+
+    def test_usn_not_exists(self):
         response = self.client.get("/security/notices/USN-TEST.json")
 
         assert response.status_code == 404
 
-    @patch("webapp.views.db_session")
-    def test_usn(self, db_session):
-        notice = Notice(
-            id="USN-TEST-1",
-            cves=[CVE(id="CVE-TEST-1"), CVE(id="CVE-TEST-2")],
-        )
-
-        mocked_query = db_session.query.return_value
-        mocked_filter = mocked_query.filter.return_value
-        mocked_filter.one_or_none.return_value = notice
-
+    def test_usn(self):
         response = self.client.get("/security/notices/USN-TEST-1.json")
 
         assert response.status_code == 200
@@ -125,6 +108,12 @@ class TestRoutes(unittest.TestCase):
         expected_cves = ["CVE-TEST-1", "CVE-TEST-2"]
 
         assert response.json["cves"] == expected_cves
+
+    def test_usns_returns_422_for_non_existing_release(self):
+        response = self.client.get("/security/notices.json?release=no-exist")
+
+        assert response.status_code == 422
+        assert "Cannot find a release with codename" in response.json["errors"]
 
 
 if __name__ == "__main__":
