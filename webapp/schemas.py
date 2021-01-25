@@ -154,7 +154,7 @@ class NoticeSchema(Schema):
     instructions = String(required=True)
     references = List(String())
     published = ParsedDateTime(required=True)
-    description = String(allow_none=True)
+    details = String(allow_none=True, data_key="description")
     release_packages = Dict(
         keys=ReleaseCodename(),
         values=List(Nested(NoticePackage), required=True),

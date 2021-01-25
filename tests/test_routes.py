@@ -1,8 +1,25 @@
+import pathlib
 import unittest
-from unittest.mock import patch
 
-from webapp.app import app
-from webapp.models import CVE, Notice, Status
+from alchemy_mock.mocking import UnifiedAlchemyMagicMock
+from flask import json
+
+from tests.auth_mock import mock_auth_decorator
+from tests.alchemy_mock_data import data
+from tests.database_mock import (
+    mocked_inspector,
+    mocked_release_codenames,
+    mocked_status_statuses,
+)
+from webapp import auth, database
+
+auth.authorization_required = mock_auth_decorator()
+database.db_session = UnifiedAlchemyMagicMock(data=data)
+database.inspector = mocked_inspector
+database.release_codenames = mocked_release_codenames
+database.status_statuses = mocked_status_statuses
+
+from webapp.app import app  # noqa
 
 
 class TestRoutes(unittest.TestCase):
@@ -22,109 +39,125 @@ class TestRoutes(unittest.TestCase):
 
         assert response.status_code == 200
 
-    @patch("webapp.views.db_session")
-    def test_cve_not_exists(self, db_session):
-        mocked_query = db_session.query.return_value
-        mocked_filter = mocked_query.filter.return_value
-        mocked_filter.one_or_none.return_value = None
-
-        response = self.client.get("/security/cves/CVE-TEST.json")
+    def test_cve_not_exists(self):
+        response = self.client.get("/security/cves/CVE-0000-0000.json")
 
         assert response.status_code == 404
 
-    @patch("webapp.views.db_session")
-    def test_cve(self, db_session):
-        cve = CVE(
-            id="CVE-TEST-1",
-            notices=[Notice(id="USN-TEST-1"), Notice(id="USN-TEST-2")],
-            statuses=[
-                Status(
-                    cve_id="CVE-TEST-1",
-                    release_codename="focal",
-                    package_name="test_package",
-                    status="ignored",
-                ),
-                Status(
-                    cve_id="CVE-TEST-1",
-                    release_codename="bionic",
-                    package_name="test_package",
-                    status="released",
-                ),
-            ],
-        )
-
-        mocked_query = db_session.query.return_value
-        mocked_filter = mocked_query.filter.return_value
-        mocked_filter.one_or_none.return_value = cve
-
-        response = self.client.get("/security/cves/CVE-TEST-1.json")
+    def test_cve(self):
+        response = self.client.get("/security/cves/CVE-0000-0001.json")
+        expected_cve = get_fixture("CVE-0000-0001")
 
         assert response.status_code == 200
+        assert response.json["packages"] == expected_cve["packages"]
+        assert response.json["notices"] == expected_cve["notices"]
 
-        expected_cve_packages = [
-            {
-                "debian": "https://tracker.debian.org/pkg/test_package",
-                "name": "test_package",
-                "source": (
-                    "https://ubuntu.com/security/cve?" "package=test_package"
-                ),
-                "statuses": [
-                    {
-                        "component": None,
-                        "description": None,
-                        "pocket": None,
-                        "release_codename": "focal",
-                        "status": "ignored",
-                    },
-                    {
-                        "component": None,
-                        "description": None,
-                        "pocket": None,
-                        "release_codename": "bionic",
-                        "status": "released",
-                    },
-                ],
-                "ubuntu": (
-                    "https://packages.ubuntu.com/search?"
-                    "suite=all&section=all&arch=any&"
-                    "searchon=sourcenames&keywords=test_package"
-                ),
-            }
-        ]
-        assert response.json["packages"] == expected_cve_packages
+    def test_cves_returns_422_for_non_existing_package_name(self):
+        response = self.client.get("/security/cves.json?package=no-exist")
 
-        expected_cve_notices = ["USN-TEST-1", "USN-TEST-2"]
+        assert response.status_code == 422
+        assert "No CVEs with package" in response.json["errors"]
 
-        assert response.json["notices"] == expected_cve_notices
+    def test_cves_returns_422_for_non_existing_version(self):
+        response = self.client.get("/security/cves.json?version=no-exist")
 
-    @patch("webapp.views.db_session")
-    def test_usn_not_exists(self, db_session):
-        mocked_query = db_session.query.return_value
-        mocked_filter = mocked_query.filter.return_value
-        mocked_filter.one_or_none.return_value = None
+        assert response.status_code == 422
+        assert "Cannot find a release with codename" in response.json["errors"]
 
-        response = self.client.get("/security/notices/USN-TEST.json")
+    def test_cves_returns_422_for_non_existing_status(self):
+        response = self.client.get("/security/cves.json?status=no-exist")
+
+        assert response.status_code == 422
+        assert "Cannot find a status" in response.json["errors"]
+
+    def test_usn_not_exists(self):
+        response = self.client.get("/security/notices/USN-0000-00.json")
 
         assert response.status_code == 404
 
-    @patch("webapp.views.db_session")
-    def test_usn(self, db_session):
-        notice = Notice(
-            id="USN-TEST-1",
-            cves=[CVE(id="CVE-TEST-1"), CVE(id="CVE-TEST-2")],
-        )
+    def test_usn(self):
+        response = self.client.get("/security/notices/USN-0000-01.json")
+        expected_notice = get_fixture("USN-0000-01")
 
-        mocked_query = db_session.query.return_value
-        mocked_filter = mocked_query.filter.return_value
-        mocked_filter.one_or_none.return_value = notice
+        assert response.status_code == 200
+        assert response.json["cves"] == expected_notice["cves"]
 
-        response = self.client.get("/security/notices/USN-TEST-1.json")
+    def test_usns_returns_422_for_non_existing_release(self):
+        response = self.client.get("/security/notices.json?release=no-exist")
+
+        assert response.status_code == 422
+        assert "Cannot find a release with codename" in response.json["errors"]
+
+    def test_create_usn(self):
+        notice = get_fixture("USN-0000-02")
+        response = self.client.post("/security/notices", json=notice)
 
         assert response.status_code == 200
 
-        expected_cves = ["CVE-TEST-1", "CVE-TEST-2"]
+    def test_create_usn_returns_422_for_non_unique_id(self):
+        notice = get_fixture("USN-0000-01")
+        response = self.client.post("/security/notices", json=notice)
 
-        assert response.json["cves"] == expected_cves
+        assert response.status_code == 422
+        assert "'USN-0000-01' already exists" in response.json["errors"]
+
+    def test_create_usn_returns_422_for_unknown_field(self):
+        notice = get_fixture("USN-0000-02")
+        notice["unknown"] = "field"
+
+        response = self.client.post("/security/notices", json=notice)
+
+        assert response.status_code == 422
+        assert "Unknown field." in response.json["errors"]
+
+    def test_update_usn(self):
+        notice = get_fixture("USN-0000-03")
+        notice["instructions"] = "Instructions were updated!"
+
+        response = self.client.put(
+            "/security/notices/USN-0000-03", json=notice
+        )
+
+        assert response.status_code == 200
+
+    def test_update_usn_returns_404_for_non_existing_id(self):
+        notice = get_fixture("USN-0000-03")
+
+        response = self.client.put(
+            "/security/notices/USN-0000-02", json=notice
+        )
+
+        assert response.status_code == 404
+
+    def test_update_usn_returns_422_for_unknown_field(self):
+        notice = get_fixture("USN-0000-03")
+        notice["unknown"] = "field"
+
+        response = self.client.put(
+            "/security/notices/USN-0000-03", json=notice
+        )
+
+        assert response.status_code == 422
+        assert "Unknown field." in response.json["errors"]
+
+    def test_delete_usn_returns_404_for_non_existing_usn(self):
+        response = self.client.delete("/security/notices/USN-0000-02")
+
+        assert response.status_code == 404
+
+    def test_delete_usn(self):
+        response = self.client.delete("/security/notices/USN-0000-04")
+
+        assert response.status_code == 200
+
+
+def get_fixture(file):
+    current_path = pathlib.Path(__file__).parent.absolute()
+    with open(f"{current_path}/./fixtures/{file}.json") as json_data:
+        file_data = json_data.read()
+        json_data.close()
+
+    return json.loads(file_data)
 
 
 if __name__ == "__main__":

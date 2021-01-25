@@ -1,0 +1,28 @@
+{
+    "cves": ["CVE-1231-1212"],
+    "description": "This is the description",
+    "id": "USN-0000-02",
+    "instructions": "This are the instructions",
+    "published": "2020-12-01 12:42:54",
+    "references": [],
+    "release_packages": {
+        "bionic": [
+            {
+                "description": "Linux kernel for OEM systems",
+                "is_source": "false",
+                "name": "linux-oem",
+                "version": "4.15.0-1080.90"
+            }
+        ],
+        "focal": [
+            {
+                "description": "Linux kernel",
+                "is_source": "false",
+                "name": "linux",
+                "version": "5.4.0-33.37"
+            }
+        ]
+    },
+    "summary": "Several security issues were fixed in the kernel.",
+    "title": "Kernel Live Patch Security Notice"
+}
