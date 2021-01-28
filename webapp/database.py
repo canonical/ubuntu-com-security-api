@@ -11,8 +11,9 @@ db_session = scoped_session(
     sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
 )
 
-release_codenames = []
 inspector = Inspector.from_engine(db_engine)
+
+release_codenames = []
 if "release" in inspector.get_table_names():
     release_codenames = [
         rel.codename for rel in db_session.query(Release).all()
