@@ -1,0 +1,10 @@
+{
+    "name": "Hirsute Hippo",
+    "version": "21.04",
+    "codename": "hirsute",
+    "lts": false,
+    "development": true,
+    "release_date": "2021-04-22",
+    "esm_expires": "2022-01-31",
+    "support_expires": "2022-01-31"
+}

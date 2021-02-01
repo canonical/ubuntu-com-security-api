@@ -1,8 +1,10 @@
+from collections import defaultdict
 from datetime import datetime
 
 from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, func, and_, case, asc
+from sqlalchemy.exc import DataError
 from sqlalchemy.orm import contains_eager
 
 from webapp.auth import authorization_required
@@ -19,6 +21,8 @@ from webapp.schemas import (
     MessageSchema,
     MessageWithErrorsSchema,
     CreateNoticeImportSchema,
+    CVEImportSchema,
+    ReleaseSchema,
 )
 
 
@@ -209,6 +213,153 @@ def get_cves(**kwargs):
     }
 
 
+@authorization_required
+@marshal_with(MessageSchema, code=200)
+@marshal_with(MessageWithErrorsSchema, code=400)
+@marshal_with(MessageSchema, code=413)
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(CVEImportSchema(many=True), location="json")
+def bulk_upsert_cve(*args, **kwargs):
+    cves_data = request.json
+
+    if len(cves_data) > 50:
+        return make_response(
+            jsonify(
+                {
+                    "message": (
+                        "Please only submit up to 50 CVEs at a time. "
+                        f"({len(cves_data)} submitted)"
+                    )
+                }
+            ),
+            413,
+        )
+
+    packages = {}
+    for package in db_session.query(Package).all():
+        packages[package.name] = package
+
+    for data in cves_data:
+        update_cve = False
+        cve = db_session.query(CVE).filter(CVE.id == data["id"]).one_or_none()
+
+        if cve is None:
+            update_cve = True
+            cve = CVE(id=data["id"])
+
+        if cve.status != data.get("status"):
+            update_cve = True
+            cve.status = data.get("status")
+
+        published_date = (
+            cve.published.strftime("%Y-%B-%d") if cve.published else None
+        )
+        data_published_date = (
+            data.get("published").strftime("%Y-%B-%d")
+            if data.get("published")
+            else None
+        )
+        if published_date != data_published_date:
+            update_cve = True
+            cve.published = data.get("published")
+
+        if cve.priority != data.get("priority"):
+            update_cve = True
+            cve.priority = data.get("priority")
+
+        if cve.cvss3 != data.get("cvss3"):
+            update_cve = True
+            cve.cvss3 = data.get("cvss3")
+
+        if cve.description != data.get("description"):
+            update_cve = True
+            cve.description = data.get("description")
+
+        if cve.ubuntu_description != data.get("ubuntu_description"):
+            update_cve = True
+            cve.ubuntu_description = data.get("ubuntu_description")
+
+        if cve.notes != data.get("notes"):
+            update_cve = True
+            cve.notes = data.get("notes")
+
+        if cve.references != data.get("references"):
+            update_cve = True
+            cve.references = data.get("references")
+
+        if cve.bugs != data.get("bugs"):
+            update_cve = True
+            cve.bugs = data.get("bugs")
+
+        if cve.patches != data.get("patches"):
+            update_cve = True
+            cve.patches = data.get("patches")
+
+        if cve.tags != data.get("tags"):
+            update_cve = True
+            cve.tags = data.get("tags")
+
+        if cve.mitigation != data.get("mitigation"):
+            update_cve = True
+            cve.mitigation = data.get("mitigation")
+
+        if update_cve:
+            db_session.add(cve)
+
+        _update_statuses(cve, data, packages)
+
+    created = defaultdict(lambda: 0)
+    updated = defaultdict(lambda: 0)
+    deleted = defaultdict(lambda: 0)
+
+    for item in db_session.new:
+        created[type(item).__name__] += 1
+
+    for item in db_session.dirty:
+        updated[type(item).__name__] += 1
+
+    for item in db_session.deleted:
+        deleted[type(item).__name__] += 1
+
+    try:
+        db_session.commit()
+    except DataError as error:
+        return make_response(
+            jsonify(
+                {
+                    "message": "Failed bulk upserting session",
+                    "error": error.orig.args[0],
+                }
+            ),
+            400,
+        )
+
+    return make_response(
+        jsonify({"created": created, "updated": updated, "deleted": deleted}),
+        200,
+    )
+
+
+@authorization_required
+@marshal_with(MessageSchema, code=200)
+@marshal_with(MessageSchema, code=404)
+def delete_cve(cve_id):
+    cve = db_session.query(CVE).filter(CVE.id == cve_id).one_or_none()
+
+    if not cve:
+        return make_response(
+            jsonify({"message": f"CVE {cve_id} doesn't exist"}),
+            404,
+        )
+
+    db_session.delete(cve)
+    db_session.commit()
+
+    return make_response(
+        jsonify({"message": f"CVE with id '{cve_id}' was deleted"}), 200
+    )
+
+
 @marshal_with(NoticeAPISchema, code=200)
 @marshal_with(MessageSchema, code=404)
 @marshal_with(MessageWithErrorsSchema, code=404)
@@ -335,6 +486,68 @@ def delete_notice(notice_id):
     )
 
 
+@authorization_required
+@marshal_with(MessageSchema, code=200)
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(ReleaseSchema, location="json")
+def create_release(**kwargs):
+    release_data = request.json
+
+    release = Release(
+        codename=release_data["codename"],
+        version=release_data["version"],
+        name=release_data["name"],
+        development=release_data["development"],
+        lts=release_data["lts"],
+        release_date=release_data["release_date"],
+        esm_expires=release_data["esm_expires"],
+        support_expires=release_data["support_expires"],
+    )
+
+    db_session.add(release)
+    db_session.commit()
+
+    return make_response(jsonify({"message": "Release created"}), 200)
+
+
+@authorization_required
+@marshal_with(MessageSchema, code=200)
+@marshal_with(MessageSchema, code=400)
+@marshal_with(MessageSchema, code=404)
+def delete_release(codename):
+    release = (
+        db_session.query(Release)
+        .filter(Release.codename == codename)
+        .one_or_none()
+    )
+
+    if not release:
+        return make_response(
+            jsonify({"message": f"Release {codename} doesn't exist"}),
+            404,
+        )
+
+    if len(release.statuses) > 0:
+        return (
+            jsonify(
+                {
+                    "message": (
+                        f"Cannot delete '{codename}' release. "
+                        f"Release already in use"
+                    )
+                }
+            ),
+            400,
+        )
+
+    db_session.delete(release)
+    db_session.commit()
+
+    return make_response(
+        jsonify({"message": f"Release {codename} deleted"}), 200
+    )
+
+
 def _get_releases(versions):
     releases_query = db_session.query(Release).order_by(Release.release_date)
 
@@ -409,3 +622,62 @@ def _update_notice_object(notice, data):
         notice.cves.append(db_session.query(CVE).get(cve_id) or CVE(id=cve_id))
 
     return notice
+
+
+def _update_statuses(cve, data, packages):
+    statuses = cve.packages
+
+    statuses_to_check = (
+        db_session.query(Status).filter(Status.cve_id == cve.id).all()
+    )
+    statuses_to_delete = {
+        f"{v.package_name}||{v.release_codename}": v for v in statuses_to_check
+    }
+
+    for package_data in data.get("packages", []):
+        name = package_data["name"]
+
+        if packages.get(name) is None:
+            package = Package(name=name)
+            package.source = package_data["source"]
+            package.ubuntu = package_data["ubuntu"]
+            package.debian = package_data["debian"]
+            packages[name] = package
+
+            db_session.add(package)
+
+        for status_data in package_data["statuses"]:
+            update_status = False
+            codename = status_data["release_codename"]
+
+            status = statuses[name].get(codename)
+            if status is None:
+                update_status = True
+                status = Status(
+                    cve_id=cve.id, package_name=name, release_codename=codename
+                )
+            elif f"{name}||{codename}" in statuses_to_delete:
+                del statuses_to_delete[f"{name}||{codename}"]
+
+            if status.status != status_data["status"]:
+                update_status = True
+                status.status = status_data["status"]
+
+            if status.description != status_data["description"]:
+                update_status = True
+                status.description = status_data["description"]
+
+            if status.component != status_data.get("component"):
+                update_status = True
+                status.component = status_data.get("component")
+
+            if status.pocket != status_data.get("pocket"):
+                update_status = True
+                status.pocket = status_data.get("pocket")
+
+            if update_status:
+                statuses[name][codename] = status
+                db_session.add(status)
+
+    for key in statuses_to_delete:
+        db_session.delete(statuses_to_delete[key])

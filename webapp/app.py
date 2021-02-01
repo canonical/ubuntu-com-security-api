@@ -12,6 +12,10 @@ from webapp.views import (
     create_notice,
     update_notice,
     delete_notice,
+    delete_cve,
+    bulk_upsert_cve,
+    create_release,
+    delete_release,
 )
 
 app = FlaskBase(
@@ -41,6 +45,20 @@ app.add_url_rule(
 app.add_url_rule(
     "/security/cves.json",
     view_func=get_cves,
+    provide_automatic_options=False,
+)
+
+app.add_url_rule(
+    "/security/cves",
+    view_func=bulk_upsert_cve,
+    methods=["PUT"],
+    provide_automatic_options=False,
+)
+
+app.add_url_rule(
+    "/security/cves/<cve_id>",
+    view_func=delete_cve,
+    methods=["DELETE"],
     provide_automatic_options=False,
 )
 
@@ -77,14 +95,36 @@ app.add_url_rule(
     provide_automatic_options=False,
 )
 
+app.add_url_rule(
+    "/security/releases",
+    view_func=create_release,
+    methods=["POST"],
+    provide_automatic_options=False,
+)
+app.add_url_rule(
+    "/security/releases/<codename>",
+    view_func=delete_release,
+    methods=["DELETE"],
+    provide_automatic_options=False,
+)
+
+views_to_register_in_docs = [
+    get_cve,
+    get_cves,
+    bulk_upsert_cve,
+    delete_cve,
+    get_notice,
+    get_notices,
+    create_notice,
+    update_notice,
+    delete_notice,
+    create_release,
+    delete_release,
+]
+
 docs = WebappFlaskApiSpec(app)
-docs.register(get_cve)
-docs.register(get_cves)
-docs.register(get_notice)
-docs.register(get_notices)
-docs.register(create_notice)
-docs.register(update_notice)
-docs.register(delete_notice)
+for view in views_to_register_in_docs:
+    docs.register(view)
 
 
 @app.errorhandler(422)
