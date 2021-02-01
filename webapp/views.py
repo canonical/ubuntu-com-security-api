@@ -295,7 +295,9 @@ def create_notice(**kwargs):
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(NoticeImportSchema, location="json")
 def update_notice(notice_id, **kwargs):
-    notice = db_session.query(Notice).get(notice_id)
+    notice = (
+        db_session.query(Notice).filter(Notice.id == notice_id).one_or_none()
+    )
 
     if not notice:
         return make_response(
@@ -315,7 +317,9 @@ def update_notice(notice_id, **kwargs):
 @marshal_with(MessageSchema, code=200)
 @marshal_with(MessageSchema, code=404)
 def delete_notice(notice_id):
-    notice = db_session.query(Notice).get(notice_id)
+    notice = (
+        db_session.query(Notice).filter(Notice.id == notice_id).one_or_none()
+    )
 
     if not notice:
         return make_response(
