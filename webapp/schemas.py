@@ -18,7 +18,8 @@ from webapp.database import (
     db_session,
     inspector,
 )
-from webapp.models import Package, Notice
+from webapp.models import Package, Notice, Release
+
 
 # Types
 # ===
@@ -94,6 +95,76 @@ class UniqueNoticeId(String):
         return super()._deserialize(value, attr, data, **kwargs)
 
 
+class UniqueReleaseCodename(String):
+    default_error_messages = {
+        "release_codename_exists": (
+            "Release with codename '{input}' already exists"
+        )
+    }
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        exists = False
+
+        if "release" in inspector.get_table_names():
+            exists = (
+                db_session.query(Release)
+                .filter(Release.codename == value)
+                .one_or_none()
+                is not None
+            )
+
+        if exists:
+            raise self.make_error("release_codename_exists", input=value)
+
+        return super()._deserialize(value, attr, data, **kwargs)
+
+
+class UniqueReleaseVersion(String):
+    default_error_messages = {
+        "release_version_exists": (
+            "Release with version '{input}' already exists"
+        )
+    }
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        exists = False
+
+        if "release" in inspector.get_table_names():
+            exists = (
+                db_session.query(Release)
+                .filter(Release.version == value)
+                .one_or_none()
+                is not None
+            )
+
+        if exists:
+            raise self.make_error("release_version_exists", input=value)
+
+        return super()._deserialize(value, attr, data, **kwargs)
+
+
+class UniqueReleaseName(String):
+    default_error_messages = {
+        "release_name_exists": ("Release with name '{input}' already exists")
+    }
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        exists = False
+
+        if "release" in inspector.get_table_names():
+            exists = (
+                db_session.query(Release)
+                .filter(Release.name == value)
+                .one_or_none()
+                is not None
+            )
+
+        if exists:
+            raise self.make_error("release_name_exists", input=value)
+
+        return super()._deserialize(value, attr, data, **kwargs)
+
+
 class PackageName(String):
     default_error_messages = {
         "unrecognised_package_name": "No CVEs with package '{input}' found"
@@ -144,7 +215,9 @@ class NoticePackage(Schema):
     is_source = Boolean(required=True)
     source_link = String(allow_none=True)
     version_link = String(allow_none=True)
-    pocket = Pocket(required=False)
+    pocket = Pocket(
+        enum=["security", "updates", "esm-infra", "esm-apps"], required=False
+    )
 
 
 class NoticeSchema(Schema):
@@ -220,9 +293,9 @@ NoticesParameters = {
 # Release
 # --
 class ReleaseSchema(Schema):
-    name = String(required=True)
-    version = String(required=True)
-    codename = String(required=True)
+    name = UniqueReleaseName(required=True)
+    version = UniqueReleaseVersion(required=True)
+    codename = UniqueReleaseCodename(enum=release_codenames, required=True)
     lts = Boolean(required=True)
     development = Boolean(required=True)
     release_date = ParsedDateTime(required=True)
@@ -237,11 +310,13 @@ class ReleaseAPISchema(ReleaseSchema):
 # CVEs
 # --
 class Status(Schema):
-    release_codename = ReleaseCodename(required=True)
-    status = StatusStatuses(required=True)
+    release_codename = ReleaseCodename(enum=release_codenames, required=True)
+    status = StatusStatuses(enum=status_statuses, required=True)
     description = String(allow_none=True)
-    component = Component(required=False)
-    pocket = Pocket(required=False)
+    component = Component(enum=["main", "universe"], required=False)
+    pocket = Pocket(
+        enum=["security", "updates", "esm-infra", "esm-apps"], required=False
+    )
 
 
 class CvePackage(Schema):
@@ -266,6 +341,7 @@ class CVESchema(Schema):
     priority = String(allow_none=True)
     status = String(allow_none=True)
     cvss3 = Float(allow_none=True)
+    mitigation = String(allow_none=True)
     references = List(String())
     bugs = List(String())
     patches = Dict(

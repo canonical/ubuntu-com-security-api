@@ -150,6 +150,80 @@ class TestRoutes(unittest.TestCase):
 
         assert response.status_code == 200
 
+    def test_bulk_upsert_cves_returns_422_for_invalid_cve(self):
+        cve = get_fixture("CVE-9999-0000")
+        cve["hello"] = "world"
+        response = self.client.put("/security/cves", json=[cve])
+
+        assert response.status_code == 422
+        assert "Unknown field." in response.json["errors"]
+
+    def test_bulk_upsert_cves(self):
+        response = self.client.get("/security/cves/CVE-9999-0000.json")
+        assert response.status_code == 200
+
+        response = self.client.get("/security/cves/CVE-9999-0001.json")
+        assert response.status_code == 200
+
+        response = self.client.get("/security/cves/CVE-9999-0002.json")
+        assert response.status_code == 404
+
+        response = self.client.put(
+            "/security/cves",
+            json=[
+                get_fixture("CVE-9999-0000"),
+                get_fixture("CVE-9999-0001"),
+                get_fixture("CVE-9999-0002"),
+            ],
+        )
+        assert response.status_code == 200
+
+    def test_delete_non_existing_cve_returns_404(self):
+        response = self.client.delete("/security/cves/CVE-9999-0002")
+
+        assert response.status_code == 404
+
+    def test_delete_cve(self):
+        response = self.client.delete("/security/cves/CVE-9999-0000")
+        assert response.status_code == 200
+
+        response = self.client.delete("/security/cves/CVE-9999-0001")
+        assert response.status_code == 200
+
+    def test_create_release(self):
+        release = get_fixture("new-release")
+        response = self.client.post("/security/releases", json=release)
+
+        assert response.status_code == 200
+
+    def test_create_existing_release_returns_422(self):
+        release = get_fixture("hirsute")
+        response = self.client.post("/security/releases", json=release)
+
+        assert response.status_code == 422
+        assert (
+            "Release with codename 'hirsute' already exists"
+            in response.json["errors"]
+        )
+        assert (
+            "Release with version '21.04' already exists"
+            in response.json["errors"]
+        )
+        assert (
+            "Release with name 'Hirsute Hippo' already exists"
+            in response.json["errors"]
+        )
+
+    def test_delete_non_existing_release_returns_404(self):
+        response = self.client.delete("/security/releases/no-exist")
+
+        assert response.status_code == 404
+
+    def test_delete_release(self):
+        response = self.client.delete("/security/releases/hirsute")
+
+        assert response.status_code == 200
+
 
 def get_fixture(file):
     current_path = pathlib.Path(__file__).parent.absolute()
