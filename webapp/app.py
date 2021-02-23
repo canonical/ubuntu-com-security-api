@@ -4,6 +4,7 @@ from canonicalwebteam.flask_base.app import FlaskBase
 from flask import jsonify, make_response
 
 from webapp.api_spec import WebappFlaskApiSpec
+from webapp.database import db_session
 from webapp.views import (
     get_cve,
     get_notice,
@@ -135,3 +136,10 @@ def handle_error(error):
         jsonify({"message": "Invalid payload", "errors": str(messages)}),
         422,
     )
+
+
+@app.teardown_appcontext
+def remove_db_session(response):
+    db_session.remove()
+
+    return response
