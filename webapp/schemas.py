@@ -260,7 +260,7 @@ class NoticesAPISchema(Schema):
 
 
 NoticeParameters = {
-    "is_hidden": Boolean(
+    "show_hidden": Boolean(
         description=(
             "True or False if you want to select hidden notices. "
             "Default is False."
@@ -298,7 +298,7 @@ NoticesParameters = {
         ),
         allow_none=True,
     ),
-    "is_hidden": Boolean(
+    "show_hidden": Boolean(
         description=(
             "True or False if you want to select hidden notices. "
             "Default is False."

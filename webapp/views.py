@@ -368,7 +368,7 @@ def delete_cve(cve_id):
 def get_notice(notice_id, **kwargs):
     notice_query = db_session.query(Notice)
 
-    if kwargs.get("is_hidden", False):
+    if kwargs.get("show_hidden", False):
         notice_query = notice_query.without_default_filters()
 
     notice = notice_query.filter(Notice.id == notice_id).one_or_none()
