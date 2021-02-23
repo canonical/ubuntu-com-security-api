@@ -4,11 +4,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.orm import scoped_session, sessionmaker
 
-from webapp.models import Release
+from webapp.models import Release, BaseFilterQuery
 
 db_engine = create_engine(os.environ["DATABASE_URL"])
 db_session = scoped_session(
-    sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
+    sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=db_engine,
+        query_cls=BaseFilterQuery,
+    )
 )
 
 inspector = Inspector.from_engine(db_engine)

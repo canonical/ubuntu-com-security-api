@@ -23,6 +23,7 @@ from webapp.schemas import (
     CreateNoticeImportSchema,
     CVEImportSchema,
     ReleaseSchema,
+    NoticeParameters,
 )
 
 
@@ -363,10 +364,14 @@ def delete_cve(cve_id):
 @marshal_with(NoticeAPISchema, code=200)
 @marshal_with(MessageSchema, code=404)
 @marshal_with(MessageWithErrorsSchema, code=404)
-def get_notice(notice_id):
-    notice = (
-        db_session.query(Notice).filter(Notice.id == notice_id).one_or_none()
-    )
+@use_kwargs(NoticeParameters, location="query")
+def get_notice(notice_id, **kwargs):
+    notice_query = db_session.query(Notice)
+
+    if kwargs.get("is_hidden", False):
+        notice_query = notice_query.without_default_filters()
+
+    notice = notice_query.filter(Notice.id == notice_id).one_or_none()
 
     if not notice:
         return make_response(
@@ -392,6 +397,9 @@ def get_notices(**kwargs):
     notices_query = db_session.query(
         Notice, func.count("*").over().label("total")
     )
+
+    if kwargs.get("is_hidden", False):
+        notices_query = notices_query.without_default_filters()
 
     if release:
         notices_query = notices_query.join(Release, Notice.releases).filter(
@@ -612,6 +620,10 @@ def _update_notice_object(notice, data):
     notice.published = data["published"]
     notice.references = data["references"]
     notice.instructions = data["instructions"]
+
+    if "is_hidden" in data:
+        notice.is_hidden = data["is_hidden"]
+
     notice.releases = [
         db_session.query(Release).get(codename)
         for codename in data["release_packages"].keys()
