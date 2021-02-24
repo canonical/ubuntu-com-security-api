@@ -228,6 +228,7 @@ class NoticeSchema(Schema):
     references = List(String())
     published = ParsedDateTime(required=True)
     details = String(allow_none=True, data_key="description")
+    is_hidden = Boolean(required=False)
     release_packages = Dict(
         keys=ReleaseCodename(),
         values=List(Nested(NoticePackage), required=True),
@@ -258,6 +259,16 @@ class NoticesAPISchema(Schema):
     total_results = Int()
 
 
+NoticeParameters = {
+    "show_hidden": Boolean(
+        description=(
+            "True or False if you want to select hidden notices. "
+            "Default is False."
+        ),
+        allow_none=True,
+    ),
+}
+
 NoticesParameters = {
     "details": String(
         description=(
@@ -284,6 +295,13 @@ NoticesParameters = {
         description=(
             "Select order: choose `oldest` for ASC order; "
             "leave empty for DESC order"
+        ),
+        allow_none=True,
+    ),
+    "show_hidden": Boolean(
+        description=(
+            "True or False if you want to select hidden notices. "
+            "Default is False."
         ),
         allow_none=True,
     ),
