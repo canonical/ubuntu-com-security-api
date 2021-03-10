@@ -398,7 +398,7 @@ def get_notices(**kwargs):
         Notice, func.count("*").over().label("total")
     )
 
-    if kwargs.get("is_hidden", False):
+    if kwargs.get("show_hidden", False):
         notices_query = notices_query.without_default_filters()
 
     if release:
