@@ -13,8 +13,8 @@ from sqlalchemy import (
     Table,
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship, Query
+from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
+from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
@@ -65,6 +65,17 @@ class CVE(Base):
     notices = relationship(
         "Notice", secondary=notice_cves, back_populates="cves"
     )
+
+    @hybrid_method
+    def get_filtered_notices(self, show_hidden=False):
+        notices = []
+        for notice in self.notices:
+            if notice.is_hidden and not show_hidden:
+                continue
+
+            notices.append(notice)
+
+        return notices
 
     @hybrid_property
     def packages(self):
@@ -141,10 +152,6 @@ class Notice(Base):
             return "LSN"
 
         return ""
-
-    @classmethod
-    def _base_filters(self):
-        return self.is_hidden == "False"
 
 
 class Release(Base):
@@ -226,45 +233,3 @@ class Package(Base):
     ubuntu = Column(String)
     debian = Column(String)
     statuses = relationship("Status", cascade="all, delete-orphan")
-
-
-class BaseFilterQuery(Query):
-    __set_default_filters = True
-
-    def without_default_filters(self):
-        base_filter_query = self._clone()
-        base_filter_query.__set_default_filters = False
-
-        return base_filter_query
-
-    def get(self, ident):
-        # Override get() so that the flag is always checked in the
-        # DB as opposed to pulling from the identity map. - this is optional.
-        return Query.get(self.populate_existing(), ident)
-
-    def __iter__(self):
-        return Query.__iter__(self.private())
-
-    def from_self(self, *ent):
-        # Override from_self() to automatically apply
-        # the criterion to.  this works with count() and
-        # others.
-        return Query.from_self(self.private(), *ent)
-
-    def private(self):
-        if not self.__set_default_filters:
-            return self
-
-        # Fetch the model name and column list
-        # apply model-specific base filters
-        mapper_zero = self._mapper_zero()
-
-        if mapper_zero:
-            model = mapper_zero.class_
-
-            if hasattr(model, "_base_filters"):
-                return self.enable_assertions(False).filter(
-                    model._base_filters()
-                )
-
-        return self

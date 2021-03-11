@@ -1,7 +1,7 @@
 {
    "cves":[
-      "CVE-9999-0003",
-      "CVE-9999-0004"
+     "CVE-9999-0003",
+     "CVE-9999-0004"
    ],
    "id":"USN-0000-03",
    "description": "This is the description",

@@ -50,7 +50,7 @@ class TestRoutes(unittest.TestCase):
 
         assert response.status_code == 200
         assert response.json["packages"] == expected_cve["packages"]
-        assert response.json["notices"] == expected_cve["notices"]
+        assert response.json["notices_ids"] == expected_cve["notices_ids"]
 
     def test_cves_returns_422_for_non_existing_package_name(self):
         response = self.client.get("/security/cves.json?package=no-exist")
@@ -80,7 +80,7 @@ class TestRoutes(unittest.TestCase):
         expected_notice = get_fixture("USN-0000-01")
 
         assert response.status_code == 200
-        assert response.json["cves"] == expected_notice["cves"]
+        assert response.json["cves_ids"] == expected_notice["cves_ids"]
 
     def test_usns_returns_422_for_non_existing_release(self):
         response = self.client.get("/security/notices.json?release=no-exist")

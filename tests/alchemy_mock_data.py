@@ -107,14 +107,18 @@ notice_data = [
     (
         [
             mock.call.query(Notice),
-            mock.call.filter(Notice.id == "USN-0000-00"),
+            mock.call.filter(
+                Notice.is_hidden == "False", Notice.id == "USN-0000-00"
+            ),
         ],
         [],
     ),
     (
         [
             mock.call.query(Notice),
-            mock.call.filter(Notice.id == "USN-0000-01"),
+            mock.call.filter(
+                Notice.is_hidden == "False", Notice.id == "USN-0000-01"
+            ),
         ],
         [
             Notice(
