@@ -43,7 +43,7 @@ class ReleaseCodename(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value not in release_codenames:
+        if value != "" and value not in release_codenames:
             raise self.make_error("unrecognised_codename", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -67,7 +67,7 @@ class StatusStatuses(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value not in status_statuses:
+        if value != "" and value not in status_statuses:
             raise self.make_error("unrecognised_status", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -189,7 +189,7 @@ class PackageName(String):
 
 class Pocket(String):
     default_error_messages = {
-        "unrecognised_component": (
+        "unrecognised_pocket": (
             "Pocket must be one of "
             "'security', 'updates', 'esm-infra', 'esm-apps'"
         )
