@@ -268,6 +268,7 @@ NoticesParameters = {
         ),
         allow_none=True,
     ),
+    "cve_id": String(allow_none=True),
     "release": ReleaseCodename(
         enum=release_codenames,
         description="List of release codenames",

@@ -398,6 +398,7 @@ def get_notice(notice_id, **kwargs):
 @use_kwargs(NoticesParameters, location="query")
 def get_notices(**kwargs):
     details = kwargs.get("details")
+    cve_id = kwargs.get("cve_id")
     release = kwargs.get("release")
     limit = kwargs.get("limit", 20)
     offset = kwargs.get("offset", 0)
@@ -409,6 +410,9 @@ def get_notices(**kwargs):
 
     if not kwargs.get("show_hidden", False):
         notices_query = notices_query.filter(Notice.is_hidden == "False")
+
+    if cve_id:
+        notices_query = notices_query.filter(Notice.cves.any(CVE.id == cve_id))
 
     if release:
         notices_query = notices_query.join(Release, Notice.releases).filter(
