@@ -50,7 +50,7 @@ class TestRoutes(unittest.TestCase):
 
         assert response.status_code == 200
         assert response.json["packages"] == expected_cve["packages"]
-        assert response.json["notices"] == expected_cve["notices"]
+        assert response.json["notices_ids"] == expected_cve["notices_ids"]
 
     def test_cves_returns_422_for_non_existing_package_name(self):
         response = self.client.get("/security/cves.json?package=no-exist")
@@ -80,7 +80,7 @@ class TestRoutes(unittest.TestCase):
         expected_notice = get_fixture("USN-0000-01")
 
         assert response.status_code == 200
-        assert response.json["cves"] == expected_notice["cves"]
+        assert response.json["cves_ids"] == expected_notice["cves_ids"]
 
     def test_usns_returns_422_for_non_existing_release(self):
         response = self.client.get("/security/notices.json?release=no-exist")
@@ -90,13 +90,13 @@ class TestRoutes(unittest.TestCase):
 
     def test_create_usn(self):
         notice = get_fixture("USN-0000-02")
-        response = self.client.post("/security/notices", json=notice)
+        response = self.client.post("/security/notices.json", json=notice)
 
         assert response.status_code == 200
 
     def test_create_usn_returns_422_for_non_unique_id(self):
         notice = get_fixture("USN-0000-01")
-        response = self.client.post("/security/notices", json=notice)
+        response = self.client.post("/security/notices.json", json=notice)
 
         assert response.status_code == 422
         assert "'USN-0000-01' already exists" in response.json["errors"]
@@ -105,7 +105,7 @@ class TestRoutes(unittest.TestCase):
         notice = get_fixture("USN-0000-02")
         notice["unknown"] = "field"
 
-        response = self.client.post("/security/notices", json=notice)
+        response = self.client.post("/security/notices.json", json=notice)
 
         assert response.status_code == 422
         assert "Unknown field." in response.json["errors"]
@@ -115,7 +115,7 @@ class TestRoutes(unittest.TestCase):
         notice["instructions"] = "Instructions were updated!"
 
         response = self.client.put(
-            "/security/notices/USN-0000-03", json=notice
+            "/security/notices/USN-0000-03.json", json=notice
         )
 
         assert response.status_code == 200
@@ -124,7 +124,7 @@ class TestRoutes(unittest.TestCase):
         notice = get_fixture("USN-0000-03")
 
         response = self.client.put(
-            "/security/notices/USN-0000-02", json=notice
+            "/security/notices/USN-0000-02.json", json=notice
         )
 
         assert response.status_code == 404
@@ -134,26 +134,26 @@ class TestRoutes(unittest.TestCase):
         notice["unknown"] = "field"
 
         response = self.client.put(
-            "/security/notices/USN-0000-03", json=notice
+            "/security/notices/USN-0000-03.json", json=notice
         )
 
         assert response.status_code == 422
         assert "Unknown field." in response.json["errors"]
 
     def test_delete_usn_returns_404_for_non_existing_usn(self):
-        response = self.client.delete("/security/notices/USN-0000-02")
+        response = self.client.delete("/security/notices/USN-0000-02.json")
 
         assert response.status_code == 404
 
     def test_delete_usn(self):
-        response = self.client.delete("/security/notices/USN-0000-04")
+        response = self.client.delete("/security/notices/USN-0000-04.json")
 
         assert response.status_code == 200
 
     def test_bulk_upsert_cves_returns_422_for_invalid_cve(self):
         cve = get_fixture("CVE-9999-0000")
         cve["hello"] = "world"
-        response = self.client.put("/security/cves", json=[cve])
+        response = self.client.put("/security/cves.json", json=[cve])
 
         assert response.status_code == 422
         assert "Unknown field." in response.json["errors"]
@@ -169,7 +169,7 @@ class TestRoutes(unittest.TestCase):
         assert response.status_code == 404
 
         response = self.client.put(
-            "/security/cves",
+            "/security/cves.json",
             json=[
                 get_fixture("CVE-9999-0000"),
                 get_fixture("CVE-9999-0001"),
@@ -179,26 +179,26 @@ class TestRoutes(unittest.TestCase):
         assert response.status_code == 200
 
     def test_delete_non_existing_cve_returns_404(self):
-        response = self.client.delete("/security/cves/CVE-9999-0002")
+        response = self.client.delete("/security/cves/CVE-9999-0002.json")
 
         assert response.status_code == 404
 
     def test_delete_cve(self):
-        response = self.client.delete("/security/cves/CVE-9999-0000")
+        response = self.client.delete("/security/cves/CVE-9999-0000.json")
         assert response.status_code == 200
 
-        response = self.client.delete("/security/cves/CVE-9999-0001")
+        response = self.client.delete("/security/cves/CVE-9999-0001.json")
         assert response.status_code == 200
 
     def test_create_release(self):
         release = get_fixture("new-release")
-        response = self.client.post("/security/releases", json=release)
+        response = self.client.post("/security/releases.json", json=release)
 
         assert response.status_code == 200
 
     def test_create_existing_release_returns_422(self):
         release = get_fixture("hirsute")
-        response = self.client.post("/security/releases", json=release)
+        response = self.client.post("/security/releases.json", json=release)
 
         assert response.status_code == 422
         assert (
@@ -215,12 +215,12 @@ class TestRoutes(unittest.TestCase):
         )
 
     def test_delete_non_existing_release_returns_404(self):
-        response = self.client.delete("/security/releases/no-exist")
+        response = self.client.delete("/security/releases/no-exist.json")
 
         assert response.status_code == 404
 
     def test_delete_release(self):
-        response = self.client.delete("/security/releases/hirsute")
+        response = self.client.delete("/security/releases/hirsute.json")
 
         assert response.status_code == 200
 

@@ -43,7 +43,7 @@ class ReleaseCodename(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value not in release_codenames:
+        if value != "" and value not in release_codenames:
             raise self.make_error("unrecognised_codename", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -67,7 +67,7 @@ class StatusStatuses(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value not in status_statuses:
+        if value != "" and value not in status_statuses:
             raise self.make_error("unrecognised_status", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -189,7 +189,7 @@ class PackageName(String):
 
 class Pocket(String):
     default_error_messages = {
-        "unrecognised_component": (
+        "unrecognised_pocket": (
             "Pocket must be one of "
             "'security', 'updates', 'esm-infra', 'esm-apps'"
         )
@@ -247,16 +247,7 @@ class CreateNoticeImportSchema(NoticeImportSchema):
 
 class NoticeAPISchema(NoticeSchema):
     notice_type = String(data_key="type")
-    cves_ids = List(
-        String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")), data_key="cves"
-    )
-
-
-class NoticesAPISchema(Schema):
-    notices = List(Nested(NoticeAPISchema))
-    offset = Int(allow_none=True)
-    limit = Int(allow_none=True)
-    total_results = Int()
+    cves_ids = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
 
 
 NoticeParameters = {
@@ -277,6 +268,7 @@ NoticesParameters = {
         ),
         allow_none=True,
     ),
+    "cve_id": String(allow_none=True),
     "release": ReleaseCodename(
         enum=release_codenames,
         description="List of release codenames",
@@ -382,16 +374,40 @@ class CVEAPISchema(CVESchema):
     package_statuses = List(Nested(CvePackage), data_key="packages")
     notices_ids = List(
         String(validate=Regexp(r"(USN|LSN)-\d{1,5}-\d{1,2}")),
-        data_key="notices",
     )
 
 
-class CVEsAPISchema(Schema):
+class NoticeAPIDetailedSchema(NoticeAPISchema):
     cves = List(Nested(CVEAPISchema))
+
+
+class CVEAPIDetailedSchema(CVEAPISchema):
+    notices = List(Nested(NoticeAPISchema))
+
+
+class NoticesAPISchema(Schema):
+    notices = List(Nested(NoticeAPIDetailedSchema))
     offset = Int(allow_none=True)
     limit = Int(allow_none=True)
     total_results = Int()
 
+
+class CVEsAPISchema(Schema):
+    cves = List(Nested(CVEAPIDetailedSchema))
+    offset = Int(allow_none=True)
+    limit = Int(allow_none=True)
+    total_results = Int()
+
+
+CVEParameter = {
+    "show_hidden": Boolean(
+        description=(
+            "True or False if you want to select hidden notices. "
+            "Default is False."
+        ),
+        allow_none=True,
+    ),
+}
 
 CVEsParameters = {
     "q": String(
@@ -435,6 +451,13 @@ CVEsParameters = {
         description=(
             "Select order: choose `oldest` for ASC order; "
             "leave empty for DESC order"
+        ),
+        allow_none=True,
+    ),
+    "show_hidden": Boolean(
+        description=(
+            "True or False if you want to select hidden notices. "
+            "Default is False."
         ),
         allow_none=True,
     ),

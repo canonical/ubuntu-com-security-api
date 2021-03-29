@@ -50,14 +50,14 @@ app.add_url_rule(
 )
 
 app.add_url_rule(
-    "/security/cves",
+    "/security/cves.json",
     view_func=bulk_upsert_cve,
     methods=["PUT"],
     provide_automatic_options=False,
 )
 
 app.add_url_rule(
-    "/security/cves/<cve_id>",
+    "/security/cves/<cve_id>.json",
     view_func=delete_cve,
     methods=["DELETE"],
     provide_automatic_options=False,
@@ -76,34 +76,34 @@ app.add_url_rule(
 )
 
 app.add_url_rule(
-    "/security/notices",
+    "/security/notices.json",
     view_func=create_notice,
     methods=["POST"],
     provide_automatic_options=False,
 )
 
 app.add_url_rule(
-    "/security/notices/<notice_id>",
+    "/security/notices/<notice_id>.json",
     view_func=update_notice,
     methods=["PUT"],
     provide_automatic_options=False,
 )
 
 app.add_url_rule(
-    "/security/notices/<notice_id>",
+    "/security/notices/<notice_id>.json",
     view_func=delete_notice,
     methods=["DELETE"],
     provide_automatic_options=False,
 )
 
 app.add_url_rule(
-    "/security/releases",
+    "/security/releases.json",
     view_func=create_release,
     methods=["POST"],
     provide_automatic_options=False,
 )
 app.add_url_rule(
-    "/security/releases/<codename>",
+    "/security/releases/<codename>.json",
     view_func=delete_release,
     methods=["DELETE"],
     provide_automatic_options=False,

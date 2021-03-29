@@ -1,13 +1,14 @@
 {
-   "cves":[
-      "CVE-9999-0003",
-      "CVE-9999-0004"
-   ],
-   "id":"USN-0000-01",
-   "description": "This is the description",
-   "instructions": "These are the instructions",
-   "published": "2020-12-01 12:42:54",
-   "references": [],
+    "cves_ids": [
+        "CVE-9999-0003",
+        "CVE-9999-0004"
+    ],
+    "cves": [{"id": "CVE-9999-0003"}, {"id": "CVE-9999-0004"}],
+    "id": "USN-0000-01",
+    "description": "This is the description",
+    "instructions": "These are the instructions",
+    "published": "2020-12-01 12:42:54",
+    "references": [],
     "release_packages": {
         "bionic": [
             {

@@ -11,8 +11,6 @@ from webapp.auth import authorization_required
 from webapp.database import db_session, status_statuses
 from webapp.models import CVE, Notice, Release, Status, Package
 from webapp.schemas import (
-    CVEAPISchema,
-    NoticeAPISchema,
     CVEsAPISchema,
     CVEsParameters,
     NoticesParameters,
@@ -24,12 +22,18 @@ from webapp.schemas import (
     CVEImportSchema,
     ReleaseSchema,
     NoticeParameters,
+    CVEParameter,
+    CVEAPIDetailedSchema,
+    NoticeAPIDetailedSchema,
 )
 
 
-@marshal_with(CVEAPISchema, code=200)
+@marshal_with(CVEAPIDetailedSchema, code=200)
 @marshal_with(MessageSchema, code=404)
-def get_cve(cve_id):
+@use_kwargs(CVEParameter, location="query")
+def get_cve(cve_id, **kwargs):
+    show_hidden = kwargs.get("show_hidden", False)
+
     cve = db_session.query(CVE).filter(CVE.id == cve_id).one_or_none()
 
     if not cve:
@@ -37,6 +41,8 @@ def get_cve(cve_id):
             jsonify({"message": f"CVE with id '{cve_id}' does not exist"}),
             404,
         )
+
+    cve.notices = cve.get_filtered_notices(show_hidden)
 
     return cve
 
@@ -54,6 +60,7 @@ def get_cves(**kwargs):
     versions = kwargs.get("version")
     statuses = kwargs.get("status")
     order_by = kwargs.get("order")
+    show_hidden = kwargs.get("show_hidden", False)
 
     clean_versions = _get_clean_versions(statuses, versions)
     clean_statuses = _get_clean_statuses(statuses, versions)
@@ -204,6 +211,8 @@ def get_cves(**kwargs):
                 statuses.append(status)
 
         cve.statuses = statuses
+        cve.notices = cve.get_filtered_notices(show_hidden)
+
         cves.append(cve)
 
     return {
@@ -361,15 +370,15 @@ def delete_cve(cve_id):
     )
 
 
-@marshal_with(NoticeAPISchema, code=200)
+@marshal_with(NoticeAPIDetailedSchema, code=200)
 @marshal_with(MessageSchema, code=404)
 @marshal_with(MessageWithErrorsSchema, code=404)
 @use_kwargs(NoticeParameters, location="query")
 def get_notice(notice_id, **kwargs):
     notice_query = db_session.query(Notice)
 
-    if kwargs.get("show_hidden", False):
-        notice_query = notice_query.without_default_filters()
+    if not kwargs.get("show_hidden", False):
+        notice_query = notice_query.filter(Notice.is_hidden == "False")
 
     notice = notice_query.filter(Notice.id == notice_id).one_or_none()
 
@@ -389,6 +398,7 @@ def get_notice(notice_id, **kwargs):
 @use_kwargs(NoticesParameters, location="query")
 def get_notices(**kwargs):
     details = kwargs.get("details")
+    cve_id = kwargs.get("cve_id")
     release = kwargs.get("release")
     limit = kwargs.get("limit", 20)
     offset = kwargs.get("offset", 0)
@@ -398,8 +408,11 @@ def get_notices(**kwargs):
         Notice, func.count("*").over().label("total")
     )
 
-    if kwargs.get("show_hidden", False):
-        notices_query = notices_query.without_default_filters()
+    if not kwargs.get("show_hidden", False):
+        notices_query = notices_query.filter(Notice.is_hidden == "False")
+
+    if cve_id:
+        notices_query = notices_query.filter(Notice.cves.any(CVE.id == cve_id))
 
     if release:
         notices_query = notices_query.join(Release, Notice.releases).filter(
@@ -620,9 +633,7 @@ def _update_notice_object(notice, data):
     notice.published = data["published"]
     notice.references = data["references"]
     notice.instructions = data["instructions"]
-
-    if "is_hidden" in data:
-        notice.is_hidden = data["is_hidden"]
+    notice.is_hidden = data.get("is_hidden", False)
 
     notice.releases = [
         db_session.query(Release).get(codename)
