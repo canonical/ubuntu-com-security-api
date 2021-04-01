@@ -54,7 +54,7 @@ def get_cves(**kwargs):
     query = kwargs.get("q", "").strip()
     priority = kwargs.get("priority")
     package = kwargs.get("package")
-    limit = kwargs.get("limit", 20)
+    limit = kwargs.get("limit", 10)
     offset = kwargs.get("offset", 0)
     component = kwargs.get("component")
     versions = kwargs.get("version")
@@ -400,7 +400,7 @@ def get_notices(**kwargs):
     details = kwargs.get("details")
     cve_id = kwargs.get("cve_id")
     release = kwargs.get("release")
-    limit = kwargs.get("limit", 20)
+    limit = kwargs.get("limit", 10)
     offset = kwargs.get("offset", 0)
     order_by = kwargs.get("order")
 

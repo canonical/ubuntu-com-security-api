@@ -275,7 +275,7 @@ NoticesParameters = {
         allow_none=True,
     ),
     "limit": Int(
-        description="Number of CVEs per response. Defaults to 20.",
+        description="Number of CVEs per response. Defaults to 10.",
         allow_none=True,
     ),
     "offset": Int(
@@ -424,7 +424,7 @@ CVEsParameters = {
     ),
     "package": PackageName(description="Package name", allow_none=True),
     "limit": Int(
-        description="Number of CVEs per response. Defaults to 20.",
+        description="Number of CVEs per response. Defaults to 10.",
         allow_none=True,
     ),
     "offset": Int(
