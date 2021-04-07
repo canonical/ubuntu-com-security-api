@@ -73,7 +73,7 @@ spec:
                   name: usn-db-url
 
             - name: SENTRY_DSN
-              value: "https://0293bb7fc3104e56bafd2422e155790c@sentry.is.canonical.com//13"
+              value: "https://1e974d641a14437e9573e8fe9958a252@sentry.is.canonical.com//48"
 
           readinessProbe:
             httpGet:
