@@ -17,6 +17,8 @@ from webapp.views import (
     bulk_upsert_cve,
     create_release,
     delete_release,
+    update_release,
+    get_release,
 )
 
 app = FlaskBase(
@@ -97,13 +99,25 @@ app.add_url_rule(
 )
 
 app.add_url_rule(
+    "/security/releases/<codename>.json",
+    view_func=get_release,
+    methods=["GET"],
+    provide_automatic_options=False,
+)
+app.add_url_rule(
     "/security/releases.json",
     view_func=create_release,
     methods=["POST"],
     provide_automatic_options=False,
 )
 app.add_url_rule(
-    "/security/releases/<codename>.json",
+    "/security/releases/<release_codename>.json",
+    view_func=update_release,
+    methods=["PUT"],
+    provide_automatic_options=False,
+)
+app.add_url_rule(
+    "/security/releases/<release_codename>.json",
     view_func=delete_release,
     methods=["DELETE"],
     provide_automatic_options=False,
@@ -119,7 +133,9 @@ views_to_register_in_docs = [
     create_notice,
     update_notice,
     delete_notice,
+    get_release,
     create_release,
+    update_release,
     delete_release,
 ]
 
