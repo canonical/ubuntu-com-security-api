@@ -4,7 +4,7 @@ from datetime import datetime
 from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, func, and_, case, asc
-from sqlalchemy.exc import DataError
+from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import contains_eager
 
 from webapp.auth import authorization_required
@@ -25,6 +25,8 @@ from webapp.schemas import (
     CVEParameter,
     CVEAPIDetailedSchema,
     NoticeAPIDetailedSchema,
+    ReleaseAPISchema,
+    UpdateReleaseSchema,
 )
 
 
@@ -507,6 +509,24 @@ def delete_notice(notice_id):
     )
 
 
+@marshal_with(ReleaseAPISchema, code=200)
+@marshal_with(MessageSchema, code=404)
+def get_release(codename):
+    release = (
+        db_session.query(Release)
+        .filter(Release.codename == codename)
+        .one_or_none()
+    )
+
+    if not release:
+        return make_response(
+            jsonify({"message": f"Release {codename} doesn't exist"}),
+            404,
+        )
+
+    return release
+
+
 @authorization_required
 @marshal_with(MessageSchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
@@ -533,18 +553,63 @@ def create_release(**kwargs):
 
 @authorization_required
 @marshal_with(MessageSchema, code=200)
-@marshal_with(MessageSchema, code=400)
 @marshal_with(MessageSchema, code=404)
-def delete_release(codename):
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(UpdateReleaseSchema, location="json")
+def update_release(release_codename, **kwargs):
     release = (
         db_session.query(Release)
-        .filter(Release.codename == codename)
+        .filter(Release.codename == release_codename)
         .one_or_none()
     )
 
     if not release:
         return make_response(
-            jsonify({"message": f"Release {codename} doesn't exist"}),
+            jsonify({"message": f"Release {release_codename} doesn't exist"}),
+            404,
+        )
+
+    release_data = request.json
+    release.version = release_data["version"]
+    release.name = release_data["name"]
+    release.development = release_data["development"]
+    release.lts = release_data["lts"]
+    release.release_date = release_data["release_date"]
+    release.esm_expires = release_data["esm_expires"]
+    release.support_expires = release_data["support_expires"]
+
+    db_session.add(release)
+
+    try:
+        db_session.commit()
+    except IntegrityError as error:
+        return make_response(
+            jsonify(
+                {
+                    "message": "Failed updating release",
+                    "error": error.orig.args[0],
+                }
+            ),
+            422,
+        )
+
+    return make_response(jsonify({"message": "Release updated"}), 200)
+
+
+@authorization_required
+@marshal_with(MessageSchema, code=200)
+@marshal_with(MessageSchema, code=400)
+@marshal_with(MessageSchema, code=404)
+def delete_release(release_codename):
+    release = (
+        db_session.query(Release)
+        .filter(Release.codename == release_codename)
+        .one_or_none()
+    )
+
+    if not release:
+        return make_response(
+            jsonify({"message": f"Release {release_codename} doesn't exist"}),
             404,
         )
 
@@ -553,7 +618,7 @@ def delete_release(codename):
             jsonify(
                 {
                     "message": (
-                        f"Cannot delete '{codename}' release. "
+                        f"Cannot delete '{release_codename}' release. "
                         f"Release already in use"
                     )
                 }
@@ -565,7 +630,7 @@ def delete_release(codename):
     db_session.commit()
 
     return make_response(
-        jsonify({"message": f"Release {codename} deleted"}), 200
+        jsonify({"message": f"Release {release_codename} deleted"}), 200
     )
 
 

@@ -314,6 +314,17 @@ class ReleaseSchema(Schema):
     support_expires = ParsedDateTime(required=True)
 
 
+class UpdateReleaseSchema(Schema):
+    name = String(required=True)
+    version = String(required=True)
+    codename = String(required=True)
+    lts = Boolean(required=True)
+    development = Boolean(required=True)
+    release_date = ParsedDateTime(required=True)
+    esm_expires = ParsedDateTime(required=True)
+    support_expires = ParsedDateTime(required=True)
+
+
 class ReleaseAPISchema(ReleaseSchema):
     support_tag = String()
 
