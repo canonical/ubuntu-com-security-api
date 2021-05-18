@@ -99,7 +99,7 @@ app.add_url_rule(
 )
 
 app.add_url_rule(
-    "/security/releases/<codename>.json",
+    "/security/releases/<release_codename>.json",
     view_func=get_release,
     methods=["GET"],
     provide_automatic_options=False,
