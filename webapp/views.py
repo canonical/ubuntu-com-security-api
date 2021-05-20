@@ -511,16 +511,16 @@ def delete_notice(notice_id):
 
 @marshal_with(ReleaseAPISchema, code=200)
 @marshal_with(MessageSchema, code=404)
-def get_release(codename):
+def get_release(release_codename):
     release = (
         db_session.query(Release)
-        .filter(Release.codename == codename)
+        .filter(Release.codename == release_codename)
         .one_or_none()
     )
 
     if not release:
         return make_response(
-            jsonify({"message": f"Release {codename} doesn't exist"}),
+            jsonify({"message": f"Release {release_codename} doesn't exist"}),
             404,
         )
 
