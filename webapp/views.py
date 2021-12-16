@@ -424,9 +424,10 @@ def get_notices(**kwargs):
     if details:
         notices_query = notices_query.filter(
             or_(
-                Notice.id.like(f"%{details}%"),
-                Notice.details.like(f"%{details}%"),
-                Notice.cves.any(CVE.id.like(f"%{details}%")),
+                Notice.id.ilike(f"%{details}%"),
+                Notice.details.ilike(f"%{details}%"),
+                Notice.title.ilike(f"%{details}%"),
+                Notice.cves.any(CVE.id.ilike(f"%{details}%")),
             )
         )
 
