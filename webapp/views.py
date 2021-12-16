@@ -427,7 +427,7 @@ def get_notices(**kwargs):
                 Notice.id.ilike(f"%{details}%"),
                 Notice.details.ilike(f"%{details}%"),
                 Notice.title.ilike(f"%{details}%"),
-                Notice.cves.any(CVE.id.like(f"%{details}%")),
+                Notice.cves.any(CVE.id.ilike(f"%{details}%")),
             )
         )
 
