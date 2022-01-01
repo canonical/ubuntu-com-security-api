@@ -10,4 +10,4 @@ marshmallow==3.9.1
 python-dateutil==2.8.1
 psycopg2-binary==2.8.6
 SQLAlchemy==1.3.20
-webargs==6.1.1
+webargs==8.0.1
