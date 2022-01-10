@@ -1,4 +1,4 @@
-canonicalwebteam.flask-base==0.9.2
+canonicalwebteam.flask-base==0.9.3
 alchemy-mock==0.4.3
 alembic==1.7.5
 apispec==4.7.1
