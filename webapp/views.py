@@ -253,7 +253,7 @@ def bulk_upsert_cve(*args, **kwargs):
 
     for data in cves_data:
         update_cve = False
-        cve = db_session.query(CVE).filter(CVE.id == data["id"]).one_or_none()
+        cve = db_session.query(CVE).get(data["id"].upper())
 
         if cve is None:
             update_cve = True
@@ -356,7 +356,7 @@ def bulk_upsert_cve(*args, **kwargs):
 @marshal_with(MessageSchema, code=200)
 @marshal_with(MessageSchema, code=404)
 def delete_cve(cve_id):
-    cve = db_session.query(CVE).filter(CVE.id == cve_id).one_or_none()
+    cve = db_session.query(CVE).get(cve_id.upper())
 
     if not cve:
         return make_response(
