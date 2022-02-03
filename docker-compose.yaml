@@ -7,3 +7,4 @@ services:
     image: postgres
     volumes:
       - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+
