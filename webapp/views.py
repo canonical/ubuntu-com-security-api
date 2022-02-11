@@ -36,7 +36,7 @@ from webapp.schemas import (
 def get_cve(cve_id, **kwargs):
     show_hidden = kwargs.get("show_hidden", False)
 
-    cve = db_session.query(CVE).filter(CVE.id == cve_id).one_or_none()
+    cve = db_session.query(CVE).filter(CVE.id == cve_id.upper()).one_or_none()
 
     if not cve:
         return make_response(
@@ -253,7 +253,7 @@ def bulk_upsert_cve(*args, **kwargs):
 
     for data in cves_data:
         update_cve = False
-        cve = db_session.query(CVE).filter(CVE.id == data["id"]).one_or_none()
+        cve = db_session.query(CVE).get(data["id"].upper())
 
         if cve is None:
             update_cve = True
@@ -356,7 +356,7 @@ def bulk_upsert_cve(*args, **kwargs):
 @marshal_with(MessageSchema, code=200)
 @marshal_with(MessageSchema, code=404)
 def delete_cve(cve_id):
-    cve = db_session.query(CVE).filter(CVE.id == cve_id).one_or_none()
+    cve = db_session.query(CVE).filter(CVE.id == cve_id.upper()).one_or_none()
 
     if not cve:
         return make_response(
@@ -382,7 +382,7 @@ def get_notice(notice_id, **kwargs):
     if not kwargs.get("show_hidden", False):
         notice_query = notice_query.filter(Notice.is_hidden == "False")
 
-    notice = notice_query.filter(Notice.id == notice_id).one_or_none()
+    notice = notice_query.filter(Notice.id == notice_id.upper()).one_or_none()
 
     if not notice:
         return make_response(
