@@ -36,7 +36,7 @@ from webapp.schemas import (
 def get_cve(cve_id, **kwargs):
     show_hidden = kwargs.get("show_hidden", False)
 
-    cve = db_session.query(CVE).get(cve_id.upper())
+    cve = db_session.query(CVE).filter(CVE.id == cve_id.upper()).one_or_none()
 
     if not cve:
         return make_response(
@@ -356,7 +356,7 @@ def bulk_upsert_cve(*args, **kwargs):
 @marshal_with(MessageSchema, code=200)
 @marshal_with(MessageSchema, code=404)
 def delete_cve(cve_id):
-    cve = db_session.query(CVE).get(cve_id.upper())
+    cve = db_session.query(CVE).filter(CVE.id == cve_id.upper()).one_or_none()
 
     if not cve:
         return make_response(
