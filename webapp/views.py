@@ -26,6 +26,7 @@ from webapp.schemas import (
     CVEAPIDetailedSchema,
     NoticeAPIDetailedSchema,
     ReleaseAPISchema,
+    ReleasesAPISchema,
     UpdateReleaseSchema,
 )
 
@@ -526,6 +527,25 @@ def get_release(release_codename):
         )
 
     return release
+
+
+@marshal_with(ReleasesAPISchema, code=200)
+@marshal_with(MessageSchema, code=404)
+def get_releases():
+    releases = (
+        db_session.query(Release)
+        .order_by(desc(Release.release_date))
+        .filter(
+            or_(
+                Release.codename == "upstream",
+                Release.support_expires > datetime.now(),
+                Release.esm_expires > datetime.now(),
+            )
+        )
+        .all()
+    )
+    
+    return {"releases": releases}
 
 
 @authorization_required
