@@ -328,8 +328,10 @@ class UpdateReleaseSchema(Schema):
 class ReleaseAPISchema(ReleaseSchema):
     support_tag = String()
 
+
 class ReleasesAPISchema(Schema):
     releases = List(Nested(ReleaseAPISchema))
+
 
 # CVEs
 # --

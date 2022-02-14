@@ -544,7 +544,7 @@ def get_releases():
         )
         .all()
     )
-    
+ 
     return {"releases": releases}
 
 
