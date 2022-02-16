@@ -1,6 +1,6 @@
 import os
 
- # Patch psycopg2 for gevent before importing any sqlalchemy stuff
+# Patch psycopg2 for gevent before importing any sqlalchemy stuff
 from psycogreen.gevent import patch_psycopg
 
 patch_psycopg()
