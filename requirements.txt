@@ -8,6 +8,8 @@ launchpadlib==1.10.15.1
 macaroonbakery==1.3.1
 marshmallow==3.14.1
 python-dateutil==2.8.2
+psycogreen==1.0.2
 psycopg2-binary==2.9.3
 SQLAlchemy==1.4.29
 webargs==6.1.1
+
