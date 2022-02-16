@@ -1,10 +1,22 @@
 #! /usr/bin/env bash
 
 set -e
-RUN_COMMAND="talisker.gunicorn.gevent webapp.app:app --bind $1 --worker-class gevent --name talisker-`hostname`"
 
+
+# Extra arguments for debug mode
 if [ "${FLASK_DEBUG}" = true ] || [ "${FLASK_DEBUG}" = 1 ]; then
-    RUN_COMMAND="${RUN_COMMAND} --reload --log-level debug --timeout 9999"
+    DEBUG_ARGS="--reload --log-level debug --timeout 9999"
+else
+    DEBUG_ARGS=""
 fi
 
-${RUN_COMMAND}
+
+# Provision database
+# ===
+alembic upgrade head
+
+
+# Start server
+# ===
+talisker.gunicorn.gevent webapp.app:app --bind $1 --worker-class gevent --name talisker-`hostname` ${DEBUG_ARGS}
+
