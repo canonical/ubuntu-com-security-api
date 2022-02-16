@@ -19,6 +19,7 @@ from webapp.views import (
     delete_release,
     update_release,
     get_release,
+    get_releases,
 )
 
 app = FlaskBase(
@@ -106,6 +107,12 @@ app.add_url_rule(
 )
 app.add_url_rule(
     "/security/releases.json",
+    view_func=get_releases,
+    methods=["GET"],
+    provide_automatic_options=False,
+)
+app.add_url_rule(
+    "/security/releases.json",
     view_func=create_release,
     methods=["POST"],
     provide_automatic_options=False,
@@ -134,6 +141,7 @@ views_to_register_in_docs = [
     update_notice,
     delete_notice,
     get_release,
+    get_releases,
     create_release,
     update_release,
     delete_release,
