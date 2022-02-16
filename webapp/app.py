@@ -19,7 +19,7 @@ from webapp.views import (
     delete_release,
     update_release,
     get_release,
-    get_releases
+    get_releases,
 )
 
 app = FlaskBase(
