@@ -2,7 +2,6 @@
 
 set -e
 
-
 # Extra arguments for debug mode
 if [ "${FLASK_DEBUG}" = true ] || [ "${FLASK_DEBUG}" = 1 ]; then
     DEBUG_ARGS="--reload --log-level debug --timeout 9999"
@@ -18,5 +17,5 @@ alembic upgrade head
 
 # Start server
 # ===
-talisker.gunicorn.gevent webapp.app:app --bind $1 --worker-class gevent --name talisker-`hostname` ${DEBUG_ARGS}
+talisker.gunicorn.gevent webapp.app:app --bind $1 --workers 3 --worker-class gevent --name talisker-`hostname` ${DEBUG_ARGS}
 

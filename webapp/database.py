@@ -1,10 +1,15 @@
 import os
 
-from sqlalchemy import create_engine
-from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.orm import scoped_session, sessionmaker
+# Patch psycopg2 for gevent before importing any sqlalchemy stuff
+from psycogreen.gevent import patch_psycopg
 
-from webapp.models import Release
+patch_psycopg()
+
+from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy.engine.reflection import Inspector  # noqa: E402
+from sqlalchemy.orm import scoped_session, sessionmaker  # noqa: E402
+
+from webapp.models import Release  # noqa: E402
 
 db_engine = create_engine(os.environ["DATABASE_URL"])
 db_session = scoped_session(
