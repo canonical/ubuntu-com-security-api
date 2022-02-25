@@ -6,6 +6,7 @@ from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, func, and_, case, asc
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import contains_eager
+from sortedcontainers import SortedDict
 
 from webapp.auth import authorization_required
 from webapp.database import db_session, status_statuses
@@ -392,6 +393,44 @@ def get_notice(notice_id, **kwargs):
             ),
             404,
         )
+
+    releases = {
+        release.codename: release.version
+        for release in db_session.query(Release).all()
+    }
+
+    package_descriptions = {}
+    package_versions = {}
+    release_packages = SortedDict()
+
+    if notice.release_packages:
+        for codename, pkgs in notice.release_packages.items():
+            release_version = releases[codename]
+            release_packages[release_version] = {}
+            for package in pkgs:
+                if not package.get("is_visible", True):
+                    continue
+
+                name = package["name"]
+                if not package["is_source"]:
+                    release_packages[release_version][name] = package
+                    continue
+
+                if notice.notice_type == "LSN":
+                    if name not in package_descriptions:
+                        package_versions[name] = []
+
+                    package_versions[name].append(package["version"])
+                    versions = ", >= ".join(package_versions[name])
+                    description = (
+                        f"{package['description']} - " f"(>= {versions})"
+                    )
+                    package_descriptions[name] = description
+
+                    continue
+
+                if name not in package_descriptions:
+                    package_descriptions[name] = package["description"]
 
     return notice
 
