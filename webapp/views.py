@@ -6,7 +6,6 @@ from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, func, and_, case, asc
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import contains_eager
-from sortedcontainers import SortedDict
 
 from webapp.auth import authorization_required
 from webapp.database import db_session, status_statuses
