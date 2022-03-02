@@ -395,7 +395,7 @@ class CVEAPISchema(CVESchema):
 
 class RelatedNoticesSchema(Schema):
     id = String()
-    package_list = String()
+    packages = String()
 
 
 class NoticeAPIDetailedSchema(NoticeAPISchema):

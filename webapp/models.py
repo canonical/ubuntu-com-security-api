@@ -154,13 +154,13 @@ class Notice(Base):
         return ""
 
     @hybrid_property
-    def package_list(self):
+    def packages(self):
         if not self.release_packages:
             return []
 
         package_list = []
-        for codename, packages in self.release_packages.items():
-            for package in packages:
+        for codename, current_packages in self.release_packages.items():
+            for package in current_packages:
                 package_list.append(package["name"])
 
         return set(sorted(package_list))
@@ -175,7 +175,7 @@ class Notice(Base):
                     related_notices.append(
                         {
                             "id": notice.id,
-                            "package_list": ", ".join(notice.package_list),
+                            "packages": ", ".join(notice.packages),
                         }
                     )
                     related_notices_ids.append(notice.id)
