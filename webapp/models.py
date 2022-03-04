@@ -18,6 +18,20 @@ from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
+
+STATUS_STATUSES = Enum(
+    "released",
+    "DNE",
+    "needed",
+    "not-affected",
+    "deferred",
+    "needs-triage",
+    "ignored",
+    "pending",
+    name="statuses",
+)
+
+
 notice_cves = Table(
     "notice_cves",
     Base.metadata,
@@ -227,19 +241,7 @@ class Status(Base):
     release_codename = Column(
         String, ForeignKey("release.codename"), primary_key=True
     )
-    status = Column(
-        Enum(
-            "released",
-            "DNE",
-            "needed",
-            "not-affected",
-            "deferred",
-            "needs-triage",
-            "ignored",
-            "pending",
-            name="statuses",
-        )
-    )
+    status = Column(STATUS_STATUSES)
     description = Column(String)
     component = Column(
         Enum("main", "universe", name="components"),

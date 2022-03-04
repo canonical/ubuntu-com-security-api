@@ -9,8 +9,8 @@ from sqlalchemy.orm import contains_eager
 import dateutil
 
 from webapp.auth import authorization_required
-from webapp.database import db_session, status_statuses
-from webapp.models import CVE, Notice, Release, Status, Package
+from webapp.database import db_session
+from webapp.models import CVE, Notice, Release, Status, Package, STATUS_STATUSES
 from webapp.schemas import (
     CVEsAPISchema,
     CVEsParameters,
@@ -683,10 +683,10 @@ def _get_clean_statuses(statuses, versions):
         return clean_statuses
 
     for status in statuses:
-        if status != "" and status in status_statuses:
+        if status != "" and status in STATUS_STATUSES:
             clean_statuses.append([status])
         else:
-            clean_statuses.append(status_statuses)
+            clean_statuses.append(STATUS_STATUSES)
 
     return clean_statuses
 
