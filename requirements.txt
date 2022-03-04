@@ -1,6 +1,5 @@
 canonicalwebteam.flask-base==1.0.1
 alchemy-mock==0.4.3
-alembic==1.7.5
 apispec==4.7.1
 Flask==1.1.4
 flask-apispec==0.11.0
@@ -14,3 +13,6 @@ SQLAlchemy==1.4.29
 webargs==6.1.1
 black==21.12b0
 sortedcontainers==2.4.0
+Flask-SQLAlchemy==2.5.1
+Flask-Migrate==3.1.0
+

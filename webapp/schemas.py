@@ -37,7 +37,9 @@ class ReleaseCodename(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        release_codenames = [release.codename for release in Release.query.all()]
+        release_codenames = [
+            release.codename for release in Release.query.all()
+        ]
         if value != "" and value not in release_codenames:
             raise self.make_error("unrecognised_codename", input=value)
 
@@ -62,7 +64,7 @@ class StatusStatuses(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value != "" and value not in STATUS_STATUSES:
+        if value != "" and value not in STATUS_STATUSES.enums:
             raise self.make_error("unrecognised_status", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -276,7 +278,7 @@ class ReleasesAPISchema(Schema):
 # --
 class Status(Schema):
     release_codename = ReleaseCodename(required=True)
-    status = StatusStatuses(enum=STATUS_STATUSES, required=True)
+    status = StatusStatuses(required=True)
     description = String(allow_none=True)
     component = Component(enum=["main", "universe"], required=False)
     pocket = Pocket(
@@ -403,7 +405,7 @@ CVEsParameters = {
         allow_none=True,
     ),
     "status": List(
-        StatusStatuses(enum=STATUS_STATUSES),
+        StatusStatuses(),
         description="List of statuses",
         allow_none=True,
     ),
