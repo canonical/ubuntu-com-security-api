@@ -6,6 +6,7 @@ from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, func, and_, case, asc
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import contains_eager
+import dateutil
 
 from webapp.auth import authorization_required
 from webapp.database import db_session, status_statuses
@@ -268,7 +269,7 @@ def bulk_upsert_cve(*args, **kwargs):
             cve.published.strftime("%Y-%B-%d") if cve.published else None
         )
         data_published_date = (
-            data.get("published").strftime("%Y-%B-%d")
+            dateutil.parser.parse(data.get("published")).strftime("%Y-%B-%d")
             if data.get("published")
             else None
         )
