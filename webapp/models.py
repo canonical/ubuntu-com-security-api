@@ -167,18 +167,18 @@ class Notice(Base):
 
     @hybrid_property
     def related_notices(self):
-        related_notices_ids = [self.id]
+        seen_notices_ids = [self.id]
         related_notices = []
         for cve in self.cves:
             for notice in cve.notices:
-                if notice.id not in related_notices_ids:
+                if notice.id not in seen_notices_ids:
                     related_notices.append(
                         {
                             "id": notice.id,
                             "packages": ", ".join(notice.packages),
                         }
                     )
-                    related_notices_ids.append(notice.id)
+                    seen_notices_ids.append(notice.id)
 
         return related_notices
 
