@@ -13,3 +13,4 @@ psycopg2-binary==2.9.3
 SQLAlchemy==1.4.29
 webargs==6.1.1
 black==21.12b0
+sortedcontainers==2.4.0

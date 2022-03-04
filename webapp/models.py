@@ -153,6 +153,35 @@ class Notice(Base):
 
         return ""
 
+    @hybrid_property
+    def packages(self):
+        if not self.release_packages:
+            return []
+
+        package_list = []
+        for codename, current_packages in self.release_packages.items():
+            for package in current_packages:
+                package_list.append(package["name"])
+
+        return set(sorted(package_list))
+
+    @hybrid_property
+    def related_notices(self):
+        seen_notices_ids = [self.id]
+        related_notices = []
+        for cve in self.cves:
+            for notice in cve.notices:
+                if notice.id not in seen_notices_ids:
+                    related_notices.append(
+                        {
+                            "id": notice.id,
+                            "packages": ", ".join(notice.packages),
+                        }
+                    )
+                    seen_notices_ids.append(notice.id)
+
+        return related_notices
+
 
 class Release(Base):
     __tablename__ = "release"

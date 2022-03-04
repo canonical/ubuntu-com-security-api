@@ -393,8 +393,14 @@ class CVEAPISchema(CVESchema):
     )
 
 
+class RelatedNoticesSchema(Schema):
+    id = String()
+    packages = String()
+
+
 class NoticeAPIDetailedSchema(NoticeAPISchema):
     cves = List(Nested(CVEAPISchema))
+    related_notices = List(Nested(RelatedNoticesSchema))
 
 
 class CVEAPIDetailedSchema(CVEAPISchema):
