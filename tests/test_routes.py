@@ -18,25 +18,22 @@ from tests.fixtures import payloads
 Monkey-patching before importing the main application
 ===
 
-Switch to using a test database if one was specified
-This is mainly for local development, where we would like to avoid
-clobbering the main database being actively used by the developer
+Get the database connection string from the TEST_DATABASE_URL environment
+variable. This variabel is required, as it's important not to accidentally
+wipe out a real database.
 
-Replace authorization_required decorator
-with a transparent function to disable authorization checks for testing
-(this isn't ideal, but I don't know of a better way to mock authentication
-right now)
+Replace the authorization_required view decorator with a transparent function
+to disable authorization checks for testing privileged views.
+This is not ideal, as it means we're not testing the actual authorization
+functionality, but I don't know of a good way to do that right now.
 """
 
 from webapp import auth
 from tests.helpers import transparent_decorator
 
+
 auth.authorization_required = transparent_decorator
-
-
-if os.environ.get("TEST_DATABASE_URL"):
-    os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
-
+os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
 
 from webapp.app import app, db  # noqa: E402
 

@@ -112,7 +112,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          DATABASE_URL=postgresql://postgres:pw@localhost:5432/postgres coverage run  --source=. -m unittest discover tests
+          TEST_DATABASE_URL=postgresql://postgres:pw@localhost:5432/postgres coverage run  --source=. -m unittest discover tests
           bash <(curl -s https://codecov.io/bash) -cF python
           
   check-inclusive-naming:
