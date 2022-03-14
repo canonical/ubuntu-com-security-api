@@ -7,7 +7,8 @@
     "lint-python": "flake8 webapp tests && black --check --line-length 79 webapp tests",
     "serve": "./entrypoint 0.0.0.0:${PORT}",
     "start": "yarn run serve",
-    "start-db": "docker-compose up",
+    "start-db": "docker-compose up -d",
+    "stop-db": "docker-compose stop",
     "delete-db": "docker-compose stop; docker-compose rm -f",
     "test": "yarn run lint-python && yarn run test-python",
     "test-python": "python3 -m unittest discover tests"
