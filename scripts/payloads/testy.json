@@ -1,0 +1,10 @@
+{
+    "codename": "testy",
+    "development": false,
+    "lts": false,
+    "name": "Testy Test",
+    "release_date": "3004-10-26T00:00:00",
+    "support_expires": "3006-04-30T00:00:00",
+    "esm_expires": "3006-04-30T00:00:00",
+    "version": "99.10"
+}

@@ -1,8 +1,9 @@
 version: "3.3"
 services:
-  postgres:
+  security_db:
     container_name: security_db
     ports: ["5432:5432"]
     environment: [POSTGRES_HOST_AUTH_METHOD=trust]
     image: postgres
-
+    volumes:
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
