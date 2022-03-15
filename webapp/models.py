@@ -12,28 +12,41 @@ from sqlalchemy import (
     String,
     Table,
 )
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy.orm import relationship
 
-Base = declarative_base()
+from webapp.database import db
+
+
+STATUS_STATUSES = Enum(
+    "released",
+    "DNE",
+    "needed",
+    "not-affected",
+    "deferred",
+    "needs-triage",
+    "ignored",
+    "pending",
+    name="statuses",
+)
+
 
 notice_cves = Table(
     "notice_cves",
-    Base.metadata,
+    db.Model.metadata,
     Column("notice_id", String, ForeignKey("notice.id")),
     Column("cve_id", String, ForeignKey("cve.id")),
 )
 
 notice_releases = Table(
     "notice_releases",
-    Base.metadata,
+    db.Model.metadata,
     Column("notice_id", String, ForeignKey("notice.id")),
     Column("release_codename", String, ForeignKey("release.codename")),
 )
 
 
-class CVE(Base):
+class CVE(db.Model):
     __tablename__ = "cve"
 
     id = Column(String, primary_key=True)
@@ -120,7 +133,7 @@ class CVE(Base):
         return [notice.id for notice in self.notices]
 
 
-class Notice(Base):
+class Notice(db.Model):
     __tablename__ = "notice"
 
     id = Column(String, primary_key=True)
@@ -183,7 +196,7 @@ class Notice(Base):
         return related_notices
 
 
-class Release(Base):
+class Release(db.Model):
     __tablename__ = "release"
 
     codename = Column(String, primary_key=True)
@@ -211,7 +224,7 @@ class Release(Base):
         return ""
 
 
-class Status(Base):
+class Status(db.Model):
     __tablename__ = "status"
 
     active_statuses = [
@@ -227,19 +240,7 @@ class Status(Base):
     release_codename = Column(
         String, ForeignKey("release.codename"), primary_key=True
     )
-    status = Column(
-        Enum(
-            "released",
-            "DNE",
-            "needed",
-            "not-affected",
-            "deferred",
-            "needs-triage",
-            "ignored",
-            "pending",
-            name="statuses",
-        )
-    )
+    status = Column(STATUS_STATUSES)
     description = Column(String)
     component = Column(
         Enum("main", "universe", name="components"),
@@ -253,7 +254,7 @@ class Status(Base):
     release = relationship("Release", back_populates="statuses")
 
 
-class Package(Base):
+class Package(db.Model):
     __tablename__ = "package"
 
     name = Column(String, primary_key=True)

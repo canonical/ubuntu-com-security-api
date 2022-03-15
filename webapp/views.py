@@ -8,9 +8,16 @@ from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import contains_eager
 import dateutil
 
+from webapp.app import db
 from webapp.auth import authorization_required
-from webapp.database import db_session, status_statuses
-from webapp.models import CVE, Notice, Release, Status, Package
+from webapp.models import (
+    CVE,
+    Notice,
+    Release,
+    Status,
+    Package,
+    STATUS_STATUSES,
+)
 from webapp.schemas import (
     CVEsAPISchema,
     CVEsParameters,
@@ -38,7 +45,7 @@ from webapp.schemas import (
 def get_cve(cve_id, **kwargs):
     show_hidden = kwargs.get("show_hidden", False)
 
-    cve = db_session.query(CVE).filter(CVE.id == cve_id.upper()).one_or_none()
+    cve = CVE.query.get(cve_id.upper())
 
     if not cve:
         return make_response(
@@ -70,7 +77,7 @@ def get_cves(**kwargs):
     clean_statuses = _get_clean_statuses(statuses, versions)
 
     # query cves by filters
-    cves_query = db_session.query(
+    cves_query = db.session.query(
         CVE, func.count("*").over().label("total")
     ).filter(CVE.status == "active")
 
@@ -250,12 +257,12 @@ def bulk_upsert_cve(*args, **kwargs):
         )
 
     packages = {}
-    for package in db_session.query(Package).all():
+    for package in Package.query.all():
         packages[package.name] = package
 
     for data in cves_data:
         update_cve = False
-        cve = db_session.query(CVE).get(data["id"].upper())
+        cve = CVE.query.get(data["id"].upper())
 
         if cve is None:
             update_cve = True
@@ -318,7 +325,7 @@ def bulk_upsert_cve(*args, **kwargs):
             cve.mitigation = data.get("mitigation")
 
         if update_cve:
-            db_session.add(cve)
+            db.session.add(cve)
 
         _update_statuses(cve, data, packages)
 
@@ -326,17 +333,17 @@ def bulk_upsert_cve(*args, **kwargs):
     updated = defaultdict(lambda: 0)
     deleted = defaultdict(lambda: 0)
 
-    for item in db_session.new:
+    for item in db.session.new:
         created[type(item).__name__] += 1
 
-    for item in db_session.dirty:
+    for item in db.session.dirty:
         updated[type(item).__name__] += 1
 
-    for item in db_session.deleted:
+    for item in db.session.deleted:
         deleted[type(item).__name__] += 1
 
     try:
-        db_session.commit()
+        db.session.commit()
     except DataError as error:
         return make_response(
             jsonify(
@@ -358,7 +365,7 @@ def bulk_upsert_cve(*args, **kwargs):
 @marshal_with(MessageSchema, code=200)
 @marshal_with(MessageSchema, code=404)
 def delete_cve(cve_id):
-    cve = db_session.query(CVE).filter(CVE.id == cve_id.upper()).one_or_none()
+    cve = CVE.query.get(cve_id.upper())
 
     if not cve:
         return make_response(
@@ -366,8 +373,8 @@ def delete_cve(cve_id):
             404,
         )
 
-    db_session.delete(cve)
-    db_session.commit()
+    db.session.delete(cve)
+    db.session.commit()
 
     return make_response(
         jsonify({"message": f"CVE with id '{cve_id}' was deleted"}), 200
@@ -379,12 +386,12 @@ def delete_cve(cve_id):
 @marshal_with(MessageWithErrorsSchema, code=404)
 @use_kwargs(NoticeParameters, location="query")
 def get_notice(notice_id, **kwargs):
-    notice_query = db_session.query(Notice)
+    notice_query = Notice.query
 
     if not kwargs.get("show_hidden", False):
         notice_query = notice_query.filter(Notice.is_hidden == "False")
 
-    notice = notice_query.filter(Notice.id == notice_id.upper()).one_or_none()
+    notice = notice_query.filter_by(id=notice_id.upper()).one_or_none()
 
     if not notice:
         return make_response(
@@ -408,7 +415,7 @@ def get_notices(**kwargs):
     offset = kwargs.get("offset", 0)
     order_by = kwargs.get("order")
 
-    notices_query = db_session.query(
+    notices_query = db.session.query(
         Notice, func.count("*").over().label("total")
     )
 
@@ -457,11 +464,11 @@ def get_notices(**kwargs):
 def create_notice(**kwargs):
     notice_data = request.json
 
-    db_session.add(
+    db.session.add(
         _update_notice_object(Notice(id=notice_data["id"]), notice_data)
     )
 
-    db_session.commit()
+    db.session.commit()
 
     return make_response(jsonify({"message": "Notice created"}), 200)
 
@@ -472,9 +479,7 @@ def create_notice(**kwargs):
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(NoticeImportSchema, location="json")
 def update_notice(notice_id, **kwargs):
-    notice = (
-        db_session.query(Notice).filter(Notice.id == notice_id).one_or_none()
-    )
+    notice = Notice.query.get(notice_id)
 
     if not notice:
         return make_response(
@@ -484,8 +489,8 @@ def update_notice(notice_id, **kwargs):
 
     notice = _update_notice_object(notice, request.json)
 
-    db_session.add(notice)
-    db_session.commit()
+    db.session.add(notice)
+    db.session.commit()
 
     return make_response(jsonify({"message": "Notice updated"}), 200)
 
@@ -494,9 +499,7 @@ def update_notice(notice_id, **kwargs):
 @marshal_with(MessageSchema, code=200)
 @marshal_with(MessageSchema, code=404)
 def delete_notice(notice_id):
-    notice = (
-        db_session.query(Notice).filter(Notice.id == notice_id).one_or_none()
-    )
+    notice = Notice.query.get(notice_id)
 
     if not notice:
         return make_response(
@@ -504,8 +507,8 @@ def delete_notice(notice_id):
             404,
         )
 
-    db_session.delete(notice)
-    db_session.commit()
+    db.session.delete(notice)
+    db.session.commit()
 
     return make_response(
         jsonify({"message": f"Notice {notice_id} deleted"}), 200
@@ -515,11 +518,7 @@ def delete_notice(notice_id):
 @marshal_with(ReleaseAPISchema, code=200)
 @marshal_with(MessageSchema, code=404)
 def get_release(release_codename):
-    release = (
-        db_session.query(Release)
-        .filter(Release.codename == release_codename)
-        .one_or_none()
-    )
+    release = Release.query.get(release_codename)
 
     if not release:
         return make_response(
@@ -534,8 +533,7 @@ def get_release(release_codename):
 @marshal_with(MessageSchema, code=404)
 def get_releases():
     releases = (
-        db_session.query(Release)
-        .order_by(desc(Release.release_date))
+        Release.query.order_by(desc(Release.release_date))
         .filter(
             or_(
                 Release.codename == "upstream",
@@ -556,19 +554,19 @@ def get_releases():
 def create_release(**kwargs):
     release_data = request.json
 
-    release = Release(
-        codename=release_data["codename"],
-        version=release_data["version"],
-        name=release_data["name"],
-        development=release_data["development"],
-        lts=release_data["lts"],
-        release_date=release_data["release_date"],
-        esm_expires=release_data["esm_expires"],
-        support_expires=release_data["support_expires"],
+    db.session.add(
+        Release(
+            codename=release_data["codename"],
+            version=release_data["version"],
+            name=release_data["name"],
+            development=release_data["development"],
+            lts=release_data["lts"],
+            release_date=release_data["release_date"],
+            esm_expires=release_data["esm_expires"],
+            support_expires=release_data["support_expires"],
+        )
     )
-
-    db_session.add(release)
-    db_session.commit()
+    db.session.commit()
 
     return make_response(jsonify({"message": "Release created"}), 200)
 
@@ -579,11 +577,7 @@ def create_release(**kwargs):
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(UpdateReleaseSchema, location="json")
 def update_release(release_codename, **kwargs):
-    release = (
-        db_session.query(Release)
-        .filter(Release.codename == release_codename)
-        .one_or_none()
-    )
+    release = Release.query.get(release_codename)
 
     if not release:
         return make_response(
@@ -600,10 +594,10 @@ def update_release(release_codename, **kwargs):
     release.esm_expires = release_data["esm_expires"]
     release.support_expires = release_data["support_expires"]
 
-    db_session.add(release)
+    db.session.add(release)
 
     try:
-        db_session.commit()
+        db.session.commit()
     except IntegrityError as error:
         return make_response(
             jsonify(
@@ -623,11 +617,7 @@ def update_release(release_codename, **kwargs):
 @marshal_with(MessageSchema, code=400)
 @marshal_with(MessageSchema, code=404)
 def delete_release(release_codename):
-    release = (
-        db_session.query(Release)
-        .filter(Release.codename == release_codename)
-        .one_or_none()
-    )
+    release = Release.query.get(release_codename)
 
     if not release:
         return make_response(
@@ -648,8 +638,8 @@ def delete_release(release_codename):
             400,
         )
 
-    db_session.delete(release)
-    db_session.commit()
+    db.session.delete(release)
+    db.session.commit()
 
     return make_response(
         jsonify({"message": f"Release {release_codename} deleted"}), 200
@@ -657,7 +647,7 @@ def delete_release(release_codename):
 
 
 def _get_releases(versions):
-    releases_query = db_session.query(Release).order_by(Release.release_date)
+    releases_query = Release.query.order_by(Release.release_date)
 
     if versions and not any(a in ["", "current"] for a in versions):
         releases_query = releases_query.filter(Release.codename.in_(versions))
@@ -683,10 +673,10 @@ def _get_clean_statuses(statuses, versions):
         return clean_statuses
 
     for status in statuses:
-        if status != "" and status in status_statuses:
+        if status != "" and status in STATUS_STATUSES.enums:
             clean_statuses.append([status])
         else:
-            clean_statuses.append(status_statuses)
+            clean_statuses.append(STATUS_STATUSES.enums)
 
     return clean_statuses
 
@@ -723,13 +713,13 @@ def _update_notice_object(notice, data):
     notice.is_hidden = data.get("is_hidden", False)
 
     notice.releases = [
-        db_session.query(Release).get(codename)
+        Release.query.get(codename)
         for codename in data["release_packages"].keys()
     ]
 
     notice.cves.clear()
     for cve_id in set(data["cves"]):
-        notice.cves.append(db_session.query(CVE).get(cve_id) or CVE(id=cve_id))
+        notice.cves.append(CVE.query.get(cve_id) or CVE(id=cve_id))
 
     return notice
 
@@ -737,9 +727,8 @@ def _update_notice_object(notice, data):
 def _update_statuses(cve, data, packages):
     statuses = cve.packages
 
-    statuses_to_check = (
-        db_session.query(Status).filter(Status.cve_id == cve.id).all()
-    )
+    statuses_to_check = Status.query.filter(Status.cve_id == cve.id).all()
+
     statuses_to_delete = {
         f"{v.package_name}||{v.release_codename}": v for v in statuses_to_check
     }
@@ -754,7 +743,7 @@ def _update_statuses(cve, data, packages):
             package.debian = package_data["debian"]
             packages[name] = package
 
-            db_session.add(package)
+            db.session.add(package)
 
         for status_data in package_data["statuses"]:
             update_status = False
@@ -787,7 +776,7 @@ def _update_statuses(cve, data, packages):
 
             if update_status:
                 statuses[name][codename] = status
-                db_session.add(status)
+                db.session.add(status)
 
     for key in statuses_to_delete:
-        db_session.delete(statuses_to_delete[key])
+        db.session.delete(statuses_to_delete[key])

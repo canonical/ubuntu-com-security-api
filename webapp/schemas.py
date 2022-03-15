@@ -12,13 +12,7 @@ from marshmallow.fields import (
 )
 from marshmallow.validate import Regexp
 
-from webapp.database import (
-    release_codenames,
-    status_statuses,
-    db_session,
-    inspector,
-)
-from webapp.models import Package, Notice, Release
+from webapp.models import Package, Notice, Release, STATUS_STATUSES
 
 
 # Types
@@ -43,6 +37,9 @@ class ReleaseCodename(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
+        release_codenames = [
+            release.codename for release in Release.query.all()
+        ]
         if value != "" and value not in release_codenames:
             raise self.make_error("unrecognised_codename", input=value)
 
@@ -67,7 +64,7 @@ class StatusStatuses(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value != "" and value not in status_statuses:
+        if value != "" and value not in STATUS_STATUSES.enums:
             raise self.make_error("unrecognised_status", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -79,17 +76,7 @@ class UniqueNoticeId(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        exists = False
-
-        if "notice" in inspector.get_table_names():
-            exists = (
-                db_session.query(Notice)
-                .filter(Notice.id == value)
-                .one_or_none()
-                is not None
-            )
-
-        if exists:
+        if Notice.query.get(value):
             raise self.make_error("notice_id_exists", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -103,17 +90,7 @@ class UniqueReleaseCodename(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        exists = False
-
-        if "release" in inspector.get_table_names():
-            exists = (
-                db_session.query(Release)
-                .filter(Release.codename == value)
-                .one_or_none()
-                is not None
-            )
-
-        if exists:
+        if Release.query.get(value):
             raise self.make_error("release_codename_exists", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -127,17 +104,7 @@ class UniqueReleaseVersion(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        exists = False
-
-        if "release" in inspector.get_table_names():
-            exists = (
-                db_session.query(Release)
-                .filter(Release.version == value)
-                .one_or_none()
-                is not None
-            )
-
-        if exists:
+        if Release.query.get(value):
             raise self.make_error("release_version_exists", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -149,17 +116,7 @@ class UniqueReleaseName(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        exists = False
-
-        if "release" in inspector.get_table_names():
-            exists = (
-                db_session.query(Release)
-                .filter(Release.name == value)
-                .one_or_none()
-                is not None
-            )
-
-        if exists:
+        if Release.query.get(value):
             raise self.make_error("release_name_exists", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -171,17 +128,7 @@ class PackageName(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        exists = False
-
-        if "package" in inspector.get_table_names():
-            exists = (
-                db_session.query(Package.name)
-                .filter_by(name=value)
-                .one_or_none()
-                is not None
-            )
-
-        if not exists:
+        if not Package.query.get(value):
             raise self.make_error("unrecognised_package_name", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -216,9 +163,7 @@ class NoticePackage(Schema):
     is_visible = Boolean()
     source_link = String(allow_none=True)
     version_link = String(allow_none=True)
-    pocket = Pocket(
-        enum=["security", "updates", "esm-infra", "esm-apps"], required=False
-    )
+    pocket = Pocket()
 
 
 class NoticeSchema(Schema):
@@ -270,11 +215,7 @@ NoticesParameters = {
         allow_none=True,
     ),
     "cve_id": String(allow_none=True),
-    "release": ReleaseCodename(
-        enum=release_codenames,
-        description="List of release codenames",
-        allow_none=True,
-    ),
+    "release": ReleaseCodename(allow_none=True),
     "limit": Int(
         description="Number of CVEs per response. Defaults to 20.",
         allow_none=True,
@@ -306,7 +247,7 @@ NoticesParameters = {
 class ReleaseSchema(Schema):
     name = UniqueReleaseName(required=True)
     version = UniqueReleaseVersion(required=True)
-    codename = UniqueReleaseCodename(enum=release_codenames, required=True)
+    codename = UniqueReleaseCodename(required=True)
     lts = Boolean(required=True)
     development = Boolean(required=True)
     release_date = ParsedDateTime(required=True)
@@ -336,8 +277,8 @@ class ReleasesAPISchema(Schema):
 # CVEs
 # --
 class Status(Schema):
-    release_codename = ReleaseCodename(enum=release_codenames, required=True)
-    status = StatusStatuses(enum=status_statuses, required=True)
+    release_codename = ReleaseCodename(required=True)
+    status = StatusStatuses(required=True)
     description = String(allow_none=True)
     component = Component(enum=["main", "universe"], required=False)
     pocket = Pocket(
@@ -459,12 +400,12 @@ CVEsParameters = {
         description="Package component",
     ),
     "version": List(
-        ReleaseCodename(enum=release_codenames),
+        ReleaseCodename(),
         description="List of release codenames ",
         allow_none=True,
     ),
     "status": List(
-        StatusStatuses(enum=status_statuses),
+        StatusStatuses(),
         description="List of statuses",
         allow_none=True,
     ),

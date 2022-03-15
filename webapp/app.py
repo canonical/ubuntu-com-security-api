@@ -1,10 +1,13 @@
+import os
+
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from canonicalwebteam.flask_base.app import FlaskBase
 from flask import jsonify, make_response
+from flask_migrate import Migrate
 
 from webapp.api_spec import WebappFlaskApiSpec
-from webapp.database import db_session
+from webapp.database import db
 from webapp.views import (
     get_cve,
     get_notice,
@@ -22,6 +25,7 @@ from webapp.views import (
     get_releases,
 )
 
+
 app = FlaskBase(
     __name__,
     "ubuntu-com-security-api",
@@ -37,8 +41,13 @@ app.config.update(
         ),
         "APISPEC_SWAGGER_URL": "/security/api/spec.json",
         "APISPEC_SWAGGER_UI_URL": "/security/api/docs",
+        "SQLALCHEMY_DATABASE_URI": os.environ["DATABASE_URL"],
+        "SQLALCHEMY_TRACK_MODIFICATIONS": False,
     }
 )
+
+db.init_app(app)
+migrate = Migrate(app, db)
 
 app.add_url_rule(
     "/security/cves/<cve_id>.json",
@@ -160,10 +169,3 @@ def handle_error(error):
         jsonify({"message": "Invalid payload", "errors": str(messages)}),
         422,
     )
-
-
-@app.teardown_appcontext
-def remove_db_session(response):
-    db_session.remove()
-
-    return response
