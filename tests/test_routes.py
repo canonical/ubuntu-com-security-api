@@ -94,6 +94,17 @@ class TestRoutes(unittest.TestCase):
 
         assert response.status_code == 200
 
+    def test_cves(self):
+        """
+        Check /security/cves.json returns a list with the expected CVE
+        """
+
+        response = self.client.get("/security/cves.json")
+
+        assert response.status_code == 200
+        assert len(response.json["cves"]) == 1
+        assert response.json["cves"][0]["id"] == "CVE-1111-0001"
+
     def test_cve_not_exists(self):
         response = self.client.get("/security/cves/CVE-0000-0000.json")
 
