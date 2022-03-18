@@ -1,33 +1,88 @@
-import pathlib
+# Standard library
+from contextlib import redirect_stderr
+import io
+import os
 import unittest
+import warnings
 
-from alchemy_mock.mocking import UnifiedAlchemyMagicMock
-from flask import json
+# Packages
+from sqlalchemy_utils import database_exists, create_database
+import flask_migrate
 
-from tests.auth_mock import mock_auth_decorator
-from tests.alchemy_mock_data import data
-from tests.database_mock import (
-    mocked_inspector,
-    mocked_release_codenames,
-    mocked_status_statuses,
-)
-from webapp import auth, database
 
-auth.authorization_required = mock_auth_decorator()
-database.db_session = UnifiedAlchemyMagicMock(data=data)
-database.inspector = mocked_inspector
-database.release_codenames = mocked_release_codenames
-database.status_statuses = mocked_status_statuses
+# Local
+from tests.fixtures.models import make_models
+from tests.fixtures import payloads
 
-from webapp.app import app  # noqa
+"""
+Monkey-patching before importing the main application
+===
+
+Get the database connection string from the TEST_DATABASE_URL environment
+variable. This variabel is required, as it's important not to accidentally
+wipe out a real database.
+
+Replace the authorization_required view decorator with a transparent function
+to disable authorization checks for testing privileged views.
+This is not ideal, as it means we're not testing the actual authorization
+functionality, but I don't know of a good way to do that right now.
+"""
+
+from webapp import auth
+from tests.helpers import transparent_decorator
+
+
+auth.authorization_required = transparent_decorator
+os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
+
+from webapp.app import app, db  # noqa: E402
+
+
+# Create database if it doesn't exist
+with app.app_context():
+    if not database_exists(db.engine.url):
+        create_database(db.engine.url)
+
+
+# Suppress annoying ResourceWarnings
+warnings.filterwarnings(action="ignore", category=ResourceWarning)
 
 
 class TestRoutes(unittest.TestCase):
     def setUp(self):
         app.testing = True
 
+        # Set up app context
+        self.context = app.app_context()
+        self.context.push()
+
+        # Clear DB
+        db.drop_all()
+        with redirect_stderr(io.StringIO()):
+            flask_migrate.stamp(revision="base")
+
+        # Prepare DB
+        with redirect_stderr(io.StringIO()):
+            flask_migrate.upgrade()
+
+        # Import data
+        self.models = make_models()
+        db.session.add(self.models["cve"])
+        db.session.add(self.models["notice"])
+        db.session.add(self.models["release"])
+        db.session.add(self.models["package"])
+        db.session.add(self.models["status"])
+        db.session.commit()
+
         self.client = app.test_client()
         return super().setUp()
+
+    def tearDown(self):
+        db.session.close()
+
+        self.context.pop()
+
+        return super().tearDown()
 
     def test_spec(self):
         response = self.client.get("/security/api/spec.json")
@@ -45,12 +100,16 @@ class TestRoutes(unittest.TestCase):
         assert response.status_code == 404
 
     def test_cve(self):
-        response = self.client.get("/security/cves/CVE-0000-0001.json")
-        expected_cve = get_fixture("CVE-0000-0001")
+        response = self.client.get(
+            f"/security/cves/{self.models['cve'].id}.json"
+        )
 
         assert response.status_code == 200
-        assert response.json["packages"] == expected_cve["packages"]
-        assert response.json["notices_ids"] == expected_cve["notices_ids"]
+        assert (
+            response.json["packages"][0]["name"]
+            == list(self.models["cve"].packages)[0]
+        )
+        assert response.json["notices_ids"] == self.models["cve"].notices_ids
 
     def test_cves_returns_422_for_non_existing_package_name(self):
         response = self.client.get("/security/cves.json?package=no-exist")
@@ -76,11 +135,12 @@ class TestRoutes(unittest.TestCase):
         assert response.status_code == 404
 
     def test_usn(self):
-        response = self.client.get("/security/notices/USN-0000-01.json")
-        expected_notice = get_fixture("USN-0000-01")
+        response = self.client.get(
+            f"/security/notices/{self.models['notice'].id}.json"
+        )
 
         assert response.status_code == 200
-        assert response.json["cves_ids"] == expected_notice["cves_ids"]
+        assert response.json["cves_ids"] == self.models["notice"].cves_ids
 
     def test_usns_returns_422_for_non_existing_release(self):
         response = self.client.get("/security/notices.json?release=no-exist")
@@ -89,20 +149,31 @@ class TestRoutes(unittest.TestCase):
         assert "Cannot find a release with codename" in response.json["errors"]
 
     def test_create_usn(self):
-        notice = get_fixture("USN-0000-02")
-        response = self.client.post("/security/notices.json", json=notice)
+        response = self.client.post(
+            "/security/notices.json", json=payloads.notice
+        )
 
         assert response.status_code == 200
 
     def test_create_usn_returns_422_for_non_unique_id(self):
-        notice = get_fixture("USN-0000-01")
-        response = self.client.post("/security/notices.json", json=notice)
+        # Create USN
+        response_1 = self.client.post(
+            "/security/notices.json", json=payloads.notice
+        )
+        assert response_1.status_code == 200
 
-        assert response.status_code == 422
-        assert "'USN-0000-01' already exists" in response.json["errors"]
+        # Create again
+        response_2 = self.client.post(
+            "/security/notices.json", json=payloads.notice
+        )
+        assert response_2.status_code == 422
+        assert (
+            f"'{payloads.notice['id']}' already exists"
+            in response_2.json["errors"]
+        )
 
     def test_create_usn_returns_422_for_unknown_field(self):
-        notice = get_fixture("USN-0000-02")
+        notice = payloads.notice.copy()
         notice["unknown"] = "field"
 
         response = self.client.post("/security/notices.json", json=notice)
@@ -111,108 +182,138 @@ class TestRoutes(unittest.TestCase):
         assert "Unknown field." in response.json["errors"]
 
     def test_update_usn(self):
-        notice = get_fixture("USN-0000-03")
-        notice["instructions"] = "Instructions were updated!"
+        instructions = "Instructions were updated!"
 
-        response = self.client.put(
-            "/security/notices/USN-0000-03.json", json=notice
+        # Create first
+        notice = payloads.notice.copy()
+        response_1 = self.client.post("/security/notices.json", json=notice)
+        assert response_1.status_code == 200
+
+        # Update
+        notice["instructions"] = instructions
+        response_2 = self.client.put(
+            f"/security/notices/{notice['id']}.json", json=notice
         )
+        assert response_2.status_code == 200
 
-        assert response.status_code == 200
+        # Get
+        response_3 = self.client.get(f"/security/notices/{notice['id']}.json")
+        assert response_3.json["instructions"] == instructions
 
     def test_update_usn_returns_404_for_non_existing_id(self):
-        notice = get_fixture("USN-0000-03")
-
         response = self.client.put(
-            "/security/notices/USN-0000-02.json", json=notice
+            f"/security/notices/{payloads.notice['id']}.json",
+            json=payloads.notice,
         )
 
         assert response.status_code == 404
 
     def test_update_usn_returns_422_for_unknown_field(self):
-        notice = get_fixture("USN-0000-03")
+        notice = payloads.notice.copy()
         notice["unknown"] = "field"
 
         response = self.client.put(
-            "/security/notices/USN-0000-03.json", json=notice
+            f"/security/notices/{notice['id']}.json", json=notice
         )
 
         assert response.status_code == 422
         assert "Unknown field." in response.json["errors"]
 
     def test_delete_usn_returns_404_for_non_existing_usn(self):
-        response = self.client.delete("/security/notices/USN-0000-02.json")
+        response = self.client.delete(
+            f"/security/notices/{payloads.notice['id']}.json"
+        )
 
         assert response.status_code == 404
 
     def test_delete_usn(self):
-        response = self.client.delete("/security/notices/USN-0000-04.json")
+        # Create USN first
+        response = self.client.post(
+            "/security/notices.json", json=payloads.notice
+        )
+        assert response.status_code == 200
 
+        # Now delete it
+        response = self.client.delete(
+            f"/security/notices/{payloads.notice['id']}.json"
+        )
         assert response.status_code == 200
 
     def test_bulk_upsert_cves_returns_422_for_invalid_cve(self):
-        cve = get_fixture("CVE-9999-0000")
+        cve = payloads.cve1.copy()
         cve["hello"] = "world"
+
         response = self.client.put("/security/cves.json", json=[cve])
 
         assert response.status_code == 422
         assert "Unknown field." in response.json["errors"]
 
     def test_bulk_upsert_cves(self):
-        response = self.client.get("/security/cves/CVE-9999-0000.json")
-        assert response.status_code == 200
+        response_1 = self.client.get(
+            f"/security/cves/{self.models['cve'].id}.json"
+        )
+        assert response_1.status_code == 200
 
-        response = self.client.get("/security/cves/CVE-9999-0001.json")
-        assert response.status_code == 200
+        response_2 = self.client.get(
+            f"/security/cves/{payloads.cve1['id']}.json"
+        )
+        assert response_2.status_code == 404
 
-        response = self.client.get("/security/cves/CVE-9999-0002.json")
-        assert response.status_code == 404
-
-        response = self.client.put(
+        response_3 = self.client.put(
             "/security/cves.json",
             json=[
-                get_fixture("CVE-9999-0000"),
-                get_fixture("CVE-9999-0001"),
-                get_fixture("CVE-9999-0002"),
+                payloads.cve1,
+                payloads.cve2,
             ],
+        )
+        assert response_3.status_code == 200
+
+        response = self.client.get(
+            f"/security/cves/{payloads.cve1['id']}.json"
+        )
+        assert response.status_code == 200
+
+        response = self.client.get(
+            f"/security/cves/{payloads.cve2['id']}.json"
         )
         assert response.status_code == 200
 
     def test_delete_non_existing_cve_returns_404(self):
-        response = self.client.delete("/security/cves/CVE-9999-0002.json")
+        response = self.client.delete(
+            f"/security/cves/{payloads.cve1['id']}.json"
+        )
 
         assert response.status_code == 404
 
     def test_delete_cve(self):
-        response = self.client.delete("/security/cves/CVE-9999-0000.json")
-        assert response.status_code == 200
-
-        response = self.client.delete("/security/cves/CVE-9999-0001.json")
+        response = self.client.delete(
+            f"/security/cves/{self.models['cve'].id}.json"
+        )
         assert response.status_code == 200
 
     def test_create_release(self):
-        release = get_fixture("new-release")
-        response = self.client.post("/security/releases.json", json=release)
+        response = self.client.post(
+            "/security/releases.json", json=payloads.release
+        )
 
         assert response.status_code == 200
 
     def test_create_existing_release_returns_422(self):
-        release = get_fixture("hirsute")
-        response = self.client.post("/security/releases.json", json=release)
+        # Create release
+        response_1 = self.client.post(
+            "/security/releases.json", json=payloads.release
+        )
+        assert response_1.status_code == 200
 
-        assert response.status_code == 422
-        assert (
-            "Release with codename 'hirsute' already exists"
-            in response.json["errors"]
+        # Create release again
+        response_2 = self.client.post(
+            "/security/releases.json", json=payloads.release
         )
+        assert response_2.status_code == 422
         assert (
-            "Release with version '21.04' already exists"
-            in response.json["errors"]
-        )
-        assert (
-            "Release with name 'Hirsute Hippo' already exists"
-            in response.json["errors"]
-        )
+            f"Release with codename '{payloads.release['codename']}'"
+            " already exists"
+        ) in response_2.json["errors"]
 
     def test_delete_non_existing_release_returns_404(self):
         response = self.client.delete("/security/releases/no-exist.json")
@@ -220,18 +321,17 @@ class TestRoutes(unittest.TestCase):
         assert response.status_code == 404
 
     def test_delete_release(self):
-        response = self.client.delete("/security/releases/hirsute.json")
+        # Create release first
+        response_1 = self.client.post(
+            "/security/releases.json", json=payloads.release
+        )
+        assert response_1.status_code == 200
 
+        # Delete release
+        response = self.client.delete(
+            f"/security/releases/{payloads.release['codename']}.json"
+        )
         assert response.status_code == 200
-
-
-def get_fixture(file):
-    current_path = pathlib.Path(__file__).parent.absolute()
-    with open(f"{current_path}/./fixtures/{file}.json") as json_data:
-        file_data = json_data.read()
-        json_data.close()
-
-    return json.loads(file_data)
 
 
 if __name__ == "__main__":
