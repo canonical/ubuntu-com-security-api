@@ -532,17 +532,7 @@ def get_release(release_codename):
 @marshal_with(ReleasesAPISchema, code=200)
 @marshal_with(MessageSchema, code=404)
 def get_releases():
-    releases = (
-        Release.query.order_by(desc(Release.release_date))
-        .filter(
-            or_(
-                Release.codename == "upstream",
-                Release.support_expires > datetime.now(),
-                Release.esm_expires > datetime.now(),
-            )
-        )
-        .all()
-    )
+    releases = Release.query.order_by(desc(Release.release_date))
 
     return {"releases": releases}
 

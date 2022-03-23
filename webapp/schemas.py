@@ -339,9 +339,16 @@ class RelatedNoticesSchema(Schema):
     packages = String()
 
 
+class NoticeReleasesSchema(Schema):
+    codename = String()
+    version = String()
+    support_tag = String()
+
+
 class NoticeAPIDetailedSchema(NoticeAPISchema):
     cves = List(Nested(CVEAPISchema))
     related_notices = List(Nested(RelatedNoticesSchema))
+    releases = List(Nested(NoticeReleasesSchema))
 
 
 class CVEAPIDetailedSchema(CVEAPISchema):
