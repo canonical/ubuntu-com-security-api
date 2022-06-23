@@ -105,12 +105,18 @@ class CVE(db.Model):
             if not package_statuses.get(status.package_name):
                 package_statuses[status.package_name] = {
                     "name": status.package_name,
-                    "source": f"https://ubuntu.com/security/cve?"
-                    f"package={status.package_name}",
-                    "ubuntu": f"https://packages.ubuntu.com/search?"
-                    f"suite=all&section=all&arch=any&"
-                    f"searchon=sourcenames&keywords={status.package_name}",
-                    "debian": f"https://tracker.debian.org/pkg/{status.package_name}",
+                    "source": (
+                        f"https://ubuntu.com/security/cve?"
+                        f"package={status.package_name}"
+                    ),
+                    "ubuntu": (
+                        f"https://packages.ubuntu.com/search?"
+                        f"suite=all&section=all&arch=any&"
+                        f"searchon=sourcenames&keywords={status.package_name}"
+                    ),
+                    "debian": (
+                        f"https://tracker.debian.org/pkg/{status.package_name}"
+                    ),
                     "statuses": [],
                 }
 

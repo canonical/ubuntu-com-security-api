@@ -5,7 +5,7 @@ from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, func, and_, case, asc
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import contains_eager, subqueryload, load_only, Query, joinedload
+from sqlalchemy.orm import contains_eager, subqueryload, load_only, Query
 import dateutil
 
 from webapp.app import db
@@ -47,20 +47,20 @@ def get_cve(cve_id, **kwargs):
 
     cve_notices_query: Query = CVE.notices
     if not show_hidden:
-        cve_notices_query = cve_notices_query.filter(Notice.is_hidden == False)
+        cve_notices_query = cve_notices_query.filter_by(is_hidden=False)
 
     cve_query: Query = db.session.query(CVE)
 
     cve: CVE = (
         cve_query
-            .filter(CVE.id == cve_id.upper())
-            .options(
-                subqueryload(cve_notices_query).
-                subqueryload(Notice.cves).options(load_only(CVE.id))
-            )
-            .options(subqueryload(CVE.statuses))
-            .populate_existing()
-            .one_or_none()
+        .filter(CVE.id == cve_id.upper())
+        .options(
+            subqueryload(cve_notices_query).
+            subqueryload(Notice.cves).options(load_only(CVE.id))
+        )
+        .options(subqueryload(CVE.statuses))
+        .populate_existing()
+        .one_or_none()
     )
 
     if not cve:
@@ -405,25 +405,25 @@ def get_notice(notice_id, **kwargs):
     notice_query: Query = db.session.query(Notice)
 
     if not show_hidden:
-        notice_query = notice_query.filter(Notice.is_hidden == False)
+        notice_query = notice_query.filter_by(is_hidden=False)
 
     notice: Notice = (
         notice_query
-            .filter(Notice.id == notice_id.upper())
-            .options(
-                subqueryload(Notice.cves).options(
-                    subqueryload(CVE.statuses),
-                    subqueryload(CVE.notices).options(
-                        load_only(
-                            Notice.id, 
-                            Notice.is_hidden, 
-                            Notice.release_packages
-                        )    
-                    ),
-                )
+        .filter(Notice.id == notice_id.upper())
+        .options(
+            subqueryload(Notice.cves).options(
+                subqueryload(CVE.statuses),
+                subqueryload(CVE.notices).options(
+                    load_only(
+                        Notice.id, 
+                        Notice.is_hidden, 
+                        Notice.release_packages
+                    )    
+                ),
             )
-            .options(subqueryload(Notice.releases))
-            .one_or_none()
+        )
+        .options(subqueryload(Notice.releases))
+        .one_or_none()
     )
 
     if not notice:
@@ -455,10 +455,10 @@ def get_notices(**kwargs):
             subqueryload(CVE.statuses),
             subqueryload(CVE.notices).options(
                 load_only(
-                    Notice.id, 
-                    Notice.is_hidden, 
+                    Notice.id,
+                    Notice.is_hidden,
                     Notice.release_packages
-                )    
+                )
             ),
         )
     ).options(subqueryload(Notice.releases))
