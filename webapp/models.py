@@ -100,33 +100,31 @@ class CVE(db.Model):
 
     @hybrid_property
     def package_statuses(self):
-        packages = []
-        for package_name in self.packages:
-            statuses = []
-            for release, status in self.packages[package_name].items():
-                statuses.append(
-                    {
-                        "release_codename": status.release_codename,
-                        "status": status.status,
-                        "description": status.description,
-                        "component": status.component,
-                        "pocket": status.pocket,
-                    }
-                )
+        package_statuses = {}
+        for status in self.statuses:
+            if not package_statuses.get(status.package_name):
+                package_statuses[status.package_name] = {
+                    "name": status.package_name,
+                    "source": f"https://ubuntu.com/security/cve?"
+                    f"package={status.package_name}",
+                    "ubuntu": f"https://packages.ubuntu.com/search?"
+                    f"suite=all&section=all&arch=any&"
+                    f"searchon=sourcenames&keywords={status.package_name}",
+                    "debian": f"https://tracker.debian.org/pkg/{status.package_name}",
+                    "statuses": [],
+                }
 
-            pkg = {
-                "name": package_name,
-                "source": f"https://ubuntu.com/security/cve?"
-                f"package={package_name}",
-                "ubuntu": f"https://packages.ubuntu.com/search?"
-                f"suite=all&section=all&arch=any&"
-                f"searchon=sourcenames&keywords={package_name}",
-                "debian": f"https://tracker.debian.org/pkg/{package_name}",
-                "statuses": statuses,
-            }
-            packages.append(pkg)
+            package_statuses[status.package_name]["statuses"].append(
+                {
+                    "release_codename": status.release_codename,
+                    "status": status.status,
+                    "description": status.description,
+                    "component": status.component,
+                    "pocket": status.pocket,
+                }
+            )
 
-        return packages
+        return list(package_statuses.values())
 
     @hybrid_property
     def notices_ids(self):
