@@ -5,7 +5,7 @@ from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, func, and_, case, asc
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import contains_eager
+from sqlalchemy.orm import contains_eager, subqueryload, load_only, Query, joinedload
 import dateutil
 
 from webapp.app import db
@@ -45,15 +45,29 @@ from webapp.schemas import (
 def get_cve(cve_id, **kwargs):
     show_hidden = kwargs.get("show_hidden", False)
 
-    cve = CVE.query.get(cve_id.upper())
+    cve_notices_query: Query = CVE.notices
+    if not show_hidden:
+        cve_notices_query = cve_notices_query.filter(Notice.is_hidden == False)
+
+    cve_query: Query = db.session.query(CVE)
+
+    cve: CVE = (
+        cve_query
+            .filter(CVE.id == cve_id.upper())
+            .options(
+                subqueryload(cve_notices_query).
+                subqueryload(Notice.cves).options(load_only(CVE.id))
+            )
+            .options(subqueryload(CVE.statuses))
+            .populate_existing()
+            .one_or_none()
+    )
 
     if not cve:
         return make_response(
             jsonify({"message": f"CVE with id '{cve_id}' does not exist"}),
             404,
         )
-
-    cve.notices = cve.get_filtered_notices(show_hidden)
 
     return cve
 
@@ -386,12 +400,31 @@ def delete_cve(cve_id):
 @marshal_with(MessageWithErrorsSchema, code=404)
 @use_kwargs(NoticeParameters, location="query")
 def get_notice(notice_id, **kwargs):
-    notice_query = Notice.query
+    show_hidden = kwargs.get("show_hidden", False)
 
-    if not kwargs.get("show_hidden", False):
-        notice_query = notice_query.filter(Notice.is_hidden == "False")
+    notice_query: Query = db.session.query(Notice)
 
-    notice = notice_query.filter_by(id=notice_id.upper()).one_or_none()
+    if not show_hidden:
+        notice_query = notice_query.filter(Notice.is_hidden == False)
+
+    notice: Notice = (
+        notice_query
+            .filter(Notice.id == notice_id.upper())
+            .options(
+                subqueryload(Notice.cves).options(
+                    subqueryload(CVE.statuses),
+                    subqueryload(CVE.notices).options(
+                        load_only(
+                            Notice.id, 
+                            Notice.is_hidden, 
+                            Notice.release_packages
+                        )    
+                    ),
+                )
+            )
+            .options(subqueryload(Notice.releases))
+            .one_or_none()
+    )
 
     if not notice:
         return make_response(
@@ -417,7 +450,18 @@ def get_notices(**kwargs):
 
     notices_query = db.session.query(
         Notice, func.count("*").over().label("total")
-    )
+    ).options(
+        subqueryload(Notice.cves).options(
+            subqueryload(CVE.statuses),
+            subqueryload(CVE.notices).options(
+                load_only(
+                    Notice.id, 
+                    Notice.is_hidden, 
+                    Notice.release_packages
+                )    
+            ),
+        )
+    ).options(subqueryload(Notice.releases))
 
     if not kwargs.get("show_hidden", False):
         notices_query = notices_query.filter(Notice.is_hidden == "False")
