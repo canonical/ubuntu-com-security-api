@@ -5,7 +5,7 @@ from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, func, and_, case, asc
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import contains_eager, subqueryload, load_only, Query
+from sqlalchemy.orm import subqueryload, load_only, Query
 import dateutil
 
 from webapp.app import db
@@ -43,20 +43,18 @@ from webapp.schemas import (
 @marshal_with(MessageSchema, code=404)
 @use_kwargs(CVEParameter, location="query")
 def get_cve(cve_id, **kwargs):
-    show_hidden = kwargs.get("show_hidden", False)
-
-    cve_notices_query: Query = CVE.notices
-    if not show_hidden:
-        cve_notices_query = cve_notices_query.filter_by(is_hidden=False)
-
     cve_query: Query = db.session.query(CVE)
 
+    cve_notices_query = CVE.notices
+    if not kwargs.get("show_hidden", False):
+        cve_notices_query = cve_notices_query.and_(Notice.is_hidden == "False")
+
     cve: CVE = (
-        cve_query
-        .filter(CVE.id == cve_id.upper())
+        cve_query.filter(CVE.id == cve_id.upper())
         .options(
-            subqueryload(cve_notices_query).
-            subqueryload(Notice.cves).options(load_only(CVE.id))
+            subqueryload(cve_notices_query)
+            .subqueryload(Notice.cves)
+            .options(load_only(CVE.id))
         )
         .options(subqueryload(CVE.statuses))
         .populate_existing()
@@ -108,7 +106,6 @@ def get_cves(**kwargs):
                 CVE.ubuntu_description.ilike(f"%{query}%"),
             )
         )
-
     # build CVE statuses filter parameters
     parameters = []
 
@@ -125,7 +122,8 @@ def get_cves(**kwargs):
         # by default we look for CVEs with active statuses
         parameters.append(Status.status.in_(Status.active_statuses))
     else:
-        # make initial filter for cves.statuses by status-version criteria
+        # filter for cves.statuses by status-version criteria
+        # exclude stauses that don't satisfy any status-version criteria
         conditions = []
         for key, version in enumerate(clean_versions):
             conditions.append(
@@ -138,6 +136,8 @@ def get_cves(**kwargs):
         parameters.append(or_(*[condition for condition in conditions]))
 
         # filter for cve.statuses by status-version including package/component
+        # for situations where there are multiple version-statuses provided
+        # filter out cve that satisfy all version-statuses pairs
         conditions = []
         for key, version in enumerate(clean_versions):
             sub_conditions = [
@@ -163,15 +163,32 @@ def get_cves(**kwargs):
         )
 
     # apply CVE statuses filter parameters
+    cve_statuses_query = CVE.statuses
     if len(parameters) > 0:
+        # filter the CVEs that fulfill criteria
         cves_query = cves_query.filter(
             CVE.statuses.any(and_(*[p for p in parameters]))
         )
 
+        # filter the CVE statuses that fulfil creatia
+        cve_statuses_query = cve_statuses_query.and_(*[p for p in parameters])
+
+    cve_notices_query = CVE.notices
+    if not show_hidden:
+        cve_notices_query = cve_notices_query.and_(Notice.is_hidden == "False")
+
     sort = asc if order_by == "oldest" else desc
 
-    cves_query = (
-        cves_query.group_by(CVE.id)
+    cves_query: Query = (
+        cves_query.options(
+            subqueryload(cve_notices_query).options(
+                subqueryload(Notice.cves).options(
+                    load_only(CVE.id).subqueryload(cve_statuses_query)
+                )
+            )
+        )
+        .options(subqueryload(cve_statuses_query))
+        .populate_existing()
         .order_by(
             case(
                 [(CVE.published.is_(None), 1)],
@@ -181,70 +198,16 @@ def get_cves(**kwargs):
         )
         .limit(limit)
         .offset(offset)
-        .from_self()
-        .join(CVE.statuses)
-        .options(contains_eager(CVE.statuses))
     )
 
     # get filtered cves
     raw_cves = cves_query.all()
 
-    cves = []
-    # filter cve.packages by parameters
-    for raw_cve in raw_cves:
-        cve = raw_cve[0]
-        packages = cve.packages
-
-        # filter by package name
-        if package:
-            packages = {
-                package_name: package_statuses
-                for package_name, package_statuses in packages.items()
-                if package_name == package
-            }
-
-        # filter by component
-        if component:
-            packages = {
-                package_name: package_statuses
-                for package_name, package_statuses in packages.items()
-                if any(
-                    status.component == component
-                    for status in package_statuses.values()
-                )
-            }
-
-        # filter by status and version
-        if _should_filter_by_version_and_status(statuses, versions):
-            packages = {
-                package_name: package_statuses
-                for package_name, package_statuses in packages.items()
-                if all(
-                    any(
-                        package_status.release_codename in version
-                        and package_status.status in clean_statuses[key]
-                        for package_status in package_statuses.values()
-                    )
-                    for key, version in enumerate(clean_versions)
-                )
-            }
-
-        # refresh cve.statuses after cve.packages filter
-        for package_name in packages:
-            statuses = []
-            for release, status in packages[package_name].items():
-                statuses.append(status)
-
-        cve.statuses = statuses
-        cve.notices = cve.get_filtered_notices(show_hidden)
-
-        cves.append(cve)
-
     return {
-        "cves": cves,
+        "cves": [raw_cves[0] for raw_cves in raw_cves],
         "offset": offset,
         "limit": limit,
-        "total_results": raw_cves[0][1] if cves else 0,
+        "total_results": raw_cves[0][1] if raw_cves else 0,
     }
 
 
@@ -397,28 +360,22 @@ def delete_cve(cve_id):
 
 @marshal_with(NoticeAPIDetailedSchema, code=200)
 @marshal_with(MessageSchema, code=404)
-@marshal_with(MessageWithErrorsSchema, code=404)
 @use_kwargs(NoticeParameters, location="query")
 def get_notice(notice_id, **kwargs):
-    show_hidden = kwargs.get("show_hidden", False)
-
     notice_query: Query = db.session.query(Notice)
 
-    if not show_hidden:
+    if not kwargs.get("show_hidden", False):
         notice_query = notice_query.filter_by(is_hidden=False)
 
     notice: Notice = (
-        notice_query
-        .filter(Notice.id == notice_id.upper())
+        notice_query.filter(Notice.id == notice_id.upper())
         .options(
             subqueryload(Notice.cves).options(
                 subqueryload(CVE.statuses),
                 subqueryload(CVE.notices).options(
                     load_only(
-                        Notice.id, 
-                        Notice.is_hidden, 
-                        Notice.release_packages
-                    )    
+                        Notice.id, Notice.is_hidden, Notice.release_packages
+                    )
                 ),
             )
         )
@@ -448,20 +405,20 @@ def get_notices(**kwargs):
     offset = kwargs.get("offset", 0)
     order_by = kwargs.get("order")
 
-    notices_query = db.session.query(
-        Notice, func.count("*").over().label("total")
-    ).options(
-        subqueryload(Notice.cves).options(
-            subqueryload(CVE.statuses),
-            subqueryload(CVE.notices).options(
-                load_only(
-                    Notice.id,
-                    Notice.is_hidden,
-                    Notice.release_packages
-                )
-            ),
+    notices_query = (
+        db.session.query(Notice, func.count("*").over().label("total"))
+        .options(
+            subqueryload(Notice.cves).options(
+                subqueryload(CVE.statuses),
+                subqueryload(CVE.notices).options(
+                    load_only(
+                        Notice.id, Notice.is_hidden, Notice.release_packages
+                    )
+                ),
+            )
         )
-    ).options(subqueryload(Notice.releases))
+        .options(subqueryload(Notice.releases))
+    )
 
     if not kwargs.get("show_hidden", False):
         notices_query = notices_query.filter(Notice.is_hidden == "False")
