@@ -10,7 +10,7 @@ from marshmallow.fields import (
     String,
     Int,
 )
-from marshmallow.validate import Regexp
+from marshmallow.validate import Regexp, Range
 
 from webapp.models import Package, Notice, Release, STATUS_STATUSES
 
@@ -217,11 +217,12 @@ NoticesParameters = {
     "cve_id": String(allow_none=True),
     "release": ReleaseCodename(allow_none=True),
     "limit": Int(
-        description="Number of CVEs per response. Defaults to 20.",
+        validate=Range(min=1, max=100),
+        description="Number of Notices per response. Defaults to 20. Max 100.",
         allow_none=True,
     ),
     "offset": Int(
-        description="Number of CVEs to omit from response. Defaults to 0.",
+        description="Number of Notices to omit from response. Defaults to 0.",
         allow_none=True,
     ),
     "order": String(
@@ -394,7 +395,8 @@ CVEsParameters = {
     ),
     "package": PackageName(description="Package name", allow_none=True),
     "limit": Int(
-        description="Number of CVEs per response. Defaults to 20.",
+        validate=Range(min=1, max=100),
+        description="Number of CVEs per response. Defaults to 20. Max 100.",
         allow_none=True,
     ),
     "offset": Int(
