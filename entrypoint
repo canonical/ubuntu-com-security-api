@@ -17,5 +17,5 @@ FLASK_APP=webapp.app flask db upgrade
 
 # Start server
 # ===
-talisker.gunicorn.gevent webapp.app:app --bind $1 --workers 3 --worker-class gevent --name talisker-`hostname` ${DEBUG_ARGS}
+talisker.gunicorn.gevent webapp.app:app --bind $1 --workers 2 --worker-class gevent --name talisker-`hostname` ${DEBUG_ARGS}
 
