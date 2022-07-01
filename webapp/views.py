@@ -195,6 +195,7 @@ def get_cves(**kwargs):
                 else_=0,
             ),
             sort(CVE.published),
+            sort(CVE.id),
         )
         .limit(limit)
         .offset(offset)
@@ -444,7 +445,7 @@ def get_notices(**kwargs):
     sort = asc if order_by == "oldest" else desc
 
     raw_notices = (
-        notices_query.order_by(sort(Notice.published))
+        notices_query.order_by(sort(Notice.published), sort(Notice.id))
         .offset(offset)
         .limit(limit)
         .all()
