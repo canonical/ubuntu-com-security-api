@@ -118,10 +118,7 @@ def get_cves(**kwargs):
         parameters.append(Status.component == component)
 
     # filter by status and version
-    if not _should_filter_by_version_and_status(statuses, versions):
-        # by default we look for CVEs with active statuses
-        parameters.append(Status.status.in_(Status.active_statuses))
-    else:
+    if _should_filter_by_version_and_status(statuses, versions):
         # filter for cves.statuses by status-version criteria
         # exclude stauses that don't satisfy any status-version criteria
         conditions = []
