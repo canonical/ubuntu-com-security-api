@@ -122,17 +122,20 @@ class TestRoutes(unittest.TestCase):
         )
         assert response.json["notices_ids"] == self.models["cve"].notices_ids
 
-    def test_cves_returns_422_for_non_existing_package_name(self):
+    def test_cves_returns_200_for_non_existing_package_name(self):
         response = self.client.get("/security/cves.json?package=no-exist")
 
-        assert response.status_code == 422
-        assert "No CVEs with package" in response.json["errors"]
+        assert response.status_code == 200
+        assert "No CVEs with package" not in response.json.get("errors", [])
 
-    def test_cves_returns_422_for_non_existing_version(self):
+    def test_cves_returns_200_for_non_existing_version(self):
         response = self.client.get("/security/cves.json?version=no-exist")
 
-        assert response.status_code == 422
-        assert "Cannot find a release with codename" in response.json["errors"]
+        assert response.status_code == 200
+        assert (
+            "Cannot find a release with codename"
+            not in response.json.get("errors", [])
+        )
 
     def test_cves_returns_422_for_non_existing_status(self):
         response = self.client.get("/security/cves.json?status=no-exist")
@@ -153,11 +156,14 @@ class TestRoutes(unittest.TestCase):
         assert response.status_code == 200
         assert response.json["cves_ids"] == self.models["notice"].cves_ids
 
-    def test_usns_returns_422_for_non_existing_release(self):
+    def test_usns_returns_200_for_non_existing_release(self):
         response = self.client.get("/security/notices.json?release=no-exist")
 
-        assert response.status_code == 422
-        assert "Cannot find a release with codename" in response.json["errors"]
+        assert response.status_code == 200
+        assert (
+            "Cannot find a release with codename"
+            not in response.json.get("errors", [])
+        )
 
     def test_create_usn(self):
         response = self.client.post(
