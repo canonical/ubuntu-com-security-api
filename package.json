@@ -3,7 +3,7 @@
   "license": "LGPL v3",
   "scripts": {
     "clean": "rm -rf node_modules yarn-error.log css static/css *.log *.sqlite _site/ build/ .jekyll-metadata .bundle",
-    "format-python": "black --line-length 79 webapp",
+    "format-python": "black --line-length 79 webapp scripts",
     "lint-python": "flake8 webapp tests && black --check --line-length 79 webapp tests",
     "serve": "./entrypoint 0.0.0.0:${PORT}",
     "start": "yarn run serve",
