@@ -462,7 +462,6 @@ def get_notices(**kwargs):
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(CreateNoticeImportSchema, location="json")
 def create_notice(**kwargs):
-
     notice_data = request.json
 
     db.session.add(
@@ -480,7 +479,6 @@ def create_notice(**kwargs):
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(NoticeImportSchema, location="json")
 def update_notice(notice_id, **kwargs):
-
     notice = Notice.query.get(notice_id)
 
     if not notice:
