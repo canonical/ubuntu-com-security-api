@@ -176,7 +176,7 @@ class NoticeSchema(Schema):
     details = String(allow_none=True, data_key="description")
     is_hidden = Boolean(required=False)
     release_packages = Dict(
-        keys=ReleaseCodename(),
+        keys=String(),
         values=List(Nested(NoticePackage), required=True),
     )
 
@@ -215,7 +215,7 @@ NoticesParameters = {
         allow_none=True,
     ),
     "cve_id": String(allow_none=True),
-    "release": ReleaseCodename(allow_none=True),
+    "release": String(allow_none=True),
     "limit": Int(
         validate=Range(min=1, max=100),
         description="Number of Notices per response. Defaults to 20. Max 100.",
@@ -278,7 +278,7 @@ class ReleasesAPISchema(Schema):
 # CVEs
 # --
 class Status(Schema):
-    release_codename = ReleaseCodename(required=True)
+    release_codename = String(required=True)
     status = StatusStatuses(required=True)
     description = String(allow_none=True)
     component = Component(enum=["main", "universe"], required=False)
@@ -393,7 +393,7 @@ CVEsParameters = {
         enum=["unknown", "negligible", "low", "medium", "high", "critical"],
         allow_none=True,
     ),
-    "package": PackageName(description="Package name", allow_none=True),
+    "package": String(description="Package name", allow_none=True),
     "limit": Int(
         validate=Range(min=1, max=100),
         description="Number of CVEs per response. Defaults to 20. Max 100.",
@@ -409,7 +409,7 @@ CVEsParameters = {
         description="Package component",
     ),
     "version": List(
-        ReleaseCodename(),
+        String(),
         description="List of release codenames ",
         allow_none=True,
     ),
