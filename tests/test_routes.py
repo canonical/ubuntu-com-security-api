@@ -132,9 +132,8 @@ class TestRoutes(unittest.TestCase):
         response = self.client.get("/security/cves.json?version=no-exist")
 
         assert response.status_code == 200
-        assert (
-            "Cannot find a release with codename"
-            not in response.json.get("errors", [])
+        assert "Cannot find a release with codename" not in response.json.get(
+            "errors", []
         )
 
     def test_cves_returns_422_for_non_existing_status(self):
@@ -160,9 +159,8 @@ class TestRoutes(unittest.TestCase):
         response = self.client.get("/security/notices.json?release=no-exist")
 
         assert response.status_code == 200
-        assert (
-            "Cannot find a release with codename"
-            not in response.json.get("errors", [])
+        assert "Cannot find a release with codename" not in response.json.get(
+            "errors", []
         )
 
     def test_create_usn(self):
