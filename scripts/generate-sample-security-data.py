@@ -23,19 +23,14 @@ with app.app_context():
         development=False,
         release_date=datetime.now(),
         esm_expires=datetime.now(),
-        support_expires=datetime.now()
+        support_expires=datetime.now(),
     )
     db.session.add(release)
 
     package = Package(
-        name="some package",
-        source="",
-        launchpad="",
-        ubuntu="",
-        debian=""
+        name="some package", source="", launchpad="", ubuntu="", debian=""
     )
     db.session.add(package)
-
 
     for usn_num in range(9999):
         cves = []
@@ -54,16 +49,13 @@ with app.app_context():
                 patches={},
                 tags={},
                 bugs={},
-                status="active"
+                status="active",
             )
             db.session.add(cve)
             cves.append(cve)
 
             status = Status(
-                status="pending",
-                cve=cve,
-                package=package,
-                release=release
+                status="pending", cve=cve, package=package, release=release
             )
             db.session.add(status)
 
@@ -75,7 +67,7 @@ with app.app_context():
             details="",
             instructions="",
             releases=[release],
-            cves=cves
+            cves=cves,
         )
         db.session.add(notice)
 

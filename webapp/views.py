@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
+from distutils.util import strtobool
 
 from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
@@ -691,7 +692,6 @@ def _update_notice_object(notice, data):
     """
     Set fields on a Notice model object
     """
-
     notice.title = data["title"]
     notice.summary = data["summary"]
     notice.details = data["description"]
@@ -699,7 +699,7 @@ def _update_notice_object(notice, data):
     notice.published = data["published"]
     notice.references = data["references"]
     notice.instructions = data["instructions"]
-    notice.is_hidden = data.get("is_hidden", False)
+    notice.is_hidden = strtobool(data.get("is_hidden", "false"))
 
     notice.releases = [
         Release.query.get(codename)
