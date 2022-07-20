@@ -462,6 +462,7 @@ def get_notices(**kwargs):
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(CreateNoticeImportSchema, location="json")
 def create_notice(**kwargs):
+
     notice_data = request.json
 
     db.session.add(
@@ -693,7 +694,6 @@ def _update_notice_object(notice, data):
     """
     Set fields on a Notice model object
     """
-
     notice.title = data["title"]
     notice.summary = data["summary"]
     notice.details = data["description"]
@@ -701,7 +701,7 @@ def _update_notice_object(notice, data):
     notice.published = data["published"]
     notice.references = data["references"]
     notice.instructions = data["instructions"]
-    notice.is_hidden = strtobool(data.get("is_hidden", False))
+    notice.is_hidden = strtobool(data.get("is_hidden", "false"))
 
     notice.releases = [
         Release.query.get(codename)
