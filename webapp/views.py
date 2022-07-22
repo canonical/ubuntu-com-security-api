@@ -6,7 +6,7 @@ from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, func, and_, case, asc
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import subqueryload, load_only, Query
+from sqlalchemy.orm import subqueryload, load_only, selectinload, Query
 import dateutil
 
 from webapp.app import db
@@ -53,12 +53,11 @@ def get_cve(cve_id, **kwargs):
     cve: CVE = (
         cve_query.filter(CVE.id == cve_id.upper())
         .options(
-            subqueryload(cve_notices_query)
-            .subqueryload(Notice.cves)
-            .options(load_only(CVE.id))
+            selectinload(cve_notices_query).options(
+                selectinload(Notice.cves).options(load_only(CVE.id))
+            )
         )
-        .options(subqueryload(CVE.statuses))
-        .populate_existing()
+        .options(selectinload(CVE.statuses))
         .one_or_none()
     )
 
@@ -86,13 +85,8 @@ def get_cves(**kwargs):
     order_by = kwargs.get("order")
     show_hidden = kwargs.get("show_hidden", False)
 
-    clean_versions = _get_clean_versions(statuses, versions)
-    clean_statuses = _get_clean_statuses(statuses, versions)
-
     # query cves by filters
-    cves_query = db.session.query(
-        CVE, func.count("*").over().label("total")
-    ).filter(CVE.status == "active")
+    cves_query: Query = db.session.query(CVE).filter(CVE.status == "active")
 
     # filter by priority
     if priority:
@@ -107,6 +101,7 @@ def get_cves(**kwargs):
                 CVE.ubuntu_description.ilike(f"%{query}%"),
             )
         )
+
     # build CVE statuses filter parameters
     parameters = []
 
@@ -120,14 +115,20 @@ def get_cves(**kwargs):
 
     # filter by status and version
     if _should_filter_by_version_and_status(statuses, versions):
+        clean_versions = _get_clean_versions(versions)
+        clean_statuses = _get_clean_statuses(statuses)
+
         # filter for cves.statuses by status-version criteria
         # exclude stauses that don't satisfy any status-version criteria
         conditions = []
-        for key, version in enumerate(clean_versions):
+        for key, sub_versions in enumerate(clean_versions):
+            # default to all statuses if match doesn't exists
+            sub_statuses = clean_statuses[key] or STATUS_STATUSES.enums
+
             conditions.append(
                 and_(
-                    Status.release_codename.in_(version),
-                    Status.status.in_(clean_statuses[key]),
+                    Status.release_codename.in_(sub_versions),
+                    Status.status.in_(sub_statuses),
                 )
             )
 
@@ -137,11 +138,13 @@ def get_cves(**kwargs):
         # for situations where there are multiple version-statuses provided
         # filter out cve that satisfy all version-statuses pairs
         conditions = []
-        for key, version in enumerate(clean_versions):
+        for key, sub_versions in enumerate(clean_versions):
+            # default to all statuses if match doesn't exists
+            sub_statuses = clean_statuses[key] or STATUS_STATUSES.enums
+
             sub_conditions = [
-                Status.release_codename.in_(version),
-                Status.status.in_(clean_statuses[key]),
-                CVE.id == Status.cve_id,
+                Status.release_codename.in_(sub_versions),
+                Status.status.in_(sub_statuses),
             ]
 
             if package:
@@ -150,19 +153,17 @@ def get_cves(**kwargs):
             if component:
                 sub_conditions.append(Status.component == component)
 
-            condition = Package.statuses.any(
+            condition = CVE.statuses.any(
                 and_(*[sub_condition for sub_condition in sub_conditions])
             )
 
             conditions.append(condition)
 
-        parameters.append(
-            Status.package.has(and_(*[condition for condition in conditions]))
-        )
+        parameters.append(and_(*[condition for condition in conditions]))
 
     # apply CVE statuses filter parameters
     cve_statuses_query = CVE.statuses
-    if len(parameters) > 0:
+    if parameters:
         # filter the CVEs that fulfill criteria
         cves_query = cves_query.filter(
             CVE.statuses.any(and_(*[p for p in parameters]))
@@ -177,16 +178,13 @@ def get_cves(**kwargs):
 
     sort = asc if order_by == "oldest" else desc
 
-    cves_query: Query = (
+    query: Query = (
         cves_query.options(
-            subqueryload(cve_notices_query).options(
-                subqueryload(Notice.cves).options(
-                    load_only(CVE.id).subqueryload(cve_statuses_query)
-                )
+            selectinload(cve_notices_query).options(
+                selectinload(Notice.cves).options(load_only(CVE.id))
             )
         )
-        .options(subqueryload(cve_statuses_query))
-        .populate_existing()
+        .options(selectinload(cve_statuses_query))
         .order_by(
             case(
                 [(CVE.published.is_(None), 1)],
@@ -199,14 +197,11 @@ def get_cves(**kwargs):
         .offset(offset)
     )
 
-    # get filtered cves
-    raw_cves = cves_query.all()
-
     return {
-        "cves": [raw_cves[0] for raw_cves in raw_cves],
+        "cves": query.all(),
         "offset": offset,
         "limit": limit,
-        "total_results": raw_cves[0][1] if raw_cves else 0,
+        "total_results": cves_query.count(),
     }
 
 
@@ -636,31 +631,46 @@ def delete_release(release_codename):
     )
 
 
-def _get_releases(versions):
-    releases_query = Release.query.order_by(Release.release_date)
+def _should_filter_by_version_and_status(statuses, versions) -> bool:
+    """
+    version-status filter should apply if parameters have been provided
 
-    if versions and not any(a in ["", "current"] for a in versions):
-        releases_query = releases_query.filter(Release.codename.in_(versions))
-    else:
-        releases_query = releases_query.filter(
-            or_(
-                Release.support_expires > datetime.now(),
-                Release.esm_expires > datetime.now(),
-            )
-        ).filter(Release.codename != "upstream")
-
-    return releases_query.all()
-
-
-def _should_filter_by_version_and_status(statuses, versions):
-    return versions and statuses and len(versions) == len(statuses)
+    Don't apply filter if the 1st version and status value is ""
+    """
+    return (
+        versions
+        and statuses
+        and not (
+            (len(versions) == 1 and versions[0] == "")
+            and (len(statuses) == 1 and statuses[0] == "")
+        )
+    )
 
 
-def _get_clean_statuses(statuses, versions):
+def _get_clean_statuses(statuses) -> list:
+    """
+    Response: Returns a array of `status` arrays
+
+    User can provide multiple `version` and `status` parameters.
+    We group one `version` and one `status` together by matching their position
+    in the arrays.
+
+    The query checks for `CVEs.statuses` that matches each group of
+    `version-status`.
+
+    E.g.::
+
+        and_(
+            Status.release_codename.in_(versions),
+            Status.status.in_(statuses),
+        )
+
+    We return an array of 'status' arrays for the case where users
+    provide "" (Any) as a value for the 'status'.
+    'Any' means user wants all statuses
+    """
+
     clean_statuses = []
-
-    if not _should_filter_by_version_and_status(statuses, versions):
-        return clean_statuses
 
     for status in statuses:
         if status != "" and status in STATUS_STATUSES.enums:
@@ -671,18 +681,44 @@ def _get_clean_statuses(statuses, versions):
     return clean_statuses
 
 
-def _get_clean_versions(statuses, versions):
+def _get_clean_versions(versions) -> list:
+    """
+    Response: Returns a array of `version` arrays
+
+    User can provide multiple `version` and `status` parameters.
+    We group one `version` and one `status` together by matching their position
+    in the arrays.
+
+    The query checks for `CVEs.statuses` that matches each group of
+    `version-status`.
+
+    E.g.::
+
+        and_(
+            Status.release_codename.in_(versions),
+            Status.status.in_(statuses),
+        )
+
+    We return an array of 'version' arrays for the case where users
+    provide "" (Any) as a value for the 'version'.
+    'Any' means user wants all versions that are still supported
+    """
+
     clean_versions = []
-
-    if not _should_filter_by_version_and_status(statuses, versions):
-        return clean_versions
-
-    releases = _get_releases(versions)
 
     for version in versions:
         if version not in ["", "current"]:
             clean_versions.append([version])
         else:
+            releases_query = Release.query.filter(
+                or_(
+                    Release.support_expires > datetime.now(),
+                    Release.esm_expires > datetime.now(),
+                )
+            ).filter(Release.codename != "upstream")
+
+            releases = releases_query.order_by(Release.release_date).all()
+
             clean_versions.append([release.codename for release in releases])
 
     return clean_versions
