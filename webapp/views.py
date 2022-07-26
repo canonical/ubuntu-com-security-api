@@ -425,8 +425,7 @@ def get_notices(**kwargs):
     sort = asc if order_by == "oldest" else desc
 
     notices = (
-        notices_query
-        .options(
+        notices_query.options(
             selectinload(Notice.cves).options(
                 selectinload(CVE.statuses),
                 selectinload(CVE.notices).options(
