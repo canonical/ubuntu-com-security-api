@@ -4,9 +4,9 @@ from distutils.util import strtobool
 
 from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import desc, or_, func, and_, case, asc
+from sqlalchemy import desc, or_, and_, case, asc
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import subqueryload, load_only, selectinload, Query
+from sqlalchemy.orm import load_only, selectinload, Query
 import dateutil
 
 from webapp.app import db
