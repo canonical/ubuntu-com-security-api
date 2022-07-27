@@ -4,9 +4,9 @@ from distutils.util import strtobool
 
 from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import desc, or_, func, and_, case, asc
+from sqlalchemy import desc, or_, and_, case, asc
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import subqueryload, load_only, selectinload, Query
+from sqlalchemy.orm import load_only, selectinload, Query
 import dateutil
 
 from webapp.app import db
@@ -364,16 +364,16 @@ def get_notice(notice_id, **kwargs):
     notice: Notice = (
         notice_query.filter(Notice.id == notice_id.upper())
         .options(
-            subqueryload(Notice.cves).options(
-                subqueryload(CVE.statuses),
-                subqueryload(CVE.notices).options(
+            selectinload(Notice.cves).options(
+                selectinload(CVE.statuses),
+                selectinload(CVE.notices).options(
                     load_only(
                         Notice.id, Notice.is_hidden, Notice.release_packages
                     )
                 ),
             )
         )
-        .options(subqueryload(Notice.releases))
+        .options(selectinload(Notice.releases))
         .one_or_none()
     )
 
@@ -399,20 +399,7 @@ def get_notices(**kwargs):
     offset = kwargs.get("offset", 0)
     order_by = kwargs.get("order")
 
-    notices_query = (
-        db.session.query(Notice, func.count("*").over().label("total"))
-        .options(
-            subqueryload(Notice.cves).options(
-                subqueryload(CVE.statuses),
-                subqueryload(CVE.notices).options(
-                    load_only(
-                        Notice.id, Notice.is_hidden, Notice.release_packages
-                    )
-                ),
-            )
-        )
-        .options(subqueryload(Notice.releases))
-    )
+    notices_query: Query = db.session.query(Notice)
 
     if not kwargs.get("show_hidden", False):
         notices_query = notices_query.filter(Notice.is_hidden == "False")
@@ -437,18 +424,29 @@ def get_notices(**kwargs):
 
     sort = asc if order_by == "oldest" else desc
 
-    raw_notices = (
-        notices_query.order_by(sort(Notice.published), sort(Notice.id))
+    notices = (
+        notices_query.options(
+            selectinload(Notice.cves).options(
+                selectinload(CVE.statuses),
+                selectinload(CVE.notices).options(
+                    load_only(
+                        Notice.id, Notice.is_hidden, Notice.release_packages
+                    )
+                ),
+            )
+        )
+        .options(selectinload(Notice.releases))
+        .order_by(sort(Notice.published), sort(Notice.id))
         .offset(offset)
         .limit(limit)
         .all()
     )
 
     return {
-        "notices": [raw_notice[0] for raw_notice in raw_notices],
+        "notices": notices,
         "offset": offset,
         "limit": limit,
-        "total_results": raw_notices[0][1] if raw_notices else 0,
+        "total_results": notices_query.count(),
     }
 
 
