@@ -63,6 +63,27 @@ notice = {
     "title": "Title",
 }
 
+ssn_notice = {
+    "cves": [],
+    "id": "SSN-1-1",
+    "description": "This is an SSN",
+    "instructions": "These are the instructions",
+    "published": "2022-07-27 12:42:54",
+    "references": [],
+    "release_packages": {
+        "testrelease": [
+            {
+                "description": "Linux kernel for OEM systems",
+                "is_source": "false",
+                "name": "linux-oem",
+                "version": "4.15.0-1080.90",
+            }
+        ],
+    },
+    "summary": "Summary",
+    "title": "Title",
+}
+
 release = {
     "name": "Created Release",
     "version": "99.04",

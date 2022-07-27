@@ -170,6 +170,13 @@ class TestRoutes(unittest.TestCase):
 
         assert response.status_code == 200
 
+    def test_create_ssn_usn(self):
+        response = self.client.post(
+            "/security/notices.json", json=payloads.ssn_notice
+        )
+
+        assert response.status_code == 200
+
     def test_create_usn_returns_422_for_non_unique_id(self):
         # Create USN
         response_1 = self.client.post(
