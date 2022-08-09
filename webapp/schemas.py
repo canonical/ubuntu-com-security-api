@@ -138,19 +138,42 @@ class Pocket(String):
     default_error_messages = {
         "unrecognised_pocket": (
             "Pocket must be one of "
-            "'security', 'updates', 'esm-infra', 'esm-apps'"
+            "'security', 'updates', 'esm-infra', 'esm-apps', 'soss'"
         )
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value not in ["security", "updates", "esm-infra", "esm-apps"]:
+        if value not in [
+            "security",
+            "updates",
+            "esm-infra",
+            "esm-apps",
+            "soss",
+        ]:
             raise self.make_error("unrecognised_pocket", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
 
 
-# Schemas
-# ===
+class PackageType(String):
+    default_error_messages = {
+        "unrecognised_package_type": (
+            "Pacakge type must be one of "
+            "'python', 'conda', 'golang', 'unpackaged', 'deb'"
+        )
+    }
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value not in [
+            "python",
+            "conda",
+            "golang",
+            "unpackaged",
+            "deb",
+        ]:
+            raise self.make_error("unrecognised_package_type", input=value)
+
+        return super()._deserialize(value, attr, data, **kwargs)
 
 
 # Notices
@@ -164,6 +187,7 @@ class NoticePackage(Schema):
     source_link = String(allow_none=True)
     version_link = String(allow_none=True)
     pocket = Pocket()
+    package_type = PackageType()
 
 
 class NoticeSchema(Schema):
@@ -286,7 +310,8 @@ class Status(Schema):
     description = String(allow_none=True)
     component = Component(enum=["main", "universe"], required=False)
     pocket = Pocket(
-        enum=["security", "updates", "esm-infra", "esm-apps"], required=False
+        enum=["security", "updates", "esm-infra", "esm-apps", "soss"],
+        required=False,
     )
 
 
