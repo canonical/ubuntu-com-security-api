@@ -16,6 +16,23 @@ from webapp.models import Package, Notice, Release, STATUS_STATUSES
 
 
 # Types
+COMPONENT_OPTIONS = ["main", "universe"]
+
+POCKET_OPTIONS = [
+    "security",
+    "updates",
+    "esm-infra",
+    "esm-apps",
+    "soss",
+]
+
+PACKAGE_TYPE_OPTIONS = [
+    "python",
+    "conda",
+    "golang",
+    "unpackaged",
+    "deb",
+]
 # ===
 
 
@@ -48,11 +65,11 @@ class ReleaseCodename(String):
 
 class Component(String):
     default_error_messages = {
-        "unrecognised_component": "Component must be 'main' or 'universe'"
+        "unrecognised_component": "Unrecognised component"
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value not in ["main", "universe"]:
+        if value not in COMPONENT_OPTIONS:
             raise self.make_error("unrecognised_component", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -135,22 +152,25 @@ class PackageName(String):
 
 
 class Pocket(String):
-    default_error_messages = {
-        "unrecognised_pocket": (
-            "Pocket must be one of "
-            "'security', 'updates', 'esm-infra', 'esm-apps'"
-        )
-    }
+    default_error_messages = {"unrecognised_pocket": "Unrecognised pocket"}
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value not in ["security", "updates", "esm-infra", "esm-apps"]:
+        if value not in POCKET_OPTIONS:
             raise self.make_error("unrecognised_pocket", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
 
 
-# Schemas
-# ===
+class PackageType(String):
+    default_error_messages = {
+        "unrecognised_package_type": "Unrecognised pacakge type"
+    }
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value not in PACKAGE_TYPE_OPTIONS:
+            raise self.make_error("unrecognised_package_type", input=value)
+
+        return super()._deserialize(value, attr, data, **kwargs)
 
 
 # Notices
@@ -164,6 +184,7 @@ class NoticePackage(Schema):
     source_link = String(allow_none=True)
     version_link = String(allow_none=True)
     pocket = Pocket()
+    package_type = PackageType()
 
 
 class NoticeSchema(Schema):
@@ -284,10 +305,8 @@ class Status(Schema):
     release_codename = String(required=True)
     status = StatusStatuses(required=True)
     description = String(allow_none=True)
-    component = Component(enum=["main", "universe"], required=False)
-    pocket = Pocket(
-        enum=["security", "updates", "esm-infra", "esm-apps"], required=False
-    )
+    component = Component(enum=COMPONENT_OPTIONS)
+    pocket = Pocket(enum=POCKET_OPTIONS)
 
 
 class CvePackage(Schema):
@@ -408,7 +427,7 @@ CVEsParameters = {
     ),
     "component": Component(
         allow_none=True,
-        enum=["main", "universe"],
+        enum=COMPONENT_OPTIONS,
         description="Package component",
     ),
     "version": List(

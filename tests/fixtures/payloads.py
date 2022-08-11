@@ -77,6 +77,8 @@ ssn_notice = {
                 "is_source": "false",
                 "name": "linux-oem",
                 "version": "4.15.0-1080.90",
+                "package_type": "golang",
+                "pocket": "soss",
             }
         ],
     },
