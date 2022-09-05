@@ -317,6 +317,31 @@ class CvePackage(Schema):
     statuses = List(Nested(Status))
 
 
+class CvssV3(Schema):
+    version = String(allow_none=True)
+    vectorString = String(allow_none=True)
+    attackVector = String(allow_none=True)
+    attackComplexity = String(allow_none=True)
+    privilegesRequired = String(allow_none=True)
+    userInteraction = String(allow_none=True)
+    scope = String(allow_none=True)
+    confidentialityImpact = String(allow_none=True)
+    integrityImpact = String(allow_none=True)
+    availabilityImpact = String(allow_none=True)
+    baseScore = Float(allow_none=True)
+    baseSeverity = String(allow_none=True)
+
+
+class CveBaseMetric(Schema):
+    cvssV3 = List(Nested(CvssV3))
+
+
+class CveImpact(Schema):
+    baseMetricV3 = List(Nested(CveBaseMetric))
+    exploitabilityScore = Float(allow_none=True)
+    impactScore = Float(allow_none=True)
+
+
 class Note(Schema):
     author = String(required=True)
     note = String(required=True)
@@ -329,8 +354,8 @@ class CVESchema(Schema):
     ubuntu_description = String(allow_none=True)
     notes = List(Nested(Note))
     priority = String(allow_none=True)
+    impact =  List(Nested(CveImpact))
     status = String(allow_none=True)
-    cvss3 = Float(allow_none=True)
     mitigation = String(allow_none=True)
     references = List(String())
     bugs = List(String())
