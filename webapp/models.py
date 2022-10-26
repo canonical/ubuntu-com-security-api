@@ -65,6 +65,7 @@ class CVE(db.Model):
             name="priorities",
         )
     )
+    cvss3 = Column(Float)
     impact = Column(JSON)
     mitigation = Column(String)
     references = Column(JSON)

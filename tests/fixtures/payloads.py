@@ -18,32 +18,26 @@ cve1 = {
             ),
         }
     ],
-    "impact": [
-        {
-          "baseMetricV3": [
-            {
-              "cvssV3": [
-                {
-                  "attackComplexity": "LOW",
-                  "attackVector": "Local",
-                  "availabilityImpact": "NONE",
-                  "baseScore": 4.4,
-                  "baseSeverity": "MEDIUM",
-                  "confidentialityImpact": "HIGH",
-                  "integrityImpact": "NONE",
-                  "privilegesRequired": "HIGH",
-                  "scope": "UNCHANGED",
-                  "userInteraction": "NONE",
-                  "vectorString": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:H/I:N/A:N",
-                  "version": "3.1"
+    "impact": {
+        "baseMetricV3": {
+            "cvssV3": {
+                "attackComplexity": "LOW",
+                "attackVector": "Local",
+                "availabilityImpact": "NONE",
+                "baseScore": 4.4,
+                "baseSeverity": "MEDIUM",
+                "confidentialityImpact": "HIGH",
+                "integrityImpact": "NONE",
+                "privilegesRequired": "HIGH",
+                "scope": "UNCHANGED",
+                "userInteraction": "NONE",
+                "vectorString": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:H/I:N/A:N",
+                "version": "3.1"
                 }
-              ]
-            }
-          ],
+            },
           "exploitabilityScore": 0.8,
           "impactScore": 3.6
         }
-      ]
 }
 
 cve2 = {
