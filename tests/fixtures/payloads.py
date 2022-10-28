@@ -35,8 +35,8 @@ cve1 = {
                 "version": "3.1"
                 }
             },
-          "exploitabilityScore": 0.8,
-          "impactScore": 3.6
+        "exploitabilityScore": 0.8,
+        "impactScore": 3.6
         }
 }
 
