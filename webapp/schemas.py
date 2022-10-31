@@ -333,11 +333,11 @@ class CvssV3(Schema):
 
 
 class CveBaseMetric(Schema):
-    cvssV3 = List(Nested(CvssV3))
+    cvssV3 = Nested(CvssV3)
 
 
 class CveImpact(Schema):
-    baseMetricV3 = List(Nested(CveBaseMetric))
+    baseMetricV3 = Nested(CveBaseMetric)
     exploitabilityScore = Float(allow_none=True)
     impactScore = Float(allow_none=True)
 
@@ -354,7 +354,7 @@ class CVESchema(Schema):
     ubuntu_description = String(allow_none=True)
     notes = List(Nested(Note))
     priority = String(allow_none=True)
-    impact =  List(Nested(CveImpact))
+    impact = Nested(CveImpact)
     status = String(allow_none=True)
     mitigation = String(allow_none=True)
     references = List(String())
