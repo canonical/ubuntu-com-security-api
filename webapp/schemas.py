@@ -334,12 +334,12 @@ class CvssV3(Schema):
 
 class CveBaseMetric(Schema):
     cvssV3 = Nested(CvssV3)
+    exploitabilityScore = Float(allow_none=True)
+    impactScore = Float(allow_none=True)
 
 
 class CveImpact(Schema):
     baseMetricV3 = Nested(CveBaseMetric)
-    exploitabilityScore = Float(allow_none=True)
-    impactScore = Float(allow_none=True)
 
 
 class Note(Schema):

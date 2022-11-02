@@ -32,12 +32,12 @@ cve1 = {
                 "scope": "UNCHANGED",
                 "userInteraction": "NONE",
                 "vectorString": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:H/I:N/A:N",
-                "version": "3.1"
-                }
+                "version": "3.1",
             },
-        "exploitabilityScore": 0.8,
-        "impactScore": 3.6
+            "exploitabilityScore": 0.8,
+            "impactScore": 3.6,
         }
+    },
 }
 
 cve2 = {
