@@ -31,6 +31,7 @@ def make_models():
         notes={},
         priority="unknown",
         cvss3=2.3,
+        impact={},
         mitigation="",
         references={},
         patches={},
