@@ -63,7 +63,7 @@ response = client.request(
                     "version": "1.2-4ubuntu0.20.04.1~esm1",
                     "is_source": "false",
                     "source_link": (
-                        "https://launchpad.net" "/ubuntu/+source/libxmltok"
+                        "https://launchpad.net/ubuntu/+source/libxmltok"
                     ),
                     "version_link": None,
                     "is_visible": "true",
@@ -74,7 +74,7 @@ response = client.request(
                     "version": "1.2-4ubuntu0.20.04.1~esm1",
                     "is_source": "false",
                     "source_link": (
-                        "https://launchpad.net" "/ubuntu/+source/libxmltok"
+                        "https://launchpad.net/ubuntu/+source/libxmltok"
                     ),
                     "version_link": None,
                     "is_visible": "false",
@@ -93,7 +93,7 @@ response = client.request(
                     "version": "1.2-4ubuntu0.18.04.1~esm1",
                     "is_source": "false",
                     "source_link": (
-                        "https://launchpad.net" "/ubuntu/+source/libxmltok"
+                        "https://launchpad.net/ubuntu/+source/libxmltok"
                     ),
                     "version_link": None,
                     "is_visible": "true",
@@ -104,7 +104,7 @@ response = client.request(
                     "version": "1.2-4ubuntu0.18.04.1~esm1",
                     "is_source": "false",
                     "source_link": (
-                        "https://launchpad.net" "/ubuntu/+source/libxmltok"
+                        "https://launchpad.net/ubuntu/+source/libxmltok"
                     ),
                     "version_link": None,
                     "is_visible": "false",
@@ -123,7 +123,7 @@ response = client.request(
                     "version": "1.2-3ubuntu0.16.04.1~esm2",
                     "is_source": "false",
                     "source_link": (
-                        "https://launchpad.net" "/ubuntu/+source/libxmltok"
+                        "https://launchpad.net/ubuntu/+source/libxmltok"
                     ),
                     "version_link": None,
                     "is_visible": "true",
@@ -134,7 +134,7 @@ response = client.request(
                     "version": "1.2-3ubuntu0.16.04.1~esm2",
                     "is_source": "false",
                     "source_link": (
-                        "https://launchpad.net" "/ubuntu/+source/libxmltok"
+                        "https://launchpad.net/ubuntu/+source/libxmltok"
                     ),
                     "version_link": None,
                     "is_visible": "false",
