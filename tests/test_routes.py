@@ -31,7 +31,6 @@ functionality, but I don't know of a good way to do that right now.
 from webapp import auth
 from tests.helpers import transparent_decorator
 
-
 auth.authorization_required = transparent_decorator
 os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
 
@@ -136,8 +135,8 @@ class TestRoutes(unittest.TestCase):
             "errors", []
         )
 
-    def test_cves_returns_422_for_non_existing_status(self):
-        response = self.client.get("/security/cves.json?status=no-exist")
+    def test_cves_returns_422_for_non_existing_package_status(self):
+        response = self.client.get("/security/cves.json?package_status=none")
 
         assert response.status_code == 422
         assert "Cannot find a status" in response.json["errors"]
