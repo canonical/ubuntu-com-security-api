@@ -461,14 +461,14 @@ CVEsParameters = {
         description="List of release codenames ",
         allow_none=True,
     ),
-    "status": String(
+    "cve_status": String(
         description="CVE status",
         enum=["not-in-ubuntu", "active", "rejected"],
         allow_none=True,
     ),
-    "package_status": List(
+    "status": List(
         StatusStatuses(),
-        description="List of statuses",
+        description="List of package statuses",
         allow_none=True,
     ),
     "order": String(

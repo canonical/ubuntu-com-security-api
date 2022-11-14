@@ -136,7 +136,7 @@ class TestRoutes(unittest.TestCase):
         )
 
     def test_cves_returns_422_for_non_existing_package_status(self):
-        response = self.client.get("/security/cves.json?package_status=none")
+        response = self.client.get("/security/cves.json?status=no-exist")
 
         assert response.status_code == 422
         assert "Cannot find a status" in response.json["errors"]
