@@ -82,7 +82,7 @@ def get_cves(**kwargs):
     component = kwargs.get("component")
     versions = kwargs.get("version")
     cve_status = kwargs.get("cve_status")
-    status = kwargs.get("status")
+    statuses = kwargs.get("status")
     order_by = kwargs.get("order")
     show_hidden = kwargs.get("show_hidden", False)
 
@@ -122,9 +122,9 @@ def get_cves(**kwargs):
         parameters.append(Status.component == component)
 
     # filter by package status and version
-    if _should_filter_by_version_and_status(status, versions):
+    if _should_filter_by_version_and_status(statuses, versions):
         clean_versions = _get_clean_versions(versions)
-        clean_statuses = _get_clean_statuses(status)
+        clean_statuses = _get_clean_statuses(statuses)
 
         # filter for cves.statuses by status-version criteria
         # exclude stauses that don't satisfy any status-version criteria
