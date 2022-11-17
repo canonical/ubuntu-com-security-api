@@ -81,12 +81,20 @@ def get_cves(**kwargs):
     offset = kwargs.get("offset", 0)
     component = kwargs.get("component")
     versions = kwargs.get("version")
+    cve_status = kwargs.get("cve_status")
     statuses = kwargs.get("status")
     order_by = kwargs.get("order")
     show_hidden = kwargs.get("show_hidden", False)
 
-    # query cves by filters
-    cves_query: Query = db.session.query(CVE).filter(CVE.status == "active")
+    # query cves by filters. Default filter by active CVEs
+    if cve_status:
+        cves_query: Query = db.session.query(CVE).filter(
+            CVE.status == cve_status
+        )
+    else:
+        cves_query: Query = db.session.query(CVE).filter(
+            CVE.status == "active"
+        )
 
     # filter by priority
     if priority:
@@ -113,7 +121,7 @@ def get_cves(**kwargs):
     if component:
         parameters.append(Status.component == component)
 
-    # filter by status and version
+    # filter by package status and version
     if _should_filter_by_version_and_status(statuses, versions):
         clean_versions = _get_clean_versions(versions)
         clean_statuses = _get_clean_statuses(statuses)
