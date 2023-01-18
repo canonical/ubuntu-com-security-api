@@ -13,6 +13,6 @@ webargs==6.1.1
 sortedcontainers==2.4.0
 Flask-SQLAlchemy==2.5.1
 Flask-Migrate==3.1.0
-flask-alchemydumps==0.0.12
+flask-alchemydumps==0.0.13
 SQLAlchemy-Utils==0.39.0
 
