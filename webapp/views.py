@@ -303,6 +303,10 @@ def bulk_upsert_cve(*args, **kwargs):
             update_cve = True
             cve.mitigation = data.get("mitigation")
 
+        if cve.impact != data.get("impact"):
+            update_cve = True
+            cve.impact = data.get("impact")
+
         if update_cve:
             db.session.add(cve)
 
