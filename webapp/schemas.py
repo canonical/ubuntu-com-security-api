@@ -185,6 +185,7 @@ class NoticePackage(Schema):
     version_link = String(allow_none=True)
     pocket = Pocket()
     package_type = PackageType()
+    channel = String(allow_none=True)
 
 
 class NoticeSchema(Schema):
