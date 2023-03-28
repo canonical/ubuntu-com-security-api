@@ -24,6 +24,9 @@ POCKET_OPTIONS = [
     "esm-infra",
     "esm-apps",
     "soss",
+    "fips",
+    "fips-updates",
+    "ros-esm",
 ]
 
 PACKAGE_TYPE_OPTIONS = [

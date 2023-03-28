@@ -10,6 +10,7 @@ cve1 = {
                     "description": "",
                     "release_codename": "testrelease",
                     "status": "released",
+                    "pocket": "fips"
                 }
             ],
             "ubuntu": (
