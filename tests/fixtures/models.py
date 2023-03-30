@@ -41,7 +41,10 @@ def make_models():
     )
 
     status = Status(
-        status="pending", cve=cve, package=package, release=release
+        status="pending",
+        cve=cve,
+        package=package,
+        release=release,
     )
 
     notice = Notice(

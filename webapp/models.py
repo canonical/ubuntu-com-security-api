@@ -252,7 +252,17 @@ class Status(db.Model):
         Enum("main", "universe", name="components"),
     )
     pocket = Column(
-        Enum("security", "updates", "esm-infra", "esm-apps", name="pockets"),
+        Enum(
+            "security",
+            "updates",
+            "esm-infra",
+            "esm-apps",
+            "fips",
+            "fips-updates",
+            "ros-esm",
+            "soss",
+            name="pockets",
+        ),
     )
 
     cve = relationship("CVE", back_populates="statuses")
