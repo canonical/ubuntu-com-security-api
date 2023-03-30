@@ -150,7 +150,7 @@ class Notice(db.Model):
     release_packages = Column(JSON)
     cves = relationship("CVE", secondary=notice_cves, back_populates="notices")
     references = Column(JSON)
-    is_hidden = Column(Boolean)
+    is_hidden = Column(Boolean, nullable=False)
     releases = relationship(
         "Release",
         secondary=notice_releases,
@@ -205,7 +205,7 @@ class Notice(db.Model):
 class Release(db.Model):
     __tablename__ = "release"
 
-    codename = Column(String, primary_key=True)
+    codename = Column(String, primary_key=True, unique=True)
     name = Column(String, unique=True)
     version = Column(String, unique=True)
     lts = Column(Boolean)
