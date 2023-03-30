@@ -1,66 +1,66 @@
 cve1 = {
-    "id": "CVE-9999-0001",
-    "packages": [
+  "id": "CVE-9999-0001",
+  "packages": [
+    {
+      "debian": "https://tracker.debian.org/pkg/test_package_1",
+      "name": "test_package_1",
+      "source": "https://ubuntu.com/security/cve?package=test_package_1",
+      "statuses": [
         {
-            "debian": "https://tracker.debian.org/pkg/test_package_1",
-            "name": "test_package_1",
-            "source": "https://ubuntu.com/security/cve?package=test_package_1",
-            "statuses": [
-                {
-                    "description": "",
-                    "release_codename": "testrelease",
-                    "status": "released",
-                    "pocket": "fips"
-                }
-            ],
-            "ubuntu": (
-                "https://packages.ubuntu.com/search?suite=all&section=all&arch"
-                "=any&searchon=sourcenames&keywords=test_package_1"
-            ),
+          "description": "",
+          "release_codename": "testrelease",
+          "status": "released",
+          "pocket": "fips"
         }
+      ],
+      "ubuntu": (
+          "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+          "=any&searchon=sourcenames&keywords=test_package_1"
+      ),
+    }
     ],
-    "impact": {
-        "baseMetricV3": {
-            "cvssV3": {
-                "attackComplexity": "LOW",
-                "attackVector": "Local",
-                "availabilityImpact": "NONE",
-                "baseScore": 4.4,
-                "baseSeverity": "MEDIUM",
-                "confidentialityImpact": "HIGH",
-                "integrityImpact": "NONE",
-                "privilegesRequired": "HIGH",
-                "scope": "UNCHANGED",
-                "userInteraction": "NONE",
-                "vectorString": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:H/I:N/A:N",
-                "version": "3.1",
-            },
-            "exploitabilityScore": 0.8,
-            "impactScore": 3.6,
-        }
-    },
+  "impact": {
+    "baseMetricV3": {
+      "cvssV3": {
+        "attackComplexity": "LOW",
+        "attackVector": "Local",
+        "availabilityImpact": "NONE",
+        "baseScore": 4.4,
+        "baseSeverity": "MEDIUM",
+        "confidentialityImpact": "HIGH",
+        "integrityImpact": "NONE",
+        "privilegesRequired": "HIGH",
+        "scope": "UNCHANGED",
+        "userInteraction": "NONE",
+        "vectorString": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:H/I:N/A:N",
+        "version": "3.1",
+      },
+      "exploitabilityScore": 0.8,
+      "impactScore": 3.6,
+    }
+  },
 }
 
 cve2 = {
-    "id": "CVE-9999-0002",
-    "packages": [
-        {
-            "debian": "https://tracker.debian.org/pkg/test_package_2",
-            "name": "test_package_2",
-            "source": "https://ubuntu.com/security/cve?package=test_package21",
-            "statuses": [
-                {
-                    "description": "",
-                    "release_codename": "testrelease",
-                    "status": "released",
-                }
-            ],
-            "ubuntu": (
-                "https://packages.ubuntu.com/search?suite=all&section=all&arch"
-                "=any&searchon=sourcenames&keywords=test_package_2"
-            ),
-        }
-    ],
+  "id": "CVE-9999-0002",
+  "packages": [
+    {
+      "debian": "https://tracker.debian.org/pkg/test_package_2",
+      "name": "test_package_2",
+      "source": "https://ubuntu.com/security/cve?package=test_package21",
+      "statuses": [
+          {
+            "description": "",
+            "release_codename": "testrelease",
+            "status": "released",
+          }
+      ],
+      "ubuntu": (
+          "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+          "=any&searchon=sourcenames&keywords=test_package_2"
+      ),
+    }
+  ],
 }
 
 notice = {
@@ -72,13 +72,13 @@ notice = {
     "references": [],
     "release_packages": {
         "testrelease": [
-            {
-                "description": "Linux kernel for OEM systems",
-                "is_source": "false",
-                "name": "linux-oem",
-                "version": "4.15.0-1080.90",
-                "channel": "Test channel",
-            }
+          {
+              "description": "Linux kernel for OEM systems",
+              "is_source": "false",
+              "name": "linux-oem",
+              "version": "4.15.0-1080.90",
+              "channel": "Test channel",
+          }
         ],
     },
     "summary": "Summary",
