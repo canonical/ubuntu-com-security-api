@@ -357,6 +357,7 @@ class CVESchema(Schema):
     description = String(allow_none=True)
     ubuntu_description = String(allow_none=True)
     notes = List(Nested(Note))
+    codename = String(allow_none=True)
     priority = String(allow_none=True)
     cvss3 = Float(allow_none=True)
     impact = Nested(CveImpact)
