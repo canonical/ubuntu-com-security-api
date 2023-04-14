@@ -32,6 +32,7 @@ def make_models():
         priority="unknown",
         cvss3=2.3,
         impact={},
+        codename="",
         mitigation="",
         references={},
         patches={},

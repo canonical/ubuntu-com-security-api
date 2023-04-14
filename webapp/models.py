@@ -54,6 +54,7 @@ class CVE(db.Model):
     description = Column(String)
     ubuntu_description = Column(String)
     notes = Column(JSON)
+    codename = Column(String)
     priority = Column(
         Enum(
             "unknown",

@@ -1,5 +1,6 @@
 cve1 = {
     "id": "CVE-9999-0001",
+    "codename": "testcodename",
     "packages": [
         {
             "debian": "https://tracker.debian.org/pkg/test_package_1",
