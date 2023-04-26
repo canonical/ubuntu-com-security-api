@@ -11,6 +11,7 @@ from sqlalchemy import (
     JSON,
     String,
     Table,
+    func,
 )
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy.orm import relationship
@@ -50,9 +51,10 @@ class CVE(db.Model):
     __tablename__ = "cve"
 
     id = Column(String, primary_key=True)
-    published = Column(DateTime)
+    published = Column(DateTime(timezone=True))
     description = Column(String)
     ubuntu_description = Column(String)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     notes = Column(JSON)
     codename = Column(String)
     priority = Column(

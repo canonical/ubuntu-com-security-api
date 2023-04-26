@@ -141,6 +141,169 @@ class TestRoutes(unittest.TestCase):
         assert response.status_code == 422
         assert "Cannot find a status" in response.json["errors"]
 
+    def test_cve_updated_at_column(self):
+        """
+        Tests that updated_at is created automatically when a new CVE is added
+        and that it is changed on update.
+        """
+
+        cve_payload = payloads.cve1.copy()
+
+        add_cve_response = self.client.put(
+            "/security/cves.json",
+            json=[
+                cve_payload
+            ],
+        )
+
+        cve = self.client.get(
+            f"/security/cves/{cve_payload['id']}.json"
+        ).json
+
+        assert cve["updated_at"]
+        
+        update_cve_response = self.client.put(
+            "/security/cves.json",
+            json=[
+                {
+                    "id": "CVE-9999-0001",
+                    "codename": "new_codename"
+                }
+            ],
+        )
+
+        updated_cve = self.client.get(
+            f"/security/cves/{cve_payload['id']}.json"
+        ).json
+
+        old_updated_at = cve["updated_at"]
+        new_updated_at = updated_cve["updated_at"]
+
+        assert update_cve_response.status_code == 200
+        assert old_updated_at < new_updated_at
+
+    def test_cve_updated_at_column_unchaged_data(self):
+        """
+        Tests that update_at is unchaged if no changes were passed in the payload.
+        """
+
+        cve_payload = payloads.cve1.copy()
+
+        add_cve_response = self.client.put(
+            "/security/cves.json",
+            json=[
+                cve_payload
+            ],
+        )
+
+        cve = self.client.get(
+            f"/security/cves/{cve_payload['id']}.json"
+        ).json
+
+        update_cve_response = self.client.put(
+            "/security/cves.json",
+            json=[
+                cve_payload
+            ],
+        )
+
+        updated_cve = self.client.get(
+            f"/security/cves/{cve_payload['id']}.json"
+        ).json
+
+        old_updated_at = cve["updated_at"]
+        new_updated_at = updated_cve["updated_at"]
+        
+        assert old_updated_at == new_updated_at
+    
+    def test_cve_updated_at_column_populated_value(self):
+        """
+        Tests that values added to updated_at are ignored.
+        """
+        cve_payload = payloads.cve1.copy()
+
+        add_cve_response = self.client.put(
+            "/security/cves.json",
+            json=[
+                cve_payload
+            ],
+        )
+
+        cve = self.client.get(
+            f"/security/cves/{cve_payload['id']}.json"
+        ).json
+
+        update_cve_response = self.client.put(
+            "/security/cves.json",
+            json=[
+                {
+                    "updated_at" : "2023-03-26T13:59:23.966558+00:00"
+                }
+            ],
+        )
+
+        updated_cve = self.client.get(
+            f"/security/cves/{cve_payload['id']}.json"
+        ).json
+
+        old_updated_at = cve["updated_at"]
+        new_updated_at = updated_cve["updated_at"]
+
+        assert old_updated_at == new_updated_at
+
+    def test_bulk_upsert_cves_returns_422_for_invalid_cve(self):
+        cve = payloads.cve1.copy()
+        cve["hello"] = "world"
+
+        response = self.client.put("/security/cves.json", json=[cve])
+
+        assert response.status_code == 422
+        assert "Unknown field." in response.json["errors"]
+
+    def test_bulk_upsert_cves(self):
+        
+        response_1 = self.client.get(
+            f"/security/cves/{self.models['cve'].id}.json"
+        )
+        assert response_1.status_code == 200
+
+        response_2 = self.client.get(
+            f"/security/cves/{payloads.cve1['id']}.json"
+        )
+        assert response_2.status_code == 404
+
+        response_3 = self.client.put(
+            "/security/cves.json",
+            json=[
+                payloads.cve1,
+                payloads.cve2,
+            ],
+        )
+        assert response_3.status_code == 200
+
+        response = self.client.get(
+            f"/security/cves/{payloads.cve1['id']}.json"
+        )
+        assert response.status_code == 200
+
+        response = self.client.get(
+            f"/security/cves/{payloads.cve2['id']}.json"
+        )
+        assert response.status_code == 200
+        
+    def test_delete_non_existing_cve_returns_404(self):
+        response = self.client.delete(
+            f"/security/cves/{payloads.cve1['id']}.json"
+        )
+
+        assert response.status_code == 404
+
+    def test_delete_cve(self):
+        response = self.client.delete(
+            f"/security/cves/{self.models['cve'].id}.json"
+        )
+        assert response.status_code == 200
+
     def test_usn_not_exists(self):
         response = self.client.get("/security/notices/USN-0000-00.json")
 
@@ -257,58 +420,6 @@ class TestRoutes(unittest.TestCase):
         # Now delete it
         response = self.client.delete(
             f"/security/notices/{payloads.notice['id']}.json"
-        )
-        assert response.status_code == 200
-
-    def test_bulk_upsert_cves_returns_422_for_invalid_cve(self):
-        cve = payloads.cve1.copy()
-        cve["hello"] = "world"
-
-        response = self.client.put("/security/cves.json", json=[cve])
-
-        assert response.status_code == 422
-        assert "Unknown field." in response.json["errors"]
-
-    def test_bulk_upsert_cves(self):
-        response_1 = self.client.get(
-            f"/security/cves/{self.models['cve'].id}.json"
-        )
-        assert response_1.status_code == 200
-
-        response_2 = self.client.get(
-            f"/security/cves/{payloads.cve1['id']}.json"
-        )
-        assert response_2.status_code == 404
-
-        response_3 = self.client.put(
-            "/security/cves.json",
-            json=[
-                payloads.cve1,
-                payloads.cve2,
-            ],
-        )
-        assert response_3.status_code == 200
-
-        response = self.client.get(
-            f"/security/cves/{payloads.cve1['id']}.json"
-        )
-        assert response.status_code == 200
-
-        response = self.client.get(
-            f"/security/cves/{payloads.cve2['id']}.json"
-        )
-        assert response.status_code == 200
-
-    def test_delete_non_existing_cve_returns_404(self):
-        response = self.client.delete(
-            f"/security/cves/{payloads.cve1['id']}.json"
-        )
-
-        assert response.status_code == 404
-
-    def test_delete_cve(self):
-        response = self.client.delete(
-            f"/security/cves/{self.models['cve'].id}.json"
         )
         assert response.status_code == 200
 

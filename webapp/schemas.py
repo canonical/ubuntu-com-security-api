@@ -354,6 +354,7 @@ class Note(Schema):
 class CVESchema(Schema):
     id = String(required=True)
     published = ParsedDateTime(allow_none=True)
+    updated_at = ParsedDateTime(allow_none=True)
     description = String(allow_none=True)
     ubuntu_description = String(allow_none=True)
     notes = List(Nested(Note))
@@ -481,6 +482,19 @@ CVEsParameters = {
         description=(
             "Select order: choose `oldest` for ASC order; "
             "leave empty for DESC order"
+        ),
+        allow_none=True,
+    ),
+    "group_by": String(
+        enum=["priority"],
+        description=(
+            "Select `priority` to sort CVEs by higghest to lowest priority"
+        ),
+        allow_none=True,
+    ),
+    "last_updated": Boolean(
+        description=(
+            "True if you want to order by the most recently updated CVEs"
         ),
         allow_none=True,
     ),

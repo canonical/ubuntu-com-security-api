@@ -76,6 +76,7 @@ def get_cve(cve_id, **kwargs):
 def get_cves(**kwargs):
     query = kwargs.get("q", "").strip()
     priority = kwargs.get("priority")
+    group_by = kwargs.get("group_by")
     package = kwargs.get("package")
     limit = kwargs.get("limit", 20)
     offset = kwargs.get("offset", 0)
@@ -96,17 +97,24 @@ def get_cves(**kwargs):
             CVE.status == "active"
         )
 
+    # order by priority
+    if group_by == "priority":
+        cves_query = _sort_by_priority(cves_query)
+
     # filter by priority
     if priority:
         cves_query = cves_query.filter(CVE.priority == priority)
 
-    # filter by description or CVE id
+    # filter by all text based fields
     if query:
         cves_query = cves_query.filter(
             or_(
                 CVE.id.ilike(f"%{query}%"),
                 CVE.description.ilike(f"%{query}%"),
                 CVE.ubuntu_description.ilike(f"%{query}%"),
+                CVE.codename.ilike(f"%{query}%"),
+                CVE.mitigation.ilike(f"%{query}%"),
+                CVE.notes.ilike(f"%{query}%"),
             )
         )
 
@@ -643,6 +651,25 @@ def delete_release(release_codename):
     return make_response(
         jsonify({"message": f"Release {release_codename} deleted"}), 200
     )
+
+
+def _sort_by_priority(cves_query):
+    priority_list = [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "negligible",
+        "unknown",
+    ]
+
+    priority_sorting = case(
+        {_id: index for index, _id in enumerate(priority_list)},
+        value=CVE.priority,
+    )
+    cves_query = cves_query.order_by(priority_sorting)
+
+    return cves_query
 
 
 def _should_filter_by_version_and_status(statuses, versions) -> bool:
