@@ -30,7 +30,7 @@ def make_models():
         description="",
         ubuntu_description="",
         notes={},
-        priority="unknown",
+        priority="critical",
         cvss3=2.3,
         impact={},
         codename="test_name",

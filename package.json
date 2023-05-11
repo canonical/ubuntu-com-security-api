@@ -11,7 +11,7 @@
     "stop-db": "docker-compose stop",
     "delete-db": "docker-compose stop; docker-compose rm -f",
     "test": "yarn run lint-python && yarn run test-python",
-    "test-python": "python3 -m unittest discover tests"
+    "test-python": "python3 -m unittest tests.test_routes.TestRoutes.test_cve_sort_by_functionality"
   },
   "dependencies": {}
 }

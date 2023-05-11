@@ -1,3 +1,7 @@
+"""
+This CVE is missing a status field. It should not show up in get requests for all CVEs, 
+but should show up when you make a get request by its CVE id
+"""
 cve1 = {
     "id": "CVE-9999-0001",
     "codename": "testcodename",
@@ -40,10 +44,13 @@ cve1 = {
             "impactScore": 3.6,
         }
     },
+    "priority": "critical",
+    "published": "2020-08-01 12:42:54",
 }
 
 cve2 = {
     "id": "CVE-9999-0002",
+    "codename": "testcodename2",
     "packages": [
         {
             "debian": "https://tracker.debian.org/pkg/test_package_2",
@@ -62,6 +69,111 @@ cve2 = {
             ),
         }
     ],
+    "published": "2020-11-01 12:42:54",
+    "priority": "high",
+    "status": "active",
+}
+
+cve3 = {
+    "id": "CVE-9999-0003",
+    "codename": "testcodename3",
+    "packages": [
+        {
+            "debian": "https://tracker.debian.org/pkg/test_package_3",
+            "name": "test_package_3",
+            "source": "https://ubuntu.com/security/cve?package=test_package_3",
+            "statuses": [
+                {
+                    "description": "",
+                    "release_codename": "testrelease",
+                    "status": "released",
+                }
+            ],
+            "ubuntu": (
+                "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+                "=any&searchon=sourcenames&keywords=test_package_3"
+            ),
+        }
+    ],
+    "priority": "medium",
+    "published": "2019-12-01 12:42:54",
+    "status": "active",
+}
+
+cve4 = {
+    "id": "CVE-9999-0004",
+    "codename": "testcodename4",
+    "packages": [
+        {
+            "debian": "https://tracker.debian.org/pkg/test_package_4",
+            "name": "test_package_3",
+            "source": "https://ubuntu.com/security/cve?package=test_package_4",
+            "statuses": [
+                {
+                    "description": "",
+                    "release_codename": "testrelease",
+                    "status": "released",
+                }
+            ],
+            "ubuntu": (
+                "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+                "=any&searchon=sourcenames&keywords=test_package_4"
+            ),
+        }
+    ],
+    "priority": "medium",
+    "published": "2022-12-01 12:42:54",
+    "status": "active",
+}
+
+cve5 = {
+    "id": "CVE-9999-0005",
+    "packages": [
+        {
+            "debian": "https://tracker.debian.org/pkg/test_package_5",
+            "name": "test_package_3",
+            "source": "https://ubuntu.com/security/cve?package=test_package_5",
+            "statuses": [
+                {
+                    "description": "",
+                    "release_codename": "testrelease",
+                    "status": "released",
+                }
+            ],
+            "ubuntu": (
+                "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+                "=any&searchon=sourcenames&keywords=test_package_5"
+            ),
+        }
+    ],
+    "published": "2020-12-01 12:42:54",
+    "priority": "low",
+    "status": "active",
+}
+
+cve6 = {
+    "id": "CVE-9999-0006",
+    "packages": [
+        {
+            "debian": "https://tracker.debian.org/pkg/test_package_6",
+            "name": "test_package_3",
+            "source": "https://ubuntu.com/security/cve?package=test_package_6",
+            "statuses": [
+                {
+                    "description": "",
+                    "release_codename": "testrelease",
+                    "status": "released",
+                }
+            ],
+            "ubuntu": (
+                "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+                "=any&searchon=sourcenames&keywords=test_package_6"
+            ),
+        }
+    ],
+    "published": "2020-12-01 12:42:54",
+    "priority": "negligible",
+    "status": "active",
 }
 
 notice = {
