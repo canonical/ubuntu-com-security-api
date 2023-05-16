@@ -26,7 +26,6 @@ def make_models():
     cve = CVE(
         id="CVE-1111-0001",
         published=datetime.now(),
-        updated_at=datetime.now(),
         description="",
         ubuntu_description="",
         notes={},

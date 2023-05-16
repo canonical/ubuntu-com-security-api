@@ -151,36 +151,27 @@ class TestRoutes(unittest.TestCase):
 
         add_cve_response = self.client.put(
             "/security/cves.json",
-            json=[
-                cve_payload
-            ],
+            json=[cve_payload],
         )
 
-        cve = self.client.get(
-            f"/security/cves/{cve_payload['id']}.json"
-        ).json
+        cve = self.client.get(f"/security/cves/{cve_payload['id']}.json").json
 
-        assert cve["updated_at"]
-        
+        # Check that value is None when CVE is first added
+        assert cve["updated_at"] == None
+
         update_cve_response = self.client.put(
             "/security/cves.json",
-            json=[
-                {
-                    "id": "CVE-9999-0001",
-                    "codename": "new_codename"
-                }
-            ],
+            json=[{"id": "CVE-9999-0001", "codename": "new_codename"}],
         )
+
+        assert update_cve_response.status_code == 200
 
         updated_cve = self.client.get(
             f"/security/cves/{cve_payload['id']}.json"
         ).json
 
-        old_updated_at = cve["updated_at"]
-        new_updated_at = updated_cve["updated_at"]
-
-        assert update_cve_response.status_code == 200
-        assert old_updated_at < new_updated_at
+        # Check that field value is populated on update
+        assert updated_cve["updated_at"]
 
     def test_cve_updated_at_column_unchaged_data(self):
         """
@@ -191,20 +182,14 @@ class TestRoutes(unittest.TestCase):
 
         add_cve_response = self.client.put(
             "/security/cves.json",
-            json=[
-                cve_payload
-            ],
+            json=[cve_payload],
         )
 
-        cve = self.client.get(
-            f"/security/cves/{cve_payload['id']}.json"
-        ).json
+        cve = self.client.get(f"/security/cves/{cve_payload['id']}.json").json
 
         update_cve_response = self.client.put(
             "/security/cves.json",
-            json=[
-                cve_payload
-            ],
+            json=[cve_payload],
         )
 
         updated_cve = self.client.get(
@@ -213,9 +198,9 @@ class TestRoutes(unittest.TestCase):
 
         old_updated_at = cve["updated_at"]
         new_updated_at = updated_cve["updated_at"]
-        
+
         assert old_updated_at == new_updated_at
-    
+
     def test_cve_updated_at_column_populated_value(self):
         """
         Tests that values added to updated_at are ignored.
@@ -224,22 +209,14 @@ class TestRoutes(unittest.TestCase):
 
         add_cve_response = self.client.put(
             "/security/cves.json",
-            json=[
-                cve_payload
-            ],
+            json=[cve_payload],
         )
 
-        cve = self.client.get(
-            f"/security/cves/{cve_payload['id']}.json"
-        ).json
+        cve = self.client.get(f"/security/cves/{cve_payload['id']}.json").json
 
         update_cve_response = self.client.put(
             "/security/cves.json",
-            json=[
-                {
-                    "updated_at" : "2023-03-26T13:59:23.966558+00:00"
-                }
-            ],
+            json=[{"updated_at": "2023-03-26T13:59:23.966558+00:00"}],
         )
 
         updated_cve = self.client.get(
@@ -254,15 +231,13 @@ class TestRoutes(unittest.TestCase):
     def test_cve_group_by_functionality(self):
         """
         Tests that CVEs are correctly grouped by priority and ordered by publish date.
-        """    
+        """
         # Check that there is one CVE in the db with an active status and a critical priority
-        initial_cves = self.client.get(
-            "/security/cves.json"
-        )
+        initial_cves = self.client.get("/security/cves.json")
 
         assert initial_cves.status_code == 200
         assert initial_cves.json["cves"][0]["priority"] == "critical"
-        
+
         # Add CVEs of varying priority, including one without a status field (cve1)
         add_cves_response = self.client.put(
             "/security/cves.json",
@@ -289,7 +264,10 @@ class TestRoutes(unittest.TestCase):
         assert grouped_cves["cves"][5]["priority"] == "negligible"
 
         # Check that CVEs with same priority are ordered by publication date
-        assert grouped_cves["cves"][2]["published"] > grouped_cves["cves"][3]["published"]
+        assert (
+            grouped_cves["cves"][2]["published"]
+            > grouped_cves["cves"][3]["published"]
+        )
 
         # Check that CVE with a missing status is excluded from the payload
         for cve in grouped_cves["cves"]:
@@ -302,60 +280,121 @@ class TestRoutes(unittest.TestCase):
             "/security/cves.json?group_by=priority&order=ascending"
         ).json
 
-        assert grouped_cves_asc["cves"][2]["published"] < grouped_cves_asc["cves"][3]["published"]
-
+        assert (
+            grouped_cves_asc["cves"][2]["published"]
+            < grouped_cves_asc["cves"][3]["published"]
+        )
 
     def test_cve_sort_by_functionality(self):
-        # Add mutiple CVEs
-        add_cves_response = self.client.put(
+        """
+        Tests that CVEs can be sorted by updated_at or published field
+        and can be ordered by descending or ascending values.
+        """
+
+        # Add CVEs at different intervals to create separate publish dates
+        add_cves_response1 = self.client.put(
             "/security/cves.json",
             json=[
-                payloads.cve1,
                 payloads.cve2,
-                payloads.cve3,
-                payloads.cve4,
-                payloads.cve5,
-                payloads.cve6,
             ],
         )
 
-        # Pass updates
-        payloads.cve2["codename"] == "new_name_2"
-        payloads.cve3["codename"] == "new_name_3"
-        payloads.cve4["codename"] == "new_name_4"
-        payloads.cve5["priority"] == "critical"
-        payloads.cve6["priority"] == "low"
+        add_cves_response2 = self.client.put(
+            "/security/cves.json",
+            json=[
+                payloads.cve3,
+            ],
+        )
+
+        add_cves_response3 = self.client.put(
+            "/security/cves.json",
+            json=[
+                payloads.cve4,
+            ],
+        )
+
+        # Sorting by publish date is the default and should not need to be explicitly passed
+        sorted_cves1_desc = self.client.get("/security/cves.json").json
+        sorted_cves1_desc_with_param = self.client.get(
+            "/security/cves.json?sort_by=published"
+        ).json
+
+        # Check that behavior is the same with or without param
+        assert sorted_cves1_desc == sorted_cves1_desc_with_param
+
+        # Check sorting by publish date (desc)
+        assert (
+            sorted_cves1_desc["cves"][0]["published"]
+            > sorted_cves1_desc["cves"][1]["published"]
+        )
+        assert (
+            sorted_cves1_desc["cves"][1]["published"]
+            > sorted_cves1_desc["cves"][2]["published"]
+        )
+
+        # Check ordering by asc value
+        sorted_cves1_asc = self.client.get(
+            "/security/cves.json?sort_by=published&order=ascending"
+        ).json
+
+        assert (
+            sorted_cves1_asc["cves"][0]["published"]
+            < sorted_cves1_asc["cves"][1]["published"]
+        )
+        assert (
+            sorted_cves1_asc["cves"][1]["published"]
+            < sorted_cves1_asc["cves"][2]["published"]
+        )
+
+        # Make updates to existing CVEs to populate updated_at field
+        payloads.cve2["codename"] = "new_name2"
+        payloads.cve3["codename"] = "new_name3"
+        payloads.cve4["codename"] = "new_name4"
 
         update_cves_response1 = self.client.put(
             "/security/cves.json",
-            json=[
-                payloads.cve2,
-                payloads.cve3,
-                payloads.cve4,
-            ],
+            json=[payloads.cve2],
         )
 
         update_cves_response2 = self.client.put(
             "/security/cves.json",
-            json=[
-                payloads.cve5,
-                payloads.cve6,
-            ],
+            json=[payloads.cve3],
         )
 
-        # Check that CVEs can be sorted by update date
-        sort_updated_cves = self.client.get(
+        update_cves_response3 = self.client.put(
+            "/security/cves.json",
+            json=[payloads.cve4],
+        )
+
+        get_cves = self.client.get("/security/cves.json").json
+
+        # Check sorting by updated_at field (desc)
+        sorted_cves2_desc = self.client.get(
             "/security/cves.json?sort_by=updated"
         ).json
 
-        import ipdb
-        ipdb.set_trace()
+        assert (
+            sorted_cves2_desc["cves"][0]["updated_at"]
+            > sorted_cves2_desc["cves"][1]["updated_at"]
+        )
+        assert (
+            sorted_cves2_desc["cves"][1]["updated_at"]
+            > sorted_cves2_desc["cves"][2]["updated_at"]
+        )
 
+        # Check ordering by asc value
+        sorted_cves2_asc = self.client.get(
+            "/security/cves.json?sort_by=updated&order=ascending"
+        ).json
 
-
-
-    def test_cve_order_functionality(self):
-        return
+        assert (
+            sorted_cves2_asc["cves"][0]["updated_at"]
+            < sorted_cves2_asc["cves"][1]["updated_at"]
+        )
+        assert (
+            sorted_cves2_asc["cves"][1]["updated_at"]
+            < sorted_cves2_asc["cves"][2]["updated_at"]
+        )
 
     def test_bulk_upsert_cves_returns_422_for_invalid_cve(self):
         cve = payloads.cve1.copy()
@@ -395,7 +434,7 @@ class TestRoutes(unittest.TestCase):
             f"/security/cves/{payloads.cve2['id']}.json"
         )
         assert response.status_code == 200
-        
+
     def test_delete_non_existing_cve_returns_404(self):
         response = self.client.delete(
             f"/security/cves/{payloads.cve1['id']}.json"

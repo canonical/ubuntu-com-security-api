@@ -89,7 +89,6 @@ def get_cves(**kwargs):
     show_hidden = kwargs.get("show_hidden", False)
 
     # query cves by filters. Default filter by active CVEs
-    
     if cve_status:
         cves_query: Query = db.session.query(CVE).filter(
             CVE.status == cve_status
@@ -195,17 +194,14 @@ def get_cves(**kwargs):
         cve_notices_query = cve_notices_query.and_(Notice.is_hidden == "False")
 
     if order in ("oldest", "ascending"):
-        sort = asc 
+        sort = asc
     elif order == "descending":
-        sort = desc 
+        sort = desc
 
     if sort_by == "published":
         sort_field = CVE.published
     elif sort_by == "updated":
-        import ipdb
-        ipdb.set_trace()
         sort_field = CVE.updated_at
-        
 
     query: Query = (
         cves_query.options(

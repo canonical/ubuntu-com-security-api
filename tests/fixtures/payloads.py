@@ -1,5 +1,5 @@
 """
-This CVE is missing a status field. It should not show up in get requests for all CVEs, 
+This CVE is missing a status field. It should not show up in get requests for all CVEs,
 but should show up when you make a get request by its CVE id
 """
 cve1 = {
