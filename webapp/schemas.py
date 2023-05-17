@@ -481,15 +481,14 @@ CVEsParameters = {
         load_default="descending",
         enum=["oldest, descending, ascending"],
         description=(
-            "Select order: choose `oldest` for ASC order; "
-            "leave empty for DESC order"
+            "Select `ascending` or `oldest` (depreciated) for ASC order;"
+            "leave empty for descending order"
         ),
     ),
     "group_by": String(
         enum=["priority"],
         description=(
-            "Select `priority` to sort CVEs by higghest to lowest priority or "
-            "`last_updated` to sort by most recently updated CVEs"
+            "Select `priority` to group CVEs by highest to lowest priority"
         ),
         allow_none=True,
     ),
@@ -497,8 +496,8 @@ CVEsParameters = {
         load_default="published",
         enum=["updated", "published"],
         description=(
-            "Select `priority` to sort CVEs by higghest to lowest priority or "
-            "`last_updated` to sort by most recently updated CVEs"
+            "Select `updated` to sort by most recently updated CVEs;"
+            "leave empty to sort by publish date"
         ),
     ),
     "show_hidden": Boolean(
