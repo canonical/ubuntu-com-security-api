@@ -158,8 +158,8 @@ class TestRoutes(unittest.TestCase):
 
         cve = self.client.get(f"/security/cves/{cve_payload['id']}.json").json
 
-        # Check that value is None when CVE is first added
-        assert cve["updated_at"] is None
+        # Check that value exists and is populated
+        assert cve["updated_at"] is not None
 
         update_cve_response = self.client.put(
             "/security/cves.json",
@@ -172,7 +172,7 @@ class TestRoutes(unittest.TestCase):
             f"/security/cves/{cve_payload['id']}.json"
         ).json
 
-        # Check that field value is populated on update
+        # Check that field value is updated on update
         assert updated_cve["updated_at"]
 
     def test_cve_updated_at_column_unchaged_data(self):
@@ -368,7 +368,7 @@ class TestRoutes(unittest.TestCase):
             < sorted_cves1_asc["cves"][2]["published"]
         )
 
-        # Make updates to existing CVEs to populate updated_at field
+        # Make updates to existing CVEs to update updated_at field
         payloads.cve2["codename"] = "new_name2"
         payloads.cve3["codename"] = "new_name3"
         payloads.cve4["codename"] = "new_name4"

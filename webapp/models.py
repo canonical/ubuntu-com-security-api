@@ -51,11 +51,11 @@ class CVE(db.Model):
     __tablename__ = "cve"
 
     id = Column(String, primary_key=True)
-    published = Column(DateTime(timezone=True))
+    published = Column(DateTime)
     description = Column(String)
     ubuntu_description = Column(String)
     updated_at = Column(
-        DateTime(timezone=True), server_default=None, onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     notes = Column(JSON)
     codename = Column(String)

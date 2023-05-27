@@ -17,7 +17,7 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('cve', sa.Column('updated_at', sa.DateTime(timezone=True), server_default=None, nullable=True))
+    op.add_column('cve', sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True))
 
 
 def downgrade():
