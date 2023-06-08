@@ -147,6 +147,7 @@ class TestRoutes(unittest.TestCase):
         and that it is changed on update.
         """
 
+        # Create and add new CVE
         cve_payload = payloads.cve1.copy()
 
         add_cve_response = self.client.put(
@@ -161,6 +162,7 @@ class TestRoutes(unittest.TestCase):
         # Check that value exists and is populated
         assert cve["updated_at"] is not None
 
+        # Pass an update to the CVE
         update_cve_response = self.client.put(
             "/security/cves.json",
             json=[{"id": "CVE-9999-0001", "codename": "new_codename"}],
@@ -181,6 +183,7 @@ class TestRoutes(unittest.TestCase):
         were passed in the payload.
         """
 
+        # Create and add new CVE
         cve_payload = payloads.cve1.copy()
 
         add_cve_response = self.client.put(
@@ -192,6 +195,7 @@ class TestRoutes(unittest.TestCase):
 
         cve = self.client.get(f"/security/cves/{cve_payload['id']}.json").json
 
+        # Pass an update to the CVE
         update_cve_response = self.client.put(
             "/security/cves.json",
             json=[cve_payload],
@@ -206,12 +210,14 @@ class TestRoutes(unittest.TestCase):
         old_updated_at = cve["updated_at"]
         new_updated_at = updated_cve["updated_at"]
 
+        # Check that field value did not change
         assert old_updated_at == new_updated_at
 
     def test_cve_updated_at_column_populated_value(self):
         """
-        Tests that values added to updated_at are ignored.
+        Tests that 422 is returned when trying update field directly. 
         """
+        # Create and add new CVE
         cve_payload = payloads.cve1.copy()
 
         add_cve_response = self.client.put(
@@ -219,25 +225,17 @@ class TestRoutes(unittest.TestCase):
             json=[cve_payload],
         )
 
-        add_cve_response.status_code == 200
+        assert add_cve_response.status_code == 200
 
         cve = self.client.get(f"/security/cves/{cve_payload['id']}.json").json
 
+        # Try to update updated_at field
         update_cve_response = self.client.put(
             "/security/cves.json",
             json=[{"updated_at": "2023-03-26T13:59:23.966558+00:00"}],
         )
 
-        update_cve_response.status_code == 200
-
-        updated_cve = self.client.get(
-            f"/security/cves/{cve_payload['id']}.json"
-        ).json
-
-        old_updated_at = cve["updated_at"]
-        new_updated_at = updated_cve["updated_at"]
-
-        assert old_updated_at == new_updated_at
+        assert update_cve_response.status_code == 422
 
     def test_cve_group_by_functionality(self):
         """
@@ -265,7 +263,7 @@ class TestRoutes(unittest.TestCase):
             ],
         )
 
-        add_cves_response.status_code == 200
+        assert add_cves_response.status_code == 200
 
         grouped_cves = self.client.get(
             "/security/cves.json?group_by=priority"
