@@ -76,6 +76,7 @@ def get_cve(cve_id, **kwargs):
 def get_cves(**kwargs):
     query = kwargs.get("q", "").strip()
     priority = kwargs.get("priority")
+    group_by = kwargs.get("group_by")
     package = kwargs.get("package")
     limit = kwargs.get("limit", 20)
     offset = kwargs.get("offset", 0)
@@ -83,7 +84,8 @@ def get_cves(**kwargs):
     versions = kwargs.get("version")
     cve_status = kwargs.get("cve_status")
     statuses = kwargs.get("status")
-    order_by = kwargs.get("order")
+    order = kwargs.get("order")
+    sort_by = kwargs.get("sort_by")
     show_hidden = kwargs.get("show_hidden", False)
 
     # query cves by filters. Default filter by active CVEs
@@ -96,17 +98,24 @@ def get_cves(**kwargs):
             CVE.status == "active"
         )
 
+    # order by priority
+    if group_by == "priority":
+        cves_query = _sort_by_priority(cves_query)
+
     # filter by priority
     if priority:
         cves_query = cves_query.filter(CVE.priority == priority)
 
-    # filter by description or CVE id
+    # filter by all text based fields
     if query:
         cves_query = cves_query.filter(
             or_(
                 CVE.id.ilike(f"%{query}%"),
                 CVE.description.ilike(f"%{query}%"),
                 CVE.ubuntu_description.ilike(f"%{query}%"),
+                CVE.codename.ilike(f"%{query}%"),
+                CVE.mitigation.ilike(f"%{query}%"),
+                CVE.notes.ilike(f"%{query}%"),
             )
         )
 
@@ -184,7 +193,15 @@ def get_cves(**kwargs):
     if not show_hidden:
         cve_notices_query = cve_notices_query.and_(Notice.is_hidden == "False")
 
-    sort = asc if order_by == "oldest" else desc
+    if order in ("oldest", "ascending"):
+        sort = asc
+    elif order == "descending":
+        sort = desc
+
+    if sort_by == "published":
+        sort_field = CVE.published
+    elif sort_by == "updated":
+        sort_field = CVE.updated_at
 
     query: Query = (
         cves_query.options(
@@ -195,10 +212,10 @@ def get_cves(**kwargs):
         .options(selectinload(cve_statuses_query))
         .order_by(
             case(
-                [(CVE.published.is_(None), 1)],
+                [(sort_field.is_(None), 1)],
                 else_=0,
             ),
-            sort(CVE.published),
+            sort(sort_field),
             sort(CVE.id),
         )
         .limit(limit)
@@ -643,6 +660,25 @@ def delete_release(release_codename):
     return make_response(
         jsonify({"message": f"Release {release_codename} deleted"}), 200
     )
+
+
+def _sort_by_priority(cves_query):
+    priority_list = [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "negligible",
+        "unknown",
+    ]
+
+    priority_sorting = case(
+        {_id: index for index, _id in enumerate(priority_list)},
+        value=CVE.priority,
+    )
+    cves_query = cves_query.order_by(priority_sorting)
+
+    return cves_query
 
 
 def _should_filter_by_version_and_status(statuses, versions) -> bool:
