@@ -215,7 +215,7 @@ class TestRoutes(unittest.TestCase):
 
     def test_cve_updated_at_column_populated_value(self):
         """
-        Tests that 422 is returned when trying update field directly. 
+        Tests that 422 is returned when trying update field directly.
         """
         # Create and add new CVE
         cve_payload = payloads.cve1.copy()
@@ -226,8 +226,6 @@ class TestRoutes(unittest.TestCase):
         )
 
         assert add_cve_response.status_code == 200
-
-        cve = self.client.get(f"/security/cves/{cve_payload['id']}.json").json
 
         # Try to update updated_at field
         update_cve_response = self.client.put(
