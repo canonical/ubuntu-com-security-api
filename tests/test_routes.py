@@ -122,7 +122,7 @@ class TestRoutes(unittest.TestCase):
         assert response.json["notices_ids"] == self.models["cve"].notices_ids
 
     def test_cves_query_no_500(self):
-        response = self.client.get("/security/cves.json?q=blah")
+        response = self.client.get("/security/cves.json?q=firefox")
 
         assert response.status_code == 200
 
