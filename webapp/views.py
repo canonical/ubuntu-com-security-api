@@ -115,7 +115,6 @@ def get_cves(**kwargs):
                 CVE.ubuntu_description.ilike(f"%{query}%"),
                 CVE.codename.ilike(f"%{query}%"),
                 CVE.mitigation.ilike(f"%{query}%"),
-                CVE.notes.ilike(f"%{query}%"),
             )
         )
 
