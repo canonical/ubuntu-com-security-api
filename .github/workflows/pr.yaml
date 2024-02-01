@@ -22,7 +22,7 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Build image
         run: DOCKER_BUILDKIT=1 docker build --tag ubuntu-com-security-api .
@@ -50,7 +50,7 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install dotrun
         uses: canonical/install-dotrun@main
@@ -66,7 +66,7 @@ jobs:
   lint-python:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Node dependencies
         run: yarn install
@@ -97,7 +97,7 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install requirements
         run: |
@@ -120,7 +120,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Check inclusive naming
         uses: canonical-web-and-design/inclusive-naming@main
