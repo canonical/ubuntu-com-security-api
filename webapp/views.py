@@ -132,12 +132,10 @@ def get_cves(**kwargs):
     if statuses:
         for status in statuses:
             parameters.append(Status.status == status)
-        # cves_query = cves_query.filter(CVE.statuses.any(and_(status for status in statuses)))
 
     if versions:
         for version in versions:
             parameters.append(Status.release_codename == version)
-            # cves_query = cves_query.filter(CVE.statuses.any(Status.release_codename == version))
 
     # apply CVE statuses filter parameters
     cve_statuses_query = CVE.statuses
