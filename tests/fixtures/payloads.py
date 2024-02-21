@@ -137,7 +137,7 @@ cve5 = {
             "statuses": [
                 {
                     "description": "",
-                    "release_codename": "testrelease",
+                    "release_codename": "testrelease3",
                     "status": "released",
                 }
             ],
@@ -162,8 +162,58 @@ cve6 = {
             "statuses": [
                 {
                     "description": "",
-                    "release_codename": "testrelease",
+                    "release_codename": "testrelease2",
                     "status": "released",
+                }
+            ],
+            "ubuntu": (
+                "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+                "=any&searchon=sourcenames&keywords=test_package_6"
+            ),
+        }
+    ],
+    "published": "2020-12-01 12:42:54",
+    "priority": "negligible",
+    "status": "active",
+}
+
+cve7 = {
+    "id": "CVE-9999-0007",
+    "packages": [
+        {
+            "debian": "https://tracker.debian.org/pkg/test_package_6",
+            "name": "test_package_3",
+            "source": "https://ubuntu.com/security/cve?package=test_package_6",
+            "statuses": [
+                {
+                    "description": "",
+                    "release_codename": "testrelease",
+                    "status": "needed",
+                }
+            ],
+            "ubuntu": (
+                "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+                "=any&searchon=sourcenames&keywords=test_package_6"
+            ),
+        }
+    ],
+    "published": "2020-12-01 12:42:54",
+    "priority": "negligible",
+    "status": "active",
+}
+
+cve8 = {
+    "id": "CVE-9999-0008",
+    "packages": [
+        {
+            "debian": "https://tracker.debian.org/pkg/test_package_6",
+            "name": "test_package_3",
+            "source": "https://ubuntu.com/security/cve?package=test_package_6",
+            "statuses": [
+                {
+                    "description": "",
+                    "release_codename": "testrelease2",
+                    "status": "needs-triage",
                 }
             ],
             "ubuntu": (
@@ -227,6 +277,30 @@ release = {
     "name": "Created Release",
     "version": "99.04",
     "codename": "createdrelease",
+    "lts": False,
+    "development": True,
+    "release_date": "2021-04-22",
+    "esm_expires": "2022-01-31",
+    "support_expires": "2022-01-31",
+}
+
+release2 = {
+    "name": "New Created Release",
+    "version": "99.05",
+    "codename": "testrelease2",
+    "lts": False,
+    "development": True,
+    "release_date": "2021-04-22",
+    "esm_expires": "2022-01-31",
+    "support_expires": "2022-01-31",
+}
+
+
+
+release3 = {
+    "name": "Another Created Release",
+    "version": "99.06",
+    "codename": "testrelease3",
     "lts": False,
     "development": True,
     "release_date": "2021-04-22",
