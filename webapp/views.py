@@ -4,7 +4,7 @@ from distutils.util import strtobool
 
 from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import desc, or_, and_, case, asc
+from sqlalchemy import desc, or_, case, asc
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import load_only, selectinload, Query
 import dateutil
@@ -129,60 +129,20 @@ def get_cves(**kwargs):
     if component:
         parameters.append(Status.component == component)
 
-    # filter by package status and version
-    if _should_filter_by_version_and_status(statuses, versions):
-        clean_versions = _get_clean_versions(versions)
-        clean_statuses = _get_clean_statuses(statuses)
+    if statuses:
+        for status in statuses:
+            parameters.append(Status.status == status)
 
-        # filter for cves.statuses by status-version criteria
-        # exclude stauses that don't satisfy any status-version criteria
-        conditions = []
-        for key, sub_versions in enumerate(clean_versions):
-            # default to all statuses if match doesn't exists
-            sub_statuses = clean_statuses[key] or STATUS_STATUSES.enums
-
-            conditions.append(
-                and_(
-                    Status.release_codename.in_(sub_versions),
-                    Status.status.in_(sub_statuses),
-                )
-            )
-
-        parameters.append(or_(*[condition for condition in conditions]))
-
-        # filter for cve.statuses by status-version including package/component
-        # for situations where there are multiple version-statuses provided
-        # filter out cve that satisfy all version-statuses pairs
-        conditions = []
-        for key, sub_versions in enumerate(clean_versions):
-            # default to all statuses if match doesn't exists
-            sub_statuses = clean_statuses[key] or STATUS_STATUSES.enums
-
-            sub_conditions = [
-                Status.release_codename.in_(sub_versions),
-                Status.status.in_(sub_statuses),
-            ]
-
-            if package:
-                sub_conditions.append(Status.package_name == package)
-
-            if component:
-                sub_conditions.append(Status.component == component)
-
-            condition = CVE.statuses.any(
-                and_(*[sub_condition for sub_condition in sub_conditions])
-            )
-
-            conditions.append(condition)
-
-        parameters.append(and_(*[condition for condition in conditions]))
+    if versions:
+        for version in versions:
+            parameters.append(Status.release_codename == version)
 
     # apply CVE statuses filter parameters
     cve_statuses_query = CVE.statuses
     if parameters:
         # filter the CVEs that fulfill criteria
         cves_query = cves_query.filter(
-            CVE.statuses.any(and_(*[p for p in parameters]))
+            CVE.statuses.any(or_(*[p for p in parameters]))
         )
 
         # filter the CVE statuses that fulfil creatia
@@ -208,7 +168,6 @@ def get_cves(**kwargs):
                 selectinload(Notice.cves).options(load_only(CVE.id))
             )
         )
-        .options(selectinload(cve_statuses_query))
         .order_by(
             case(
                 [(sort_field.is_(None), 1)],
