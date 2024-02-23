@@ -56,7 +56,9 @@ jobs:
         uses: canonical/install-dotrun@main
 
       - name: Install dependencies
-        run: /snap/bin/dotrun install
+        run: |
+          sudo chmod -R 777 .
+          dotrun install
 
       - name: Run dotrun
         run: |
