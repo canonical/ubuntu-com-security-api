@@ -75,7 +75,7 @@ def get_cve(cve_id, **kwargs):
 @use_kwargs(CVEsParameters, location="query")
 def get_cves(**kwargs):
     query = kwargs.get("q", "").strip()
-    priority = kwargs.get("priority")
+    priorities = kwargs.get("priority")
     group_by = kwargs.get("group_by")
     package = kwargs.get("package")
     limit = kwargs.get("limit", 20)
@@ -103,8 +103,12 @@ def get_cves(**kwargs):
         cves_query = _sort_by_priority(cves_query)
 
     # filter by priority
-    if priority:
-        cves_query = cves_query.filter(CVE.priority == priority)
+    if priorities:
+        # print(priorities)
+        # import ipdb
+        # ipdb.set_trace()
+        cves_query = cves_query.filter(CVE.priority == [p for p in priorities])
+
 
     # filter by all text based fields
     if query:
