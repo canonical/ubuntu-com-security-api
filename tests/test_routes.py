@@ -285,7 +285,7 @@ class TestRoutes(unittest.TestCase):
 
         assert filtered_cves_response.status_code == 200
         assert filtered_cves_response.json["total_results"] == 3
-    
+
     def test_cves_filtered_by_multiple_priorities(self):
         # Add releases because the DB only includes
         # 1 release upon initialization

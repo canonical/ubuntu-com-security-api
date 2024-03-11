@@ -98,6 +98,7 @@ class StatusStatuses(String):
 
         return super()._deserialize(value, attr, data, **kwargs)
 
+
 class Priority(String):
     default_error_messages = {
         "unrecognised_priority": "Unrecognized priority {input}"
