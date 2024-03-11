@@ -104,11 +104,7 @@ def get_cves(**kwargs):
 
     # filter by priority
     if priorities:
-        # print(priorities)
-        # import ipdb
-        # ipdb.set_trace()
-        cves_query = cves_query.filter(CVE.priority == [p for p in priorities])
-
+        cves_query = cves_query.filter(CVE.priority.in_(priorities))
 
     # filter by all text based fields
     if query:
