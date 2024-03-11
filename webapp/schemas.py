@@ -464,7 +464,7 @@ CVEsParameters = {
         allow_none=True,
     ),
     "priority": List(
-        String(),
+        Priority(),
         description="CVE priority",
         allow_none=True,
     ),
