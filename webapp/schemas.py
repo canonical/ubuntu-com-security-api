@@ -36,6 +36,15 @@ PACKAGE_TYPE_OPTIONS = [
     "unpackaged",
     "deb",
 ]
+
+PRIORITY_OPTIONS = [
+    "unknown",
+    "negligible",
+    "low",
+    "medium",
+    "high",
+    "critical",
+]
 # ===
 
 
@@ -86,6 +95,18 @@ class StatusStatuses(String):
     def _deserialize(self, value, attr, data, **kwargs):
         if value != "" and value not in STATUS_STATUSES.enums:
             raise self.make_error("unrecognised_status", input=value)
+
+        return super()._deserialize(value, attr, data, **kwargs)
+
+
+class Priority(String):
+    default_error_messages = {
+        "unrecognised_priority": "Unrecognized priority {input}"
+    }
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value not in PRIORITY_OPTIONS:
+            raise self.make_error("unrecognised_priority", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
 
@@ -442,9 +463,9 @@ CVEsParameters = {
         ),
         allow_none=True,
     ),
-    "priority": String(
+    "priority": List(
+        Priority(),
         description="CVE priority",
-        enum=["unknown", "negligible", "low", "medium", "high", "critical"],
         allow_none=True,
     ),
     "package": String(description="Package name", allow_none=True),
