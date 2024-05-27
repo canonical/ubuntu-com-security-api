@@ -56,9 +56,7 @@ jobs:
         uses: canonical/install-dotrun@main
 
       - name: Install dependencies
-        run: |
-          sudo chmod -R 777 .
-          dotrun install
+        run: sudo pip3 install dotrun requests==2.31.0 # requests version is pinned to avoid breaking changes, can be removed once issue is resolved: https://github.com/docker/docker-py/issues/3256resolved: https://github.com/docker/docker-py/issues/3256
 
       - name: Run dotrun
         run: |
