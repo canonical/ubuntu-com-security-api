@@ -129,9 +129,14 @@ def get_cves(**kwargs):
     if component:
         parameters.append(Status.component == component)
 
+    # If an empty string is provided for the status,
+    # retain legacy functionality by ignoring it
     if statuses:
         for status in statuses:
-            parameters.append(Status.status == status)
+            if status == "":
+                continue
+            else:
+                parameters.append(Status.status == status)
 
     if versions:
         for version in versions:
