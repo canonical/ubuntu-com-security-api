@@ -365,6 +365,212 @@ class TestRoutes(unittest.TestCase):
         )
 
         assert filtered_cves_response.status_code == 200
+        assert filtered_cves_response.json["total_results"] == 1
+
+    def test_cves_filtered_by_version_and_priority(self):
+        # Add releases because the DB only includes
+        # 1 release upon initialization
+        add_release_response = self.client.post(
+            "/security/releases.json", json=payloads.release
+        )
+        add_release2_response = self.client.post(
+            "/security/releases.json", json=payloads.release2
+        )
+        add_release3_response = self.client.post(
+            "/security/releases.json", json=payloads.release3
+        )
+
+        assert add_release_response.status_code == 200
+        assert add_release2_response.status_code == 200
+        assert add_release3_response.status_code == 200
+
+        # Add cves with different statuses because the
+        # DB only includes 1 cve upon initialization
+        add_cves_response = self.client.put(
+            "/security/cves.json",
+            json=[
+                payloads.cve2,
+                payloads.cve3,
+                payloads.cve4,
+                payloads.cve5,
+                payloads.cve6,
+                payloads.cve7,
+                payloads.cve8,
+            ],
+        )
+
+        assert add_cves_response.status_code == 200
+
+        filtered_cves_response = self.client.get(
+            "/security/cves.json?version=testrelease&priority=medium"
+        )
+
+        assert filtered_cves_response.status_code == 200
+        assert filtered_cves_response.json["total_results"] == 2
+
+    def test_cves_filtered_by_priority_and_status(self):
+        # Add releases because the DB only includes
+        # 1 release upon initialization
+        add_release_response = self.client.post(
+            "/security/releases.json", json=payloads.release
+        )
+        add_release2_response = self.client.post(
+            "/security/releases.json", json=payloads.release2
+        )
+        add_release3_response = self.client.post(
+            "/security/releases.json", json=payloads.release3
+        )
+
+        assert add_release_response.status_code == 200
+        assert add_release2_response.status_code == 200
+        assert add_release3_response.status_code == 200
+
+        # Add cves with different statuses because the
+        # DB only includes 1 cve upon initialization
+        add_cves_response = self.client.put(
+            "/security/cves.json",
+            json=[
+                payloads.cve2,
+                payloads.cve3,
+                payloads.cve4,
+                payloads.cve5,
+                payloads.cve6,
+                payloads.cve7,
+                payloads.cve8,
+            ],
+        )
+
+        assert add_cves_response.status_code == 200
+
+        filtered_cves_response = self.client.get(
+            "/security/cves.json?status=released&priority=negligible"
+        )
+
+        assert filtered_cves_response.status_code == 200
+        assert filtered_cves_response.json["total_results"] == 1
+
+    def test_cves_filtered_by_version_and_package(self):
+        # Add releases because the DB only includes
+        # 1 release upon initialization
+        add_release_response = self.client.post(
+            "/security/releases.json", json=payloads.release
+        )
+        add_release2_response = self.client.post(
+            "/security/releases.json", json=payloads.release2
+        )
+        add_release3_response = self.client.post(
+            "/security/releases.json", json=payloads.release3
+        )
+
+        assert add_release_response.status_code == 200
+        assert add_release2_response.status_code == 200
+        assert add_release3_response.status_code == 200
+
+        # Add cves with different statuses because the
+        # DB only includes 1 cve upon initialization
+        add_cves_response = self.client.put(
+            "/security/cves.json",
+            json=[
+                payloads.cve2,
+                payloads.cve3,
+                payloads.cve4,
+                payloads.cve5,
+                payloads.cve6,
+                payloads.cve7,
+                payloads.cve8,
+            ],
+        )
+
+        assert add_cves_response.status_code == 200
+
+        filtered_cves_response = self.client.get(
+            "/security/cves.json?package=test_package_2&version=testrelease"
+        )
+
+        assert filtered_cves_response.status_code == 200
+        assert filtered_cves_response.json["total_results"] == 1
+
+    def test_cves_filtered_by_package_and_status(self):
+        # Add releases because the DB only includes
+        # 1 release upon initialization
+        add_release_response = self.client.post(
+            "/security/releases.json", json=payloads.release
+        )
+        add_release2_response = self.client.post(
+            "/security/releases.json", json=payloads.release2
+        )
+        add_release3_response = self.client.post(
+            "/security/releases.json", json=payloads.release3
+        )
+
+        assert add_release_response.status_code == 200
+        assert add_release2_response.status_code == 200
+        assert add_release3_response.status_code == 200
+
+        # Add cves with different statuses because the
+        # DB only includes 1 cve upon initialization
+        add_cves_response = self.client.put(
+            "/security/cves.json",
+            json=[
+                payloads.cve2,
+                payloads.cve3,
+                payloads.cve4,
+                payloads.cve5,
+                payloads.cve6,
+                payloads.cve7,
+                payloads.cve8,
+            ],
+        )
+
+        assert add_cves_response.status_code == 200
+
+        filtered_cves_response = self.client.get(
+            "/security/cves.json?package=test_package_2&status=released"
+        )
+
+        assert filtered_cves_response.status_code == 200
+        assert filtered_cves_response.json["total_results"] == 1
+
+    def test_cves_filtered_by_multiple_statuses_and_versions(self):
+        # Add releases because the DB only includes
+        # 1 release upon initialization
+        add_release_response = self.client.post(
+            "/security/releases.json", json=payloads.release
+        )
+        add_release2_response = self.client.post(
+            "/security/releases.json", json=payloads.release2
+        )
+        add_release3_response = self.client.post(
+            "/security/releases.json", json=payloads.release3
+        )
+
+        assert add_release_response.status_code == 200
+        assert add_release2_response.status_code == 200
+        assert add_release3_response.status_code == 200
+
+        # Add cves with different statuses because the
+        # DB only includes 1 cve upon initialization
+        add_cves_response = self.client.put(
+            "/security/cves.json",
+            json=[
+                payloads.cve2,
+                payloads.cve3,
+                payloads.cve4,
+                payloads.cve5,
+                payloads.cve6,
+                payloads.cve7,
+                payloads.cve8,
+            ],
+        )
+
+        assert add_cves_response.status_code == 200
+
+        # Formated so as to comply with line length
+        base_url = "/security/cves.json?"
+        params = "status=needs-triage&version=testrelease2&status=released"
+        filtered_cves_response = self.client.get(f"{base_url}{params}")
+
+        assert filtered_cves_response.status_code == 200
         assert filtered_cves_response.json["total_results"] == 2
 
     def test_cves_returns_422_for_non_existing_package_status(self):
