@@ -17,7 +17,7 @@ jobs:
           sudo apt-get update && sudo apt-get install --yes python3-setuptools
           python3 -m pip install --upgrade pip
           sudo pip3 install -r requirements.txt
-          sudo pip3 install flake8 black coverage
+          sudo pip3 install flake8 black coverage flask-alchemydumps==0.0.12
 
       - name: Test
         run: SECRET_KEY=insecure_secret_key coverage run  --source=. -m unittest discover tests
