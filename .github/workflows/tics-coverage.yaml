@@ -7,29 +7,31 @@ name: Upload TICS report
 on: pull_request
 
 jobs:
-  TICS:
+  tics-report:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         node-version: [18.x]
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: "yarn"
-      - name: Install
-        run: |
-          yarn install --immutable
-          pip3 install flake8 black
-          yarn test --coverage.enabled true
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ubuntu-security-api-coverage
-          path: coverage
+          node-version: "lts/*"
+
+      - name: Install dependencies
+        run: yarn install
+      - name: Lint
+        run: yarn lint
+
+      - name: Build
+        run: yarn build
+
+      - name: Test
+        run: yarn test --coverage
+        env:
+          CI: true
+
       - name: Produce TICS report
         shell: bash
         run: |
@@ -37,7 +39,8 @@ jobs:
           export TICSAUTHTOKEN=${{ secrets.TICS_AUTH_TOKEN }}
           curl --silent --show-error "https://canonical.tiobe.com/tiobeweb/TICS/api/public/v1/fapi/installtics/Script?cfg=default&platform=linux&url=https://canonical.tiobe.com/tiobeweb/TICS/" > install_tics.sh
           . ./install_tics.sh
-          TICSQServer -project ubuntu-com-security-api -tmpdir /tmp/tics -branchdir .
+          TICSQServer -project react-components -tmpdir /tmp/tics -branchdir .
+
       - name: Upload TICS report
         if: always()
         uses: actions/upload-artifact@v4
