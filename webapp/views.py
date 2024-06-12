@@ -412,7 +412,6 @@ def get_notices(**kwargs):
     release = kwargs.get("release")
     limit = kwargs.get("limit", 20)
     offset = kwargs.get("offset", 0)
-    order_by = kwargs.get("order")
 
     notices_query: Query = db.session.query(Notice)
 
