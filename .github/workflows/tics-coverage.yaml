@@ -12,15 +12,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install --yes python3-setuptools
-          python3 -m pip install --upgrade pip
-          sudo pip3 install -r requirements.txt
-          sudo pip3 install flake8 black coverage flask-alchemydumps==0.0.12
+      - name: Install dotrun
+        run: sudo pip3 install dotrun requests==2.31.0 # requests version is pinned to avoid breaking changes, can be removed once issue is resolved: https://github.com/docker/docker-py/issues/3256
 
-      - name: Test
-        run: SECRET_KEY=insecure_secret_key coverage run  --source=. -m unittest discover tests
+      - name: Install node dependencies
+        run: |
+          sudo chmod -R 777 .
+          dotrun install
+
+      - name: Install dependencies
+        run: dotrun exec pip3 install coverage
+
+      - name: Run tests with coverage
+        run: dotrun --env SEARCH_API_KEY=fake-key exec coverage run --source=. --module unittest discover tests
         env:
           CI: true
 
