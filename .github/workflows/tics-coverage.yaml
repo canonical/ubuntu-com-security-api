@@ -1,8 +1,10 @@
 name: Upload TICS report
-on:
-  push:
-    branches:
-      - main
+# on:
+#   push:
+#     branches:
+#       - main
+
+on: pull_request
 
 jobs:
   TICS:
@@ -18,8 +20,10 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: "yarn"
       - name: Install
-        run: yarn install --immutable
-      - run: yarn test --coverage.enabled true
+        run: |
+          yarn install --immutable
+          pip3 install flake8 black
+          yarn test --coverage.enabled true
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
