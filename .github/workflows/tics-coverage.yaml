@@ -26,19 +26,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dotrun
-        run: sudo pip3 install dotrun requests==2.31.0 # requests version is pinned to avoid breaking changes, can be removed once issue is resolved: https://github.com/docker/docker-py/issues/3256
-
-      - name: Install node dependencies
+      - name: Install requirements
         run: |
-          sudo chmod -R 777 .
-          dotrun install
+          sudo apt-get update && sudo apt-get install --yes python3-setuptools
+          sudo pip3 install -r requirements.txt
 
       - name: Install dependencies
-        run: dotrun exec pip3 install coverage
+        run: sudo pip3 install coverage
+
+      - name: Install node dependencies
+        run: yarn install --immutable
 
       - name: Run tests with coverage
-        run: dotrun --env SEARCH_API_KEY=fake-key exec coverage run --source=. --module unittest discover tests
+        run: TEST_DATABASE_URL=postgresql://postgres:pw@localhost:5432/postgres coverage run  --source=. -m unittest discover tests
         env:
           CI: true
 
