@@ -38,7 +38,10 @@ jobs:
         run: yarn install --immutable
 
       - name: Run tests with coverage
-        run: TEST_DATABASE_URL=postgresql://postgres:pw@localhost:5432/postgres coverage run  --source=. -m unittest discover tests
+        run: |
+          SECRET_KEY: insecure_test_key
+          TEST_DATABASE_URL=postgresql://postgres:pw@localhost:5432/postgres
+          coverage run  --source=. -m unittest discover tests
         env:
           CI: true
 
