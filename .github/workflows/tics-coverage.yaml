@@ -14,7 +14,9 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update && sudo apt-get install --yes python3-setuptools
           python3 -m pip install --upgrade pip
+          sudo pip3 install -r requirements.txt
           sudo pip3 install flake8 black coverage
 
       - name: Test
