@@ -9,21 +9,16 @@ on: pull_request
 jobs:
   tics-report:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [18.x]
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "lts/*"
 
       - name: Install dependencies
-        run: yarn install
+        run: |
+          python3 -m pip install --upgrade pip
+          sudo pip3 install flake8 black coverage
 
       - name: Test
-        run: yarn test --coverage
+        run: SECRET_KEY=insecure_secret_key coverage run  --source=. -m unittest discover tests
         env:
           CI: true
 
