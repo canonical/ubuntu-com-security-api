@@ -169,3 +169,19 @@ def handle_error(error):
         jsonify({"message": "Invalid payload", "errors": str(messages)}),
         422,
     )
+
+
+@app.after_request
+def cache_for_a_day(response):
+    """
+    The security API is in trouble, returning 504 and 503 errors.
+    The application is clearly not performing sufficiently to handle the load,
+    but we need space to find out why.
+    So as a temporary emergency solution let's radically extend the cache time.
+    @TODO: REMOVE THIS AS SOON AS WE'RE NO LONGER FIREFIGHTING.
+    """
+
+    # Hard-cache all responses for a day
+    response.cache_control.max_age = "86400"
+
+    return response
