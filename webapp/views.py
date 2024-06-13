@@ -448,7 +448,7 @@ def get_notices(**kwargs):
             )
         )
         .options(selectinload(Notice.releases))
-        .order_by(Notice.published, Notice.id)
+        .order_by(asc(Notice.published), desc(Notice.id))
         .offset(offset)
         .limit(limit)
         .all()
