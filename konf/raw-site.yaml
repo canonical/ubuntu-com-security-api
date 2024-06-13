@@ -18,7 +18,7 @@ apiVersion: apps/v1
 metadata:
   name: ubuntu-com-security-api
 spec:
-  replicas: 5
+  replicas: 7
   selector:
     matchLabels:
       app: ubuntu-com-security-api
@@ -82,4 +82,4 @@ spec:
 
           resources:
             limits:
-              memory: 1024Mi
+              memory: 1.5G
