@@ -412,7 +412,6 @@ def get_notices(**kwargs):
     release = kwargs.get("release")
     limit = kwargs.get("limit", 20)
     offset = kwargs.get("offset", 0)
-    order_by = kwargs.get("order")
 
     notices_query: Query = db.session.query(Notice)
 
@@ -437,8 +436,6 @@ def get_notices(**kwargs):
             )
         )
 
-    sort = asc if order_by == "oldest" else desc
-
     notices = (
         notices_query.options(
             selectinload(Notice.cves).options(
@@ -451,7 +448,7 @@ def get_notices(**kwargs):
             )
         )
         .options(selectinload(Notice.releases))
-        .order_by(sort(Notice.published), sort(Notice.id))
+        .order_by(Notice.published, Notice.id)
         .offset(offset)
         .limit(limit)
         .all()
