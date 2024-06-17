@@ -164,7 +164,9 @@ class Notice(db.Model):
         back_populates="notices",
     )
     notices_published_idx = Index("notices_published_idx", published)
-    notices_published_desc_idx = Index("notices_published_desc_idx", published.desc())
+    notices_published_desc_idx = Index(
+        "notices_published_desc_idx", published.desc()
+    )
 
     @hybrid_property
     def cves_ids(self):
