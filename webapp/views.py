@@ -520,6 +520,20 @@ def delete_notice(notice_id):
     )
 
 
+@marshal_with(MessageSchema, code=200)
+@marshal_with(MessageSchema, code=400)
+def get_notices_total(**kwargs):
+    notices_query: Query = db.session.query(Notice)
+
+    return make_response(
+        jsonify(
+            {
+                "total_results": notices_query.count(),
+            }
+        )
+    )
+
+
 @marshal_with(ReleaseAPISchema, code=200)
 @marshal_with(MessageSchema, code=404)
 def get_release(release_codename):
