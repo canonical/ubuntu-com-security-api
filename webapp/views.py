@@ -525,6 +525,10 @@ def delete_notice(notice_id):
 def get_notices_total(**kwargs):
     notices_query: Query = db.session.query(Notice)
 
+    # Don't count hidden notices by default
+    if not kwargs.get("show_hidden", False):
+        notices_query = notices_query.filter(Notice.is_hidden == "False")
+
     return make_response(
         jsonify(
             {
