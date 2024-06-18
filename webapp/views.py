@@ -629,6 +629,9 @@ def _get_cves_for_notice(notice):
     for i in result_set:
         notice.cves = db.session.query(CVE).filter(CVE.id == i[1]).all()
 
+    if not result_set:
+        notice.cves = []
+
     return notice
 
 
