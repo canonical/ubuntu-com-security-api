@@ -6,7 +6,7 @@ from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, and_, case, asc
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import load_only, selectinload, Query
+from sqlalchemy.orm import selectinload, Query
 import dateutil
 
 from webapp.app import db
@@ -18,6 +18,7 @@ from webapp.models import (
     Status,
     Package,
     STATUS_STATUSES,
+    notice_cves,
 )
 from webapp.schemas import (
     CVEsAPISchema,
@@ -52,11 +53,6 @@ def get_cve(cve_id, **kwargs):
 
     cve: CVE = (
         cve_query.filter(CVE.id == cve_id.upper())
-        .options(
-            selectinload(cve_notices_query).options(
-                selectinload(Notice.cves).options(load_only(CVE.id))
-            )
-        )
         .options(selectinload(CVE.statuses))
         .one_or_none()
     )
@@ -66,6 +62,8 @@ def get_cve(cve_id, **kwargs):
             jsonify({"message": f"CVE with id '{cve_id}' does not exist"}),
             404,
         )
+
+    cve = _get_notices_for_cve(cve)
 
     return cve
 
@@ -187,12 +185,7 @@ def get_cves(**kwargs):
         sort_field = CVE.updated_at
 
     query: Query = (
-        cves_query.options(
-            selectinload(cve_notices_query).options(
-                selectinload(Notice.cves).options(load_only(CVE.id))
-            )
-        )
-        .order_by(
+        cves_query.order_by(
             case(
                 [(sort_field.is_(None), 1)],
                 else_=0,
@@ -204,8 +197,10 @@ def get_cves(**kwargs):
         .offset(offset)
     )
 
+    cves = [_get_notices_for_cve(cve) for cve in query.all()]
+
     return {
-        "cves": query.all(),
+        "cves": cves,
         "offset": offset,
         "limit": limit,
         "total_results": cves_query.count(),
@@ -378,16 +373,6 @@ def get_notice(notice_id, **kwargs):
 
     notice: Notice = (
         notice_query.filter(Notice.id == notice_id.upper())
-        .options(
-            selectinload(Notice.cves).options(
-                selectinload(CVE.statuses),
-                selectinload(CVE.notices).options(
-                    load_only(
-                        Notice.id, Notice.is_hidden, Notice.release_packages
-                    )
-                ),
-            )
-        )
         .options(selectinload(Notice.releases))
         .one_or_none()
     )
@@ -399,6 +384,8 @@ def get_notice(notice_id, **kwargs):
             ),
             404,
         )
+
+    notice = _get_cves_for_notice(notice)
 
     return notice
 
@@ -437,22 +424,14 @@ def get_notices(**kwargs):
         )
 
     notices = (
-        notices_query.options(
-            selectinload(Notice.cves).options(
-                selectinload(CVE.statuses),
-                selectinload(CVE.notices).options(
-                    load_only(
-                        Notice.id, Notice.is_hidden, Notice.release_packages
-                    )
-                ),
-            )
-        )
-        .options(selectinload(Notice.releases))
-        .order_by(asc(Notice.published))
+        notices_query.options(selectinload(Notice.releases))
+        .order_by(desc(Notice.published))
         .offset(offset)
         .limit(limit)
         .all()
     )
+
+    notices = [_get_cves_for_notice(notice) for notice in notices]
 
     return {
         "notices": notices,
@@ -517,24 +496,6 @@ def delete_notice(notice_id):
 
     return make_response(
         jsonify({"message": f"Notice {notice_id} deleted"}), 200
-    )
-
-
-@marshal_with(MessageSchema, code=200)
-@marshal_with(MessageSchema, code=400)
-def get_notices_total(**kwargs):
-    notices_query: Query = db.session.query(Notice)
-
-    # Don't count hidden notices by default
-    if not kwargs.get("show_hidden", False):
-        notices_query = notices_query.filter(Notice.is_hidden == "False")
-
-    return make_response(
-        jsonify(
-            {
-                "total_results": notices_query.count(),
-            }
-        )
     )
 
 
@@ -657,6 +618,38 @@ def delete_release(release_codename):
     return make_response(
         jsonify({"message": f"Release {release_codename} deleted"}), 200
     )
+
+
+def _get_cves_for_notice(notice):
+    # We first get all cve ids for the notice
+    cve_ids_stmt = notice_cves.select().where(
+        notice_cves.c.notice_id == notice.id
+    )
+
+    with db.engine.connect() as conn:
+        result_set = list(conn.execute(cve_ids_stmt))
+
+    # Then get all the reqired CVEs at once
+    for i in result_set:
+        notice.cves = db.session.query(CVE).filter(CVE.id == i[1]).all()
+
+    return notice
+
+
+def _get_notices_for_cve(cve):
+    # We first get all notice ids for the cve
+    notice_ids_stmt = notice_cves.select().where(
+        notice_cves.c.cve_id == cve.id
+    )
+
+    with db.engine.connect() as conn:
+        result_set = list(conn.execute(notice_ids_stmt))
+
+    # Then get all the reqired Notices at once
+    for i in result_set:
+        cve.notices = db.session.query(Notice).filter(Notice.id == i[1]).all()
+
+    return cve
 
 
 def _sort_by_priority(cves_query):
@@ -831,9 +824,7 @@ def _update_notice_object(notice, data):
         for codename in data["release_packages"].keys()
     ]
 
-    notice.cves.clear()
-    for cve_id in set(data["cves"]):
-        notice.cves.append(CVE.query.get(cve_id) or CVE(id=cve_id))
+    notice.cves = _get_cves_for_notice(notice)
 
     return notice
 

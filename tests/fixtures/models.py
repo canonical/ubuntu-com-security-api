@@ -56,8 +56,8 @@ def make_models():
         details="",
         instructions="",
         releases=[release],
-        cves=[cve],
     )
+    notice.cves = []
 
     return {
         "release": release,

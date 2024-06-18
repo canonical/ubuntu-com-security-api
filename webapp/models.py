@@ -82,9 +82,7 @@ class CVE(db.Model):
         Enum("not-in-ubuntu", "active", "rejected", name="cve_statuses")
     )
     statuses = relationship("Status", cascade="all, delete-orphan")
-    notices = relationship(
-        "Notice", secondary=notice_cves, back_populates="cves"
-    )
+    notices = relationship("Notice", secondary=notice_cves)
 
     @hybrid_method
     def get_filtered_notices(self, show_hidden=False):
@@ -154,7 +152,6 @@ class Notice(db.Model):
     details = Column(String)
     instructions = Column(String)
     release_packages = Column(JSON)
-    cves = relationship("CVE", secondary=notice_cves, back_populates="notices")
     references = Column(JSON)
     is_hidden = Column(Boolean, nullable=False)
     releases = relationship(

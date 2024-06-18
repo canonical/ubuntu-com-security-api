@@ -13,7 +13,6 @@ from webapp.views import (
     get_notice,
     get_cves,
     get_notices,
-    get_notices_total,
     create_notice,
     update_notice,
     delete_notice,
@@ -110,13 +109,6 @@ app.add_url_rule(
 )
 
 app.add_url_rule(
-    "/security/notices/total.json",
-    view_func=get_notices_total,
-    methods=["GET"],
-    provide_automatic_options=False,
-)
-
-app.add_url_rule(
     "/security/releases/<release_codename>.json",
     view_func=get_release,
     methods=["GET"],
@@ -154,7 +146,6 @@ views_to_register_in_docs = [
     delete_cve,
     get_notice,
     get_notices,
-    get_notices_total,
     create_notice,
     update_notice,
     delete_notice,
