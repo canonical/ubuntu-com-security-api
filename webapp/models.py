@@ -8,6 +8,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     JSON,
     String,
     Table,
@@ -161,6 +162,10 @@ class Notice(db.Model):
         secondary=notice_releases,
         order_by="desc(Release.release_date)",
         back_populates="notices",
+    )
+    notices_published_idx = Index("notices_published_idx", published)
+    notices_published_desc_idx = Index(
+        "notices_published_desc_idx", published.desc()
     )
 
     @hybrid_property
