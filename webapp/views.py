@@ -804,8 +804,6 @@ def _update_notice_object(notice, data):
         for codename in data["release_packages"].keys()
     ]
 
-    notice.cves = _get_cves_for_notice(notice)
-
     return notice
 
 
