@@ -63,8 +63,6 @@ def get_cve(cve_id, **kwargs):
             404,
         )
 
-    cve = _get_notices_for_cve(cve)
-
     return cve
 
 
@@ -197,10 +195,8 @@ def get_cves(**kwargs):
         .offset(offset)
     )
 
-    cves = [_get_notices_for_cve(cve) for cve in query.all()]
-
     return {
-        "cves": cves,
+        "cves": query.all(),
         "offset": offset,
         "limit": limit,
         "total_results": cves_query.count(),
@@ -634,22 +630,6 @@ def _get_cves_for_notice(notice):
         notice.cves = db.session.query(CVE).filter(CVE.id == i[1]).all()
 
     return notice
-
-
-def _get_notices_for_cve(cve):
-    # We first get all notice ids for the cve
-    notice_ids_stmt = notice_cves.select().where(
-        notice_cves.c.cve_id == cve.id
-    )
-
-    with db.engine.connect() as conn:
-        result_set = list(conn.execute(notice_ids_stmt))
-
-    # Then get all the reqired Notices at once
-    for i in result_set:
-        cve.notices = db.session.query(Notice).filter(Notice.id == i[1]).all()
-
-    return cve
 
 
 def _sort_by_priority(cves_query):
