@@ -50,7 +50,7 @@ def make_models():
         tags={},
         bugs={},
         status="active",
-        notices=[notice]
+        notices=[notice],
     )
 
     status = Status(
@@ -59,7 +59,6 @@ def make_models():
         package=package,
         release=release,
     )
-
 
     return {
         "release": release,
