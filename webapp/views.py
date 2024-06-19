@@ -654,7 +654,9 @@ def _get_cves_for_notice(notice):
     else:
         # Create a query list using the first result
         cves_list = (
-            db.session.query(CVE.id, CVE.published).filter(CVE.id == result_set[0][1]).all()
+            db.session.query(CVE.id, CVE.published)
+            .filter(CVE.id == result_set[0][1])
+            .all()
         )
 
         # Then populate the list with the rest of the results
@@ -664,9 +666,6 @@ def _get_cves_for_notice(notice):
             )
 
         notice.cves = cves_list
-
-    if not result_set:
-        notice.cves = []
 
     return notice
 
