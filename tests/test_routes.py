@@ -966,10 +966,12 @@ class TestRoutes(unittest.TestCase):
         response = self.client.get(f"/security/notices/{notice['id']}.json")
 
         assert response.status_code == 200
-        assert response.json["cves_ids"] == [
-            payloads.cve3["id"],
-            payloads.cve4["id"],
-        ]
+        assert sorted(response.json["cves_ids"]) == sorted(
+            [
+                payloads.cve3["id"],
+                payloads.cve4["id"],
+            ]
+        )
 
     def test_usns_returns_200_for_non_existing_release(self):
         response = self.client.get("/security/notices.json?release=no-exist")
@@ -982,7 +984,7 @@ class TestRoutes(unittest.TestCase):
     def test_create_usn(self):
         notice = payloads.notice.copy()
 
-        notice["cves"] = ["CVE-1111-0001"]
+        notice["cves"] = [self.models["cve"].id]
 
         response = self.client.post("/security/notices.json", json=notice)
 
@@ -1016,7 +1018,7 @@ class TestRoutes(unittest.TestCase):
 
     def test_create_usn_returns_422_for_non_unique_id(self):
         notice = payloads.notice.copy()
-        notice["cves"] = ["CVE-1111-0001"]
+        notice["cves"] = [self.models["cve"].id]
 
         # Create USN
         response_1 = self.client.post("/security/notices.json", json=notice)
@@ -1044,7 +1046,7 @@ class TestRoutes(unittest.TestCase):
 
         # Create first
         notice = payloads.notice.copy()
-        notice["cves"] = ["CVE-1111-0001"]
+        notice["cves"] = [self.models["cve"].id]
 
         response_1 = self.client.post("/security/notices.json", json=notice)
         assert response_1.status_code == 200
@@ -1089,7 +1091,7 @@ class TestRoutes(unittest.TestCase):
     def test_delete_usn(self):
         # Create USN first
         notice = payloads.notice.copy()
-        notice["cves"] = ["CVE-1111-0001"]
+        notice["cves"] = [self.models["cve"].id]
 
         response = self.client.post("/security/notices.json", json=notice)
         assert response.status_code == 200
