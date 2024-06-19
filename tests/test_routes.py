@@ -104,6 +104,15 @@ class TestRoutes(unittest.TestCase):
         assert len(response.json["cves"]) == 1
         assert response.json["cves"][0]["id"] == "CVE-1111-0001"
 
+        # Should include the expected notice for this cve
+        assert (
+            response.json["cves"][0]["notices"][0]["id"]
+            == self.models["notice"].id
+        )
+        assert response.json["cves"][0]["notices"][0]["published"] == str(
+            self.models["notice"].published.isoformat()
+        )
+
     def test_cve_not_exists(self):
         response = self.client.get("/security/cves/CVE-0000-0000.json")
 
@@ -935,6 +944,35 @@ class TestRoutes(unittest.TestCase):
         assert response.status_code == 200
         assert response.json["cves_ids"] == self.models["notice"].cves_ids
 
+    def test_usn_with_multiple_cves(self):
+        # Create additional cves
+        response_3 = self.client.put(
+            "/security/cves.json",
+            json=[
+                payloads.cve3,
+                payloads.cve4,
+            ],
+        )
+        assert response_3.status_code == 200
+
+        notice = payloads.notice.copy()
+
+        notice["cves"] = [payloads.cve3["id"], payloads.cve4["id"]]
+
+        response = self.client.post("/security/notices.json", json=notice)
+
+        assert response.status_code == 200
+
+        response = self.client.get(f"/security/notices/{notice['id']}.json")
+
+        assert response.status_code == 200
+        assert sorted(response.json["cves_ids"]) == sorted(
+            [
+                payloads.cve3["id"],
+                payloads.cve4["id"],
+            ]
+        )
+
     def test_usns_returns_200_for_non_existing_release(self):
         response = self.client.get("/security/notices.json?release=no-exist")
 
@@ -944,9 +982,30 @@ class TestRoutes(unittest.TestCase):
         )
 
     def test_create_usn(self):
-        response = self.client.post(
-            "/security/notices.json", json=payloads.notice
+        notice = payloads.notice.copy()
+
+        notice["cves"] = [self.models["cve"].id]
+
+        response = self.client.post("/security/notices.json", json=notice)
+
+        assert response.status_code == 200
+
+    def test_create_usn_with_cves(self):
+        # Create additional cves
+        response_3 = self.client.put(
+            "/security/cves.json",
+            json=[
+                payloads.cve3,
+                payloads.cve4,
+            ],
         )
+        assert response_3.status_code == 200
+
+        notice = payloads.notice.copy()
+
+        notice["cves"] = [payloads.cve3["id"], payloads.cve4["id"]]
+
+        response = self.client.post("/security/notices.json", json=notice)
 
         assert response.status_code == 200
 
@@ -958,16 +1017,15 @@ class TestRoutes(unittest.TestCase):
         assert response.status_code == 200
 
     def test_create_usn_returns_422_for_non_unique_id(self):
+        notice = payloads.notice.copy()
+        notice["cves"] = [self.models["cve"].id]
+
         # Create USN
-        response_1 = self.client.post(
-            "/security/notices.json", json=payloads.notice
-        )
+        response_1 = self.client.post("/security/notices.json", json=notice)
         assert response_1.status_code == 200
 
         # Create again
-        response_2 = self.client.post(
-            "/security/notices.json", json=payloads.notice
-        )
+        response_2 = self.client.post("/security/notices.json", json=notice)
         assert response_2.status_code == 422
         assert (
             f"'{payloads.notice['id']}' already exists"
@@ -988,6 +1046,8 @@ class TestRoutes(unittest.TestCase):
 
         # Create first
         notice = payloads.notice.copy()
+        notice["cves"] = [self.models["cve"].id]
+
         response_1 = self.client.post("/security/notices.json", json=notice)
         assert response_1.status_code == 200
 
@@ -1030,9 +1090,10 @@ class TestRoutes(unittest.TestCase):
 
     def test_delete_usn(self):
         # Create USN first
-        response = self.client.post(
-            "/security/notices.json", json=payloads.notice
-        )
+        notice = payloads.notice.copy()
+        notice["cves"] = [self.models["cve"].id]
+
+        response = self.client.post("/security/notices.json", json=notice)
         assert response.status_code == 200
 
         # Now delete it
