@@ -353,6 +353,12 @@ def delete_cve(cve_id):
     db.session.delete(cve)
     db.session.commit()
 
+    # Delete cve from notice_cves
+    delete_stmt = notice_cves.delete().where(
+        notice_cves.c.cve_id == cve_id
+    )
+    db.session.execute(delete_stmt)
+
     return make_response(
         jsonify({"message": f"CVE with id '{cve_id}' was deleted"}), 200
     )
@@ -444,11 +450,13 @@ def get_notices(**kwargs):
 def create_notice(**kwargs):
     notice_data = request.json
 
-    db.session.add(
-        _update_notice_object(Notice(id=notice_data["id"]), notice_data)
-    )
+    notice = _update_notice_object(Notice(id=notice_data["id"]), notice_data)
+
+    db.session.add(notice)
 
     db.session.commit()
+
+    _update_notice_cves(notice_data, notice_data["cves"])
 
     return make_response(jsonify({"message": "Notice created"}), 200)
 
@@ -459,6 +467,7 @@ def create_notice(**kwargs):
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(NoticeImportSchema, location="json")
 def update_notice(notice_id, **kwargs):
+    notice_data = request.json
     notice = Notice.query.get(notice_id)
 
     if not notice:
@@ -470,7 +479,10 @@ def update_notice(notice_id, **kwargs):
     notice = _update_notice_object(notice, request.json)
 
     db.session.add(notice)
+
     db.session.commit()
+
+    _update_notice_cves(notice_data, notice_data["cves"])
 
     return make_response(jsonify({"message": "Notice updated"}), 200)
 
@@ -486,6 +498,8 @@ def delete_notice(notice_id):
             jsonify({"message": f"Notice {notice_id} doesn't exist"}),
             404,
         )
+
+    _update_notice_cves({"id": notice_id}, [])
 
     db.session.delete(notice)
     db.session.commit()
@@ -536,7 +550,18 @@ def create_release(**kwargs):
             support_expires=release_data["support_expires"],
         )
     )
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError as error:
+        return make_response(
+            jsonify(
+                {
+                    "message": "Failed creating release",
+                    "error": error.orig.args[0],
+                }
+            ),
+            422,
+        )
 
     return make_response(jsonify({"message": "Release created"}), 200)
 
@@ -809,6 +834,23 @@ def _update_notice_object(notice, data):
 
     return notice
 
+def _update_notice_cves(notice_data, cves):
+    """
+    Update the cves for a notice
+    """
+    db.session.execute(
+        notice_cves.delete().where(
+            notice_cves.c.notice_id == notice_data["id"]
+        )
+    )
+
+    # Insert new cve_id, notice_id pairs from the new list
+    for cve_id in set(cves):
+        db.session.execute(
+            notice_cves.insert().values(
+                notice_id=notice_data["id"], cve_id=cve_id
+            )
+        )
 
 def _update_statuses(cve, data, packages):
     statuses = cve.packages
