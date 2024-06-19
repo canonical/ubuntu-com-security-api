@@ -645,8 +645,7 @@ def _get_cves_for_notice(notice):
         notice_cves.c.notice_id == notice.id
     )
 
-    with db.engine.connect() as conn:
-        result_set = list(conn.execute(cve_ids_stmt))
+    result_set = list(db.session.execute(cve_ids_stmt))
 
     # Then get all the reqired CVEs at once
     for i in result_set:
