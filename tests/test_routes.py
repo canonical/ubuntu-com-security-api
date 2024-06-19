@@ -946,11 +946,9 @@ class TestRoutes(unittest.TestCase):
 
     def test_create_usn(self):
         notice = payloads.notice.copy()
-        notice['cves'] = ["CVE-1111-0001"]
-    
-        response = self.client.post(
-            "/security/notices.json", json=notice
-        )
+        notice["cves"] = ["CVE-1111-0001"]
+
+        response = self.client.post("/security/notices.json", json=notice)
 
         assert response.status_code == 200
 
@@ -963,18 +961,14 @@ class TestRoutes(unittest.TestCase):
 
     def test_create_usn_returns_422_for_non_unique_id(self):
         notice = payloads.notice.copy()
-        notice['cves'] = ["CVE-1111-0001"]
-    
+        notice["cves"] = ["CVE-1111-0001"]
+
         # Create USN
-        response_1 = self.client.post(
-            "/security/notices.json", json=notice
-        )
+        response_1 = self.client.post("/security/notices.json", json=notice)
         assert response_1.status_code == 200
 
         # Create again
-        response_2 = self.client.post(
-            "/security/notices.json", json=notice
-        )
+        response_2 = self.client.post("/security/notices.json", json=notice)
         assert response_2.status_code == 422
         assert (
             f"'{payloads.notice['id']}' already exists"
@@ -995,8 +989,8 @@ class TestRoutes(unittest.TestCase):
 
         # Create first
         notice = payloads.notice.copy()
-        notice['cves'] = ["CVE-1111-0001"]
-    
+        notice["cves"] = ["CVE-1111-0001"]
+
         response_1 = self.client.post("/security/notices.json", json=notice)
         assert response_1.status_code == 200
 
@@ -1040,11 +1034,9 @@ class TestRoutes(unittest.TestCase):
     def test_delete_usn(self):
         # Create USN first
         notice = payloads.notice.copy()
-        notice['cves'] = ["CVE-1111-0001"]
-    
-        response = self.client.post(
-            "/security/notices.json", json=notice
-        )
+        notice["cves"] = ["CVE-1111-0001"]
+
+        response = self.client.post("/security/notices.json", json=notice)
         assert response.status_code == 200
 
         # Now delete it

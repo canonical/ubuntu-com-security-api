@@ -354,9 +354,7 @@ def delete_cve(cve_id):
     db.session.commit()
 
     # Delete cve from notice_cves
-    delete_stmt = notice_cves.delete().where(
-        notice_cves.c.cve_id == cve_id
-    )
+    delete_stmt = notice_cves.delete().where(notice_cves.c.cve_id == cve_id)
     db.session.execute(delete_stmt)
 
     return make_response(
@@ -834,6 +832,7 @@ def _update_notice_object(notice, data):
 
     return notice
 
+
 def _update_notice_cves(notice_data, cves):
     """
     Update the cves for a notice
@@ -851,6 +850,7 @@ def _update_notice_cves(notice_data, cves):
                 notice_id=notice_data["id"], cve_id=cve_id
             )
         )
+
 
 def _update_statuses(cve, data, packages):
     statuses = cve.packages
