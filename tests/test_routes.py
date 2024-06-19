@@ -944,6 +944,33 @@ class TestRoutes(unittest.TestCase):
         assert response.status_code == 200
         assert response.json["cves_ids"] == self.models["notice"].cves_ids
 
+    def test_usn_with_multiple_cves(self):
+        # Create additional cves
+        response_3 = self.client.put(
+            "/security/cves.json",
+            json=[
+                payloads.cve3,
+                payloads.cve4,
+            ],
+        )
+        assert response_3.status_code == 200
+
+        notice = payloads.notice.copy()
+
+        notice["cves"] = [payloads.cve3["id"], payloads.cve4["id"]]
+
+        response = self.client.post("/security/notices.json", json=notice)
+
+        assert response.status_code == 200
+
+        response = self.client.get(f"/security/notices/{notice['id']}.json")
+
+        assert response.status_code == 200
+        assert response.json["cves_ids"] == [
+            payloads.cve3["id"],
+            payloads.cve4["id"],
+        ]
+
     def test_usns_returns_200_for_non_existing_release(self):
         response = self.client.get("/security/notices.json?release=no-exist")
 
