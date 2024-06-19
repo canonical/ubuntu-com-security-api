@@ -399,6 +399,7 @@ def get_notices(**kwargs):
     release = kwargs.get("release")
     limit = kwargs.get("limit", 20)
     offset = kwargs.get("offset", 0)
+    reduce_cves = kwargs.get("reduce_cves", False)
 
     notices_query: Query = db.session.query(Notice)
 
@@ -431,7 +432,9 @@ def get_notices(**kwargs):
         .all()
     )
 
-    notices = [_get_cves_for_notice(notice) for notice in notices]
+    notices = [
+        _get_cves_for_notice(notice, reduced=reduce_cves) for notice in notices
+    ]
 
     return {
         "notices": notices,
@@ -639,7 +642,7 @@ def delete_release(release_codename):
     )
 
 
-def _get_cves_for_notice(notice):
+def _get_cves_for_notice(notice, reduced=False):
     # We first get all cve ids for the notice
     cve_ids_stmt = notice_cves.select().where(
         notice_cves.c.notice_id == notice.id
@@ -652,18 +655,32 @@ def _get_cves_for_notice(notice):
         notice.cves = []
 
     else:
-        # Create a query list using the first result
-        cves_list = (
-            db.session.query(CVE.id, CVE.published)
-            .filter(CVE.id == result_set[0][1])
-            .all()
-        )
-
-        # Then populate the list with the rest of the results
-        for i in result_set[1:]:
-            cves_list.append(
-                db.session.query(CVE.id).filter(CVE.id == i[1]).one()
+        if not reduced:
+            # Create a query list using the first result
+            cves_list = (
+                db.session.query(CVE).filter(CVE.id == result_set[0][1]).all()
             )
+
+            # Then populate the list with the rest of the results
+            for i in result_set[1:]:
+                cves_list.append(
+                    db.session.query(CVE).filter(CVE.id == i[1]).one()
+                )
+        else:
+            # Use only the id and published fields
+            cves_list = (
+                db.session.query(CVE.id, CVE.published)
+                .filter(CVE.id == result_set[0][1])
+                .all()
+            )
+
+            # Then populate the list with the rest of the results
+            for i in result_set[1:]:
+                cves_list.append(
+                    db.session.query(CVE.id, CVE.published)
+                    .filter(CVE.id == i[1])
+                    .one()
+                )
 
         notice.cves = cves_list
 

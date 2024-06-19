@@ -944,6 +944,17 @@ class TestRoutes(unittest.TestCase):
         assert response.status_code == 200
         assert response.json["cves_ids"] == self.models["notice"].cves_ids
 
+    def test_usn_with_reduced_cves(self):
+        response = self.client.get("/security/notices.json?reduce_cves=True")
+
+        assert response.status_code == 200
+        # There should only be two fields
+
+        assert response.json["notices"][0]["cves"][0].keys() == {
+            "id",
+            "published",
+        }
+
     def test_usn_with_multiple_cves(self):
         # Create additional cves
         response_3 = self.client.put(

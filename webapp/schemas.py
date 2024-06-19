@@ -289,6 +289,13 @@ NoticesParameters = {
         ),
         allow_none=True,
     ),
+    "reduce_cves": Boolean(
+        description=(
+            "True or False if you want full bodied cves or just the ids."
+            "Default is False."
+        ),
+        allow_none=True,
+    ),
 }
 
 
