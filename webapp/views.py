@@ -647,9 +647,19 @@ def _get_cves_for_notice(notice):
 
     result_set = list(db.session.execute(cve_ids_stmt))
 
-    # Then get all the reqired CVEs at once
-    for i in result_set:
-        notice.cves = db.session.query(CVE).filter(CVE.id == i[1]).all()
+    # Default to an empty list if there are no results
+    if not result_set:
+        notice.cves = []
+    
+    else:
+        # Create a query list using the first result
+        cves_list = db.session.query(CVE).filter(CVE.id == result_set[0][1]).all()
+
+        # Then populate the list with the rest of the results
+        for i in result_set[1:]:
+            cves_list.append(db.session.query(CVE).filter(CVE.id == i[1]).one())
+        
+        notice.cves = cves_list
 
     if not result_set:
         notice.cves = []
