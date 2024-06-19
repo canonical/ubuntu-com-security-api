@@ -105,9 +105,13 @@ class TestRoutes(unittest.TestCase):
         assert response.json["cves"][0]["id"] == "CVE-1111-0001"
 
         # Should include the expected notice for this cve
-        assert response.json["cves"][0]["notices"][0]["id"] == self.models["notice"].id
-        assert response.json["cves"][0]["notices"][0]["published"] == str(self.models["notice"].published.isoformat())
-
+        assert (
+            response.json["cves"][0]["notices"][0]["id"]
+            == self.models["notice"].id
+        )
+        assert response.json["cves"][0]["notices"][0]["published"] == str(
+            self.models["notice"].published.isoformat()
+        )
 
     def test_cve_not_exists(self):
         response = self.client.get("/security/cves/CVE-0000-0000.json")
@@ -950,7 +954,27 @@ class TestRoutes(unittest.TestCase):
 
     def test_create_usn(self):
         notice = payloads.notice.copy()
+
         notice["cves"] = ["CVE-1111-0001"]
+
+        response = self.client.post("/security/notices.json", json=notice)
+
+        assert response.status_code == 200
+
+    def test_create_usn_with_cves(self):
+        # Create additional cves
+        response_3 = self.client.put(
+            "/security/cves.json",
+            json=[
+                payloads.cve3,
+                payloads.cve4,
+            ],
+        )
+        assert response_3.status_code == 200
+
+        notice = payloads.notice.copy()
+
+        notice["cves"] = [payloads.cve3["id"], payloads.cve4["id"]]
 
         response = self.client.post("/security/notices.json", json=notice)
 
