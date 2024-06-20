@@ -944,6 +944,27 @@ class TestRoutes(unittest.TestCase):
         assert response.status_code == 200
         assert response.json["cves_ids"] == self.models["notice"].cves_ids
 
+    def test_usn_with_detail_filter(self):
+        # We get an incomplete notice_id
+        notice_id = self.models["notice"].id[1:-1]
+        response = self.client.get(
+            f"/security/notices.json?details={notice_id}"
+        )
+
+        assert response.status_code == 200
+        assert response.json["notices"][0]["id"] == self.models["notice"].id
+
+    def test_usn_with_cve_id_filter(self):
+        response = self.client.get(
+            f"/security/notices.json?cve_id={self.models['cve'].id}"
+        )
+
+        assert response.status_code == 200
+        assert (
+            response.json["notices"][0]["cves"][0]["id"]
+            == self.models["cve"].id
+        )
+
     def test_usn_with_reduced_cves(self):
         response = self.client.get("/security/notices.json?reduce_cves=True")
 

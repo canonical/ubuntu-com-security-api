@@ -403,11 +403,22 @@ def get_notices(**kwargs):
 
     notices_query: Query = db.session.query(Notice)
 
+    # Note that the order in which the query parameters are declared below also
+    # determines the filter precedence, and hence the output for the same query
+    # will change if the order is changed.
+
     if not kwargs.get("show_hidden", False):
         notices_query = notices_query.filter(Notice.is_hidden == "False")
 
     if cve_id:
-        notices_query = notices_query.filter(Notice.cves.any(CVE.id == cve_id))
+        # Get all notices which have a CVE with this id
+        result_set = db.session.execute(
+            notice_cves.select().where(notice_cves.c.cve_id == cve_id)
+        )
+        notice_ids = (row[0] for row in result_set)
+        notices_query = db.session.query(Notice).filter(
+            Notice.id.in_(notice_ids)
+        )
 
     if release:
         notices_query = notices_query.join(Release, Notice.releases).filter(
@@ -420,7 +431,6 @@ def get_notices(**kwargs):
                 Notice.id.ilike(f"%{details}%"),
                 Notice.details.ilike(f"%{details}%"),
                 Notice.title.ilike(f"%{details}%"),
-                Notice.cves.any(CVE.id.ilike(f"%{details}%")),
             )
         )
 
