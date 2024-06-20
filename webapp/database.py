@@ -27,12 +27,6 @@ both `app.py` and `models.py`, and then inside `app.py` we do:
 To add the application context
 """
 
-# Patch psycopg2 for gevent before importing any sqlalchemy stuff
-from psycogreen.gevent import patch_psycopg
-
-patch_psycopg()
-
-
 from flask_sqlalchemy import SQLAlchemy  # noqa: E402
 
 
