@@ -2,10 +2,10 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: ubuntu-com-security-api
+  name: ubuntu-com-security-api-notices
 spec:
   selector:
-    app: ubuntu-com-security-api
+    app: ubuntu-com-security-api-notices
   ports:
     - name: http
       protocol: TCP
@@ -16,16 +16,16 @@ spec:
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: ubuntu-com-security-api
+  name: ubuntu-com-security-api-notices
 spec:
-  replicas: 5
+  replicas: 3
   selector:
     matchLabels:
-      app: ubuntu-com-security-api
+      app: ubuntu-com-security-api-notices
   template:
     metadata:
       labels:
-        app: ubuntu-com-security-api
+        app: ubuntu-com-security-api-notices
     spec:
       affinity:
         podAntiAffinity:
@@ -35,11 +35,11 @@ spec:
                   - key: app
                     operator: In
                     values:
-                      - ubuntu-com-security-api
+                      - ubuntu-com-security-api-notices
               topologyKey: "kubernetes.io/hostname"
       containers:
-        - name: ubuntu-com-security-api
-          image: prod-comms.ps5.docker-registry.canonical.com/ubuntu-com-security-api:${TAG_TO_DEPLOY}
+        - name: ubuntu-com-security-api-notices
+          image: prod-comms.ps5.docker-registry.canonical.com/ubuntu-com-security-api-notices:${TAG_TO_DEPLOY}
 
           ports:
             - name: http
@@ -52,7 +52,7 @@ spec:
             - name: SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  key: ubuntu-com-security-api
+                  key: ubuntu-com-security-api-notices
                   name: secret-keys
 
             - name: HTTP_PROXY
@@ -82,4 +82,4 @@ spec:
 
           resources:
             limits:
-              memory: 1G
+              memory: 2G
