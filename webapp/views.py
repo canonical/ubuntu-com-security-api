@@ -1,13 +1,13 @@
+import dateutil
 from collections import defaultdict
 from datetime import datetime
 from distutils.util import strtobool
 
 from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import desc, or_, and_, case, asc
+from sqlalchemy import desc, or_, and_, case, asc, text
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import load_only, selectinload, Query
-import dateutil
 
 from webapp.app import db
 from webapp.auth import authorization_required
@@ -115,6 +115,16 @@ def get_cves(**kwargs):
                 CVE.ubuntu_description.ilike(f"%{query}%"),
                 CVE.codename.ilike(f"%{query}%"),
                 CVE.mitigation.ilike(f"%{query}%"),
+                # search through notes
+                text(
+                    """
+                    EXISTS (
+                      SELECT 1 FROM json_array_elements(notes) AS note
+                      WHERE note->>'note' ilike :query
+                      OR note->>'author' ilike :query
+                    )
+                    """
+                ).params(query=f"%{query}%"),
             )
         )
 

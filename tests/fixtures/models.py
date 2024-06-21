@@ -28,7 +28,12 @@ def make_models():
         published=datetime.now(),
         description="",
         ubuntu_description="",
-        notes={},
+        notes=[
+            {
+                "author": "mysql",
+                "note": "mysql-1.2 is not affected by this CVE",
+            }
+        ],
         priority="critical",
         cvss3=2.3,
         impact={},
