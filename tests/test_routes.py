@@ -493,11 +493,11 @@ class TestRoutes(unittest.TestCase):
         assert add_cves_response.status_code == 200
 
         filtered_cves_response = self.client.get(
-            "/security/cves.json?package=test_package_2&version=testrelease"
+            "/security/cves.json?package=sql&version=testrelease"
         )
 
         assert filtered_cves_response.status_code == 200
-        assert filtered_cves_response.json["total_results"] == 1
+        assert filtered_cves_response.json["total_results"] == 2
 
     def test_cves_filtered_by_package_and_status(self):
         # Add releases because the DB only includes
@@ -534,7 +534,7 @@ class TestRoutes(unittest.TestCase):
         assert add_cves_response.status_code == 200
 
         filtered_cves_response = self.client.get(
-            "/security/cves.json?package=test_package_2&status=released"
+            "/security/cves.json?package=mysql&status=released"
         )
 
         assert filtered_cves_response.status_code == 200

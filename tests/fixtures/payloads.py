@@ -9,9 +9,9 @@ cve1 = {
     "codename": "testcodename",
     "packages": [
         {
-            "debian": "https://tracker.debian.org/pkg/test_package_1",
-            "name": "test_package_1",
-            "source": "https://ubuntu.com/security/cve?package=test_package_1",
+            "debian": "https://tracker.debian.org/pkg/mysql",
+            "name": "mysql",
+            "source": "https://ubuntu.com/security/cve?package=mysql",
             "statuses": [
                 {
                     "description": "",
@@ -22,7 +22,7 @@ cve1 = {
             ],
             "ubuntu": (
                 "https://packages.ubuntu.com/search?suite=all&section=all&arch"
-                "=any&searchon=sourcenames&keywords=test_package_1"
+                "=any&searchon=sourcenames&keywords=mysql"
             ),
         }
     ],
@@ -55,9 +55,9 @@ cve2 = {
     "codename": "testcodename2",
     "packages": [
         {
-            "debian": "https://tracker.debian.org/pkg/test_package_2",
-            "name": "test_package_2",
-            "source": "https://ubuntu.com/security/cve?package=test_package21",
+            "debian": "https://tracker.debian.org/pkg/mysql",
+            "name": "mysql-8.0",
+            "source": "https://ubuntu.com/security/cve?package=mysql-8.0",
             "statuses": [
                 {
                     "description": "",
@@ -67,7 +67,7 @@ cve2 = {
             ],
             "ubuntu": (
                 "https://packages.ubuntu.com/search?suite=all&section=all&arch"
-                "=any&searchon=sourcenames&keywords=test_package_2"
+                "=any&searchon=sourcenames&keywords=mysql"
             ),
         }
     ],
@@ -81,9 +81,9 @@ cve3 = {
     "codename": "testcodename3",
     "packages": [
         {
-            "debian": "https://tracker.debian.org/pkg/test_package_3",
-            "name": "test_package_3",
-            "source": "https://ubuntu.com/security/cve?package=test_package_3",
+            "debian": "https://tracker.debian.org/pkg/postgresql-14",
+            "name": "postgresql-14",
+            "source": "https://ubuntu.com/security/cve?package=postgresql-14",
             "statuses": [
                 {
                     "description": "",
@@ -93,7 +93,7 @@ cve3 = {
             ],
             "ubuntu": (
                 "https://packages.ubuntu.com/search?suite=all&section=all&arch"
-                "=any&searchon=sourcenames&keywords=test_package_3"
+                "=any&searchon=sourcenames&keywords=postgresql-14"
             ),
         }
     ],
@@ -107,9 +107,9 @@ cve4 = {
     "codename": "testcodename4",
     "packages": [
         {
-            "debian": "https://tracker.debian.org/pkg/test_package_4",
+            "debian": "https://tracker.debian.org/pkg/postgresql",
             "name": "test_package_3",
-            "source": "https://ubuntu.com/security/cve?package=test_package_4",
+            "source": "https://ubuntu.com/security/cve?package=postgresql",
             "statuses": [
                 {
                     "description": "",
@@ -119,7 +119,7 @@ cve4 = {
             ],
             "ubuntu": (
                 "https://packages.ubuntu.com/search?suite=all&section=all&arch"
-                "=any&searchon=sourcenames&keywords=test_package_4"
+                "=any&searchon=sourcenames&keywords=postgresql"
             ),
         }
     ],

@@ -149,7 +149,7 @@ def get_cves(**kwargs):
 
         # filter by package name
         if package:
-            parameters.append(Status.package_name == package)
+            parameters.append(Status.package_name.ilike(f"%{package}%"))
 
         # filter by component
         if component:
@@ -165,7 +165,7 @@ def get_cves(**kwargs):
                     CVE.statuses.any(or_(*[p for p in parameters]))
                 )
 
-    # filter the CVE statuses that fulfil creatia
+    # filter the CVE statuses that fulfills criteria
     cve_statuses_query = cve_statuses_query.and_(*[p for p in parameters])
 
     cve_notices_query = CVE.notices
