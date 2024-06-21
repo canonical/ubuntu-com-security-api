@@ -399,14 +399,26 @@ def get_notices(**kwargs):
     release = kwargs.get("release")
     limit = kwargs.get("limit", 20)
     offset = kwargs.get("offset", 0)
+    reduce_cves = kwargs.get("reduce_cves", False)
 
     notices_query: Query = db.session.query(Notice)
+
+    # Note that the order in which the query parameters are declared below also
+    # determines the filter precedence, and hence the output for the same query
+    # will change if the order is changed.
 
     if not kwargs.get("show_hidden", False):
         notices_query = notices_query.filter(Notice.is_hidden == "False")
 
     if cve_id:
-        notices_query = notices_query.filter(Notice.cves.any(CVE.id == cve_id))
+        # Get all notices which have a CVE with this id
+        result_set = db.session.execute(
+            notice_cves.select().where(notice_cves.c.cve_id == cve_id)
+        )
+        notice_ids = (row[0] for row in result_set)
+        notices_query = db.session.query(Notice).filter(
+            Notice.id.in_(notice_ids)
+        )
 
     if release:
         notices_query = notices_query.join(Release, Notice.releases).filter(
@@ -419,7 +431,6 @@ def get_notices(**kwargs):
                 Notice.id.ilike(f"%{details}%"),
                 Notice.details.ilike(f"%{details}%"),
                 Notice.title.ilike(f"%{details}%"),
-                Notice.cves.any(CVE.id.ilike(f"%{details}%")),
             )
         )
 
@@ -431,7 +442,9 @@ def get_notices(**kwargs):
         .all()
     )
 
-    notices = [_get_cves_for_notice(notice) for notice in notices]
+    notices = [
+        _get_cves_for_notice(notice, reduced=reduce_cves) for notice in notices
+    ]
 
     return {
         "notices": notices,
@@ -639,7 +652,7 @@ def delete_release(release_codename):
     )
 
 
-def _get_cves_for_notice(notice):
+def _get_cves_for_notice(notice, reduced=False):
     # We first get all cve ids for the notice
     cve_ids_stmt = notice_cves.select().where(
         notice_cves.c.notice_id == notice.id
@@ -652,21 +665,34 @@ def _get_cves_for_notice(notice):
         notice.cves = []
 
     else:
-        # Create a query list using the first result
-        cves_list = (
-            db.session.query(CVE).filter(CVE.id == result_set[0][1]).all()
-        )
-
-        # Then populate the list with the rest of the results
-        for i in result_set[1:]:
-            cves_list.append(
-                db.session.query(CVE).filter(CVE.id == i[1]).one()
+        if not reduced:
+            # Create a query list using the first result
+            cves_list = (
+                db.session.query(CVE).filter(CVE.id == result_set[0][1]).all()
             )
 
-        notice.cves = cves_list
+            # Then populate the list with the rest of the results
+            for i in result_set[1:]:
+                cves_list.append(
+                    db.session.query(CVE).filter(CVE.id == i[1]).one()
+                )
+        else:
+            # Use only the id and published fields
+            cves_list = (
+                db.session.query(CVE.id, CVE.published)
+                .filter(CVE.id == result_set[0][1])
+                .all()
+            )
 
-    if not result_set:
-        notice.cves = []
+            # Then populate the list with the rest of the results
+            for i in result_set[1:]:
+                cves_list.append(
+                    db.session.query(CVE.id, CVE.published)
+                    .filter(CVE.id == i[1])
+                    .one()
+                )
+
+        notice.cves = cves_list
 
     return notice
 
