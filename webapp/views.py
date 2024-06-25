@@ -6,7 +6,7 @@ from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, and_, case, asc
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import selectinload, Query
+from sqlalchemy.orm import load_only, selectinload, Query
 import dateutil
 
 from webapp.app import db
@@ -18,7 +18,6 @@ from webapp.models import (
     Status,
     Package,
     STATUS_STATUSES,
-    notice_cves,
 )
 from webapp.schemas import (
     CVEsAPISchema,
@@ -53,6 +52,11 @@ def get_cve(cve_id, **kwargs):
 
     cve: CVE = (
         cve_query.filter(CVE.id == cve_id.upper())
+        .options(
+            selectinload(cve_notices_query).options(
+                selectinload(Notice.cves).options(load_only(CVE.id))
+            )
+        )
         .options(selectinload(CVE.statuses))
         .one_or_none()
     )
@@ -183,7 +187,12 @@ def get_cves(**kwargs):
         sort_field = CVE.updated_at
 
     query: Query = (
-        cves_query.order_by(
+        cves_query.options(
+            selectinload(cve_notices_query).options(
+                selectinload(Notice.cves).options(load_only(CVE.id))
+            )
+        )
+        .order_by(
             case(
                 [(sort_field.is_(None), 1)],
                 else_=0,
@@ -353,10 +362,6 @@ def delete_cve(cve_id):
     db.session.delete(cve)
     db.session.commit()
 
-    # Delete cve from notice_cves
-    delete_stmt = notice_cves.delete().where(notice_cves.c.cve_id == cve_id)
-    db.session.execute(delete_stmt)
-
     return make_response(
         jsonify({"message": f"CVE with id '{cve_id}' was deleted"}), 200
     )
@@ -373,6 +378,16 @@ def get_notice(notice_id, **kwargs):
 
     notice: Notice = (
         notice_query.filter(Notice.id == notice_id.upper())
+        .options(
+            selectinload(Notice.cves).options(
+                selectinload(CVE.statuses),
+                selectinload(CVE.notices).options(
+                    load_only(
+                        Notice.id, Notice.is_hidden, Notice.release_packages
+                    )
+                ),
+            )
+        )
         .options(selectinload(Notice.releases))
         .one_or_none()
     )
@@ -384,8 +399,6 @@ def get_notice(notice_id, **kwargs):
             ),
             404,
         )
-
-    notice = _get_cves_for_notice(notice)
 
     return notice
 
@@ -399,6 +412,7 @@ def get_notices(**kwargs):
     release = kwargs.get("release")
     limit = kwargs.get("limit", 20)
     offset = kwargs.get("offset", 0)
+    order_by = kwargs.get("order")
 
     notices_query: Query = db.session.query(Notice)
 
@@ -423,15 +437,25 @@ def get_notices(**kwargs):
             )
         )
 
+    sort = asc if order_by == "oldest" else desc
+
     notices = (
-        notices_query.options(selectinload(Notice.releases))
-        .order_by(desc(Notice.published))
+        notices_query.options(
+            selectinload(Notice.cves).options(
+                selectinload(CVE.statuses),
+                selectinload(CVE.notices).options(
+                    load_only(
+                        Notice.id, Notice.is_hidden, Notice.release_packages
+                    )
+                ),
+            )
+        )
+        .options(selectinload(Notice.releases))
+        .order_by(sort(Notice.published), sort(Notice.id))
         .offset(offset)
         .limit(limit)
         .all()
     )
-
-    notices = [_get_cves_for_notice(notice) for notice in notices]
 
     return {
         "notices": notices,
@@ -448,13 +472,11 @@ def get_notices(**kwargs):
 def create_notice(**kwargs):
     notice_data = request.json
 
-    notice = _update_notice_object(Notice(id=notice_data["id"]), notice_data)
-
-    db.session.add(notice)
+    db.session.add(
+        _update_notice_object(Notice(id=notice_data["id"]), notice_data)
+    )
 
     db.session.commit()
-
-    _update_notice_cves(notice_data, notice_data["cves"])
 
     return make_response(jsonify({"message": "Notice created"}), 200)
 
@@ -465,7 +487,6 @@ def create_notice(**kwargs):
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(NoticeImportSchema, location="json")
 def update_notice(notice_id, **kwargs):
-    notice_data = request.json
     notice = Notice.query.get(notice_id)
 
     if not notice:
@@ -477,10 +498,7 @@ def update_notice(notice_id, **kwargs):
     notice = _update_notice_object(notice, request.json)
 
     db.session.add(notice)
-
     db.session.commit()
-
-    _update_notice_cves(notice_data, notice_data["cves"])
 
     return make_response(jsonify({"message": "Notice updated"}), 200)
 
@@ -496,8 +514,6 @@ def delete_notice(notice_id):
             jsonify({"message": f"Notice {notice_id} doesn't exist"}),
             404,
         )
-
-    _update_notice_cves({"id": notice_id}, [])
 
     db.session.delete(notice)
     db.session.commit()
@@ -548,18 +564,7 @@ def create_release(**kwargs):
             support_expires=release_data["support_expires"],
         )
     )
-    try:
-        db.session.commit()
-    except IntegrityError as error:
-        return make_response(
-            jsonify(
-                {
-                    "message": "Failed creating release",
-                    "error": error.orig.args[0],
-                }
-            ),
-            422,
-        )
+    db.session.commit()
 
     return make_response(jsonify({"message": "Release created"}), 200)
 
@@ -637,38 +642,6 @@ def delete_release(release_codename):
     return make_response(
         jsonify({"message": f"Release {release_codename} deleted"}), 200
     )
-
-
-def _get_cves_for_notice(notice):
-    # We first get all cve ids for the notice
-    cve_ids_stmt = notice_cves.select().where(
-        notice_cves.c.notice_id == notice.id
-    )
-
-    result_set = list(db.session.execute(cve_ids_stmt))
-
-    # Default to an empty list if there are no results
-    if not result_set:
-        notice.cves = []
-
-    else:
-        # Create a query list using the first result
-        cves_list = (
-            db.session.query(CVE).filter(CVE.id == result_set[0][1]).all()
-        )
-
-        # Then populate the list with the rest of the results
-        for i in result_set[1:]:
-            cves_list.append(
-                db.session.query(CVE).filter(CVE.id == i[1]).one()
-            )
-
-        notice.cves = cves_list
-
-    if not result_set:
-        notice.cves = []
-
-    return notice
 
 
 def _sort_by_priority(cves_query):
@@ -843,26 +816,11 @@ def _update_notice_object(notice, data):
         for codename in data["release_packages"].keys()
     ]
 
+    notice.cves.clear()
+    for cve_id in set(data["cves"]):
+        notice.cves.append(CVE.query.get(cve_id) or CVE(id=cve_id))
+
     return notice
-
-
-def _update_notice_cves(notice_data, cves):
-    """
-    Update the cves for a notice
-    """
-    db.session.execute(
-        notice_cves.delete().where(
-            notice_cves.c.notice_id == notice_data["id"]
-        )
-    )
-
-    # Insert new cve_id, notice_id pairs from the new list
-    for cve_id in set(cves):
-        db.session.execute(
-            notice_cves.insert().values(
-                notice_id=notice_data["id"], cve_id=cve_id
-            )
-        )
 
 
 def _update_statuses(cve, data, packages):
