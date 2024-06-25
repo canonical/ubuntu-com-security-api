@@ -23,17 +23,6 @@ def make_models():
         debian="test-package-debian",
     )
 
-    notice = Notice(
-        id="USN-1111-01",
-        is_hidden=False,
-        published=datetime.now(),
-        summary="",
-        details="",
-        instructions="",
-        releases=[release],
-    )
-    notice.cves = []
-
     cve = CVE(
         id="CVE-1111-0001",
         published=datetime.now(),
@@ -50,7 +39,6 @@ def make_models():
         tags={},
         bugs={},
         status="active",
-        notices=[notice],
     )
 
     status = Status(
@@ -58,6 +46,17 @@ def make_models():
         cve=cve,
         package=package,
         release=release,
+    )
+
+    notice = Notice(
+        id="USN-1111-01",
+        is_hidden=False,
+        published=datetime.now(),
+        summary="",
+        details="",
+        instructions="",
+        releases=[release],
+        cves=[cve],
     )
 
     return {
