@@ -1,0 +1,85 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: ubuntu-com-security-api-updates
+spec:
+  selector:
+    app: ubuntu-com-security-api-updates
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http
+
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: ubuntu-com-security-api-updates
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ubuntu-com-security-api-updates
+  template:
+    metadata:
+      labels:
+        app: ubuntu-com-security-api-updates
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - ubuntu-com-security-api-updates
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: ubuntu-com-security-api-updates
+          image: prod-comms.ps5.docker-registry.canonical.com/ubuntu-com-security-api-updates:${TAG_TO_DEPLOY}
+
+          ports:
+            - name: http
+              containerPort: 80
+
+          env:
+            - name: TALISKER_NETWORKS
+              value: 10.0.0.0/8
+
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: ubuntu-com-security-api-updates
+                  name: secret-keys
+
+            - name: HTTP_PROXY
+              value: "http://squid.internal:3128/"
+
+            - name: HTTPS_PROXY
+              value: "http://squid.internal:3128/"
+
+            - name: NO_PROXY
+              value: ".internal,ubuntu.com,.ubuntu.com,snapcraft.io,.snapcraft.io,jujucharms.com,.jujucharms.com,maas.io,.maas.io,conjure-up.io,.conjure-up.io,netplan.io,.netplan.io,canonical.com,.canonical.com,launchpad.net,.launchpad.net,linuxcontainers.org,.linuxcontainers.org,cloud-init.io,.cloud-init.io,vanillaframework.io,.vanillaframework.io,anbox-cloud.io,.anbox-cloud.io,juju.is,.juju.is,dqlite.io,.dqlite.io,charmhub.io,.charmhub.io"
+
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: database_url
+                  name: usn-db-url
+
+            - name: SENTRY_DSN
+              value: "https://1e974d641a14437e9573e8fe9958a252@sentry.is.canonical.com//48"
+
+          readinessProbe:
+            httpGet:
+              path: /_status/check
+              port: 80
+            periodSeconds: 5
+            timeoutSeconds: 3
+
+          resources:
+            limits:
+              memory: 512Mi
