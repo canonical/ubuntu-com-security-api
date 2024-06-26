@@ -1067,7 +1067,9 @@ class TestRoutes(unittest.TestCase):
         notice = payloads.notice.copy()
         notice["unknown"] = "field"
 
-        response = self.client.post("/security/updates/notices.json", json=notice)
+        response = self.client.post(
+            "/security/updates/notices.json", json=notice
+        )
 
         assert response.status_code == 422
         assert "Unknown field." in response.json["errors"]
@@ -1077,7 +1079,9 @@ class TestRoutes(unittest.TestCase):
 
         # Create first
         notice = payloads.notice.copy()
-        response_1 = self.client.post("/security/updates/notices.json", json=notice)
+        response_1 = self.client.post(
+            "/security/updates/notices.json", json=notice
+        )
         assert response_1.status_code == 200
 
         # Update
@@ -1155,7 +1159,9 @@ class TestRoutes(unittest.TestCase):
         ) in response_2.json["errors"]
 
     def test_delete_non_existing_release_returns_404(self):
-        response = self.client.delete("/security/updates/releases/no-exist.json")
+        response = self.client.delete(
+            "/security/updates/releases/no-exist.json"
+        )
 
         assert response.status_code == 404
 
