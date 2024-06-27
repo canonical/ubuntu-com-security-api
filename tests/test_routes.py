@@ -1083,6 +1083,18 @@ class TestRoutes(unittest.TestCase):
         )
         assert response.status_code == 200
 
+    def test_cves_query_notes(self):
+        """
+        Query text field should include notes
+        """
+        # Act
+        response = self.client.get("/security/cves.json?q=sql")
+
+        # Assert
+        assert response.status_code == 200
+        assert response.json["total_results"] == 1
+        assert len(response.json["cves"]) == 1
+
 
 if __name__ == "__main__":
     unittest.main()
