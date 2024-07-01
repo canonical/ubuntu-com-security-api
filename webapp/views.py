@@ -1,13 +1,13 @@
+import dateutil
 from collections import defaultdict
 from datetime import datetime
 from distutils.util import strtobool
 
 from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import desc, or_, and_, case, asc
+from sqlalchemy import desc, or_, and_, case, asc, text
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import load_only, selectinload, Query
-import dateutil
 
 from webapp.app import db
 from webapp.auth import authorization_required
@@ -115,6 +115,16 @@ def get_cves(**kwargs):
                 CVE.ubuntu_description.ilike(f"%{query}%"),
                 CVE.codename.ilike(f"%{query}%"),
                 CVE.mitigation.ilike(f"%{query}%"),
+                # search through notes
+                text(
+                    """
+                    EXISTS (
+                      SELECT 1 FROM json_array_elements(notes) AS note
+                      WHERE note->>'note' ilike :query
+                      OR note->>'author' ilike :query
+                    )
+                    """
+                ).params(query=f"%{query}%"),
             )
         )
 
@@ -122,6 +132,10 @@ def get_cves(**kwargs):
     parameters = []
 
     cve_statuses_query = CVE.statuses
+
+    if statuses:
+        if "" in statuses:
+            statuses.remove("")
 
     should_filter_by_version_and_status = _should_filter_by_version_and_status(
         versions, statuses
@@ -134,7 +148,7 @@ def get_cves(**kwargs):
 
         # filter the CVEs that fulfill criteria
         cves_query = cves_query.filter(
-            CVE.statuses.any(or_(*[p for p in parameters]))
+            CVE.statuses.any(and_(*[p for p in parameters]))
         )
 
     else:
@@ -142,10 +156,7 @@ def get_cves(**kwargs):
         # retain legacy functionality by ignoring it
         if statuses:
             for status in statuses:
-                if status == "":
-                    continue
-                else:
-                    parameters.append(Status.status == status)
+                parameters.append(Status.status == status)
 
         if versions:
             for version in versions:

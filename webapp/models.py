@@ -57,7 +57,7 @@ class CVE(db.Model):
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    notes = Column(JSON)
+    notes = Column(JSON)  # JSON array
     codename = Column(String)
     priority = Column(
         Enum(

@@ -27,7 +27,6 @@
                 "impactScore": 5.9
             }
         },
-        "notes": [],
         "packages": [
             {
                 "debian": "https://tracker.debian.org/pkg/chromium-browser",

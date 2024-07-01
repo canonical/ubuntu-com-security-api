@@ -41,7 +41,7 @@ with app.app_context():
                 published=datetime.now(),
                 description="",
                 ubuntu_description="",
-                notes={},
+                notes=[],
                 priority="unknown",
                 cvss3=2.3,
                 mitigation="",
