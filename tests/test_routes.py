@@ -613,7 +613,7 @@ class TestRoutes(unittest.TestCase):
 
         assert filtered_cves_response.status_code == 200
         assert filtered_cves_response.json["total_results"] == 1
-    
+
     def test_cves_filtered_by_empty_status(self):
         # Add releases because the DB only includes
         # 1 release upon initialization

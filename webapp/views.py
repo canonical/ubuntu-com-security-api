@@ -136,7 +136,7 @@ def get_cves(**kwargs):
     if statuses:
         if "" in statuses:
             statuses.remove("")
-  
+
     should_filter_by_version_and_status = _should_filter_by_version_and_status(
         versions, statuses
     )
@@ -681,7 +681,6 @@ def _params_with_conditions(
 
     clean_versions = _get_clean_versions(versions)
     clean_statuses = _get_clean_statuses(statuses)
-
 
     # Add parent condition
     if versions or statuses:
