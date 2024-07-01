@@ -133,6 +133,10 @@ def get_cves(**kwargs):
 
     cve_statuses_query = CVE.statuses
 
+    if statuses:
+        if "" in statuses:
+            statuses.remove("")
+
     should_filter_by_version_and_status = _should_filter_by_version_and_status(
         versions, statuses
     )
@@ -144,7 +148,7 @@ def get_cves(**kwargs):
 
         # filter the CVEs that fulfill criteria
         cves_query = cves_query.filter(
-            CVE.statuses.any(or_(*[p for p in parameters]))
+            CVE.statuses.any(and_(*[p for p in parameters]))
         )
 
     else:
@@ -152,10 +156,7 @@ def get_cves(**kwargs):
         # retain legacy functionality by ignoring it
         if statuses:
             for status in statuses:
-                if status == "":
-                    continue
-                else:
-                    parameters.append(Status.status == status)
+                parameters.append(Status.status == status)
 
         if versions:
             for version in versions:
