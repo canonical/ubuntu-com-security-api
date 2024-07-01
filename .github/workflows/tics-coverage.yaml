@@ -1,31 +1,47 @@
 name: Upload TICS report
-on:
-  push:
-    branches:
-      - main
+# on:
+#   push:
+#     branches:
+#       - main
+
+on: pull_request
 
 jobs:
-  TICS:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [18.x]
+  tics-report:
+    runs-on: ubuntu-20.04
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: pw
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "yarn"
-      - name: Install
+
+      - name: Install requirements
+        run: |
+          sudo apt-get update && sudo apt-get install --yes python3-setuptools
+          sudo pip3 install -r requirements.txt
+
+      - name: Install dependencies
+        run: sudo pip3 install coverage
+
+      - name: Install node dependencies
         run: yarn install --immutable
-      - run: yarn test --coverage.enabled true
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ubuntu-security-api-coverage
-          path: coverage
+
+      - name: Run tests with coverage
+        run: SECRET_KEY=insecure_test_key TEST_DATABASE_URL=postgresql://postgres:pw@localhost:5432/postgres coverage run  --source=. -m unittest discover tests
+        env:
+          CI: true
+
       - name: Produce TICS report
         shell: bash
         run: |
@@ -34,6 +50,7 @@ jobs:
           curl --silent --show-error "https://canonical.tiobe.com/tiobeweb/TICS/api/public/v1/fapi/installtics/Script?cfg=default&platform=linux&url=https://canonical.tiobe.com/tiobeweb/TICS/" > install_tics.sh
           . ./install_tics.sh
           TICSQServer -project ubuntu-com-security-api -tmpdir /tmp/tics -branchdir .
+
       - name: Upload TICS report
         if: always()
         uses: actions/upload-artifact@v4
