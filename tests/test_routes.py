@@ -577,13 +577,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -593,7 +593,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -618,13 +618,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -634,7 +634,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
