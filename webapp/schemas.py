@@ -427,6 +427,19 @@ class NoticeAPIDetailedSchema(NoticeAPISchema):
     releases = List(Nested(NoticeReleasesSchema))
 
 
+class PageNoticeAPISchema(NoticeSchema):
+    cves_ids = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
+    notice_type = String(data_key="type")
+    releases = List(Nested(NoticeReleasesSchema))
+
+
+class PageNoticesAPISchema(Schema):
+    notices = List(Nested(PageNoticeAPISchema))
+    offset = Int(allow_none=True)
+    limit = Int(allow_none=True)
+    total_results = Int()
+
+
 class CVEAPIDetailedSchema(CVEAPISchema):
     notices = List(Nested(NoticeAPISchema))
 

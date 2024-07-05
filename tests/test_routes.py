@@ -1024,6 +1024,27 @@ class TestRoutes(unittest.TestCase):
         assert response.status_code == 200
         assert response.json["cves_ids"] == self.models["notice"].cves_ids
 
+    def test_multiple_usn(self):
+        response = self.client.get("/security/notices.json")
+
+        assert response.status_code == 200
+        # Should include cve
+        assert (
+            self.models["notice"].id
+            in response.json["notices"][0]["cves"][0]["notices_ids"]
+        )
+
+    def test_page_notice(self):
+        response = self.client.get("/security/page/notices.json")
+
+        assert response.status_code == 200
+        assert (
+            response.json["notices"][0]["cves_ids"]
+            == self.models["notice"].cves_ids
+        )
+        # Should not include cves
+        assert response.json["notices"][0].get("cves") is None
+
     def test_usns_returns_200_for_non_existing_release(self):
         response = self.client.get("/security/notices.json?release=no-exist")
 

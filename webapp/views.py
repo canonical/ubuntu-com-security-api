@@ -20,21 +20,22 @@ from webapp.models import (
     STATUS_STATUSES,
 )
 from webapp.schemas import (
+    CreateNoticeImportSchema,
+    CVEAPIDetailedSchema,
+    CVEImportSchema,
+    CVEParameter,
     CVEsAPISchema,
     CVEsParameters,
-    NoticesParameters,
-    NoticesAPISchema,
-    NoticeImportSchema,
     MessageSchema,
     MessageWithErrorsSchema,
-    CreateNoticeImportSchema,
-    CVEImportSchema,
-    ReleaseSchema,
-    NoticeParameters,
-    CVEParameter,
-    CVEAPIDetailedSchema,
     NoticeAPIDetailedSchema,
+    NoticeImportSchema,
+    NoticeParameters,
+    NoticesAPISchema,
+    NoticesParameters,
+    PageNoticesAPISchema,
     ReleaseAPISchema,
+    ReleaseSchema,
     ReleasesAPISchema,
     UpdateReleaseSchema,
 )
@@ -462,6 +463,57 @@ def get_notices(**kwargs):
             )
         )
         .options(selectinload(Notice.releases))
+        .order_by(sort(Notice.published), sort(Notice.id))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "notices": notices,
+        "offset": offset,
+        "limit": limit,
+        "total_results": notices_query.count(),
+    }
+
+
+@marshal_with(PageNoticesAPISchema, code=200)
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(NoticesParameters, location="query")
+def get_page_notices(**kwargs):
+    details = kwargs.get("details")
+    cve_id = kwargs.get("cve_id")
+    release = kwargs.get("release")
+    limit = kwargs.get("limit", 20)
+    offset = kwargs.get("offset", 0)
+    order_by = kwargs.get("order")
+
+    notices_query: Query = db.session.query(Notice)
+
+    if not kwargs.get("show_hidden", False):
+        notices_query = notices_query.filter(Notice.is_hidden == "False")
+
+    if cve_id:
+        notices_query = notices_query.filter(Notice.cves.any(CVE.id == cve_id))
+
+    if release:
+        notices_query = notices_query.join(Release, Notice.releases).filter(
+            Release.codename == release
+        )
+
+    if details:
+        notices_query = notices_query.filter(
+            or_(
+                Notice.id.ilike(f"%{details}%"),
+                Notice.details.ilike(f"%{details}%"),
+                Notice.title.ilike(f"%{details}%"),
+            )
+        )
+
+    sort = asc if order_by == "oldest" else desc
+
+    notices = (
+        notices_query.options(selectinload(Notice.releases))
         .order_by(sort(Notice.published), sort(Notice.id))
         .offset(offset)
         .limit(limit)
