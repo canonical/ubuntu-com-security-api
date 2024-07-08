@@ -62,20 +62,6 @@ app.add_url_rule(
 )
 
 app.add_url_rule(
-    "/security/cves.json",
-    view_func=bulk_upsert_cve,
-    methods=["PUT"],
-    provide_automatic_options=False,
-)
-
-app.add_url_rule(
-    "/security/cves/<cve_id>.json",
-    view_func=delete_cve,
-    methods=["DELETE"],
-    provide_automatic_options=False,
-)
-
-app.add_url_rule(
     "/security/notices/<notice_id>.json",
     view_func=get_notice,
     provide_automatic_options=False,
@@ -84,27 +70,6 @@ app.add_url_rule(
 app.add_url_rule(
     "/security/notices.json",
     view_func=get_notices,
-    provide_automatic_options=False,
-)
-
-app.add_url_rule(
-    "/security/notices.json",
-    view_func=create_notice,
-    methods=["POST"],
-    provide_automatic_options=False,
-)
-
-app.add_url_rule(
-    "/security/notices/<notice_id>.json",
-    view_func=update_notice,
-    methods=["PUT"],
-    provide_automatic_options=False,
-)
-
-app.add_url_rule(
-    "/security/notices/<notice_id>.json",
-    view_func=delete_notice,
-    methods=["DELETE"],
     provide_automatic_options=False,
 )
 
@@ -120,20 +85,59 @@ app.add_url_rule(
     methods=["GET"],
     provide_automatic_options=False,
 )
+
+# Upsert endpoints are declared on /security/updates for performance reasons
+
 app.add_url_rule(
-    "/security/releases.json",
+    "/security/updates/cves.json",
+    view_func=bulk_upsert_cve,
+    methods=["PUT"],
+    provide_automatic_options=False,
+)
+
+app.add_url_rule(
+    "/security/updates/cves/<cve_id>.json",
+    view_func=delete_cve,
+    methods=["DELETE"],
+    provide_automatic_options=False,
+)
+
+app.add_url_rule(
+    "/security/updates/notices.json",
+    view_func=create_notice,
+    methods=["POST"],
+    provide_automatic_options=False,
+)
+
+app.add_url_rule(
+    "/security/updates/notices/<notice_id>.json",
+    view_func=update_notice,
+    methods=["PUT"],
+    provide_automatic_options=False,
+)
+
+app.add_url_rule(
+    "/security/updates/notices/<notice_id>.json",
+    view_func=delete_notice,
+    methods=["DELETE"],
+    provide_automatic_options=False,
+)
+
+
+app.add_url_rule(
+    "/security/updates/releases.json",
     view_func=create_release,
     methods=["POST"],
     provide_automatic_options=False,
 )
 app.add_url_rule(
-    "/security/releases/<release_codename>.json",
+    "/security/updates/releases/<release_codename>.json",
     view_func=update_release,
     methods=["PUT"],
     provide_automatic_options=False,
 )
 app.add_url_rule(
-    "/security/releases/<release_codename>.json",
+    "/security/updates/releases/<release_codename>.json",
     view_func=delete_release,
     methods=["DELETE"],
     provide_automatic_options=False,

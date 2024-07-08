@@ -144,13 +144,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only
         # includes 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -160,7 +160,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -184,7 +184,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -208,13 +208,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -224,7 +224,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -249,13 +249,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -265,7 +265,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -290,13 +290,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -306,7 +306,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -330,13 +330,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -346,7 +346,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -371,13 +371,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -387,7 +387,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -412,13 +412,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -428,7 +428,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -453,13 +453,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -469,7 +469,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -494,13 +494,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -510,7 +510,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -535,13 +535,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -551,7 +551,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -577,13 +577,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -593,7 +593,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -618,13 +618,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -634,7 +634,7 @@ class TestRoutes(unittest.TestCase):
         # Add cves with different statuses because the
         # DB only includes 1 cve upon initialization
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
                 payloads.cve3,
@@ -678,7 +678,7 @@ class TestRoutes(unittest.TestCase):
         cve_payload = payloads.cve1.copy()
 
         add_cve_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[cve_payload],
         )
 
@@ -691,7 +691,7 @@ class TestRoutes(unittest.TestCase):
 
         # Pass an update to the CVE
         update_cve_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[{"id": "CVE-9999-0001", "codename": "new_codename"}],
         )
 
@@ -714,7 +714,7 @@ class TestRoutes(unittest.TestCase):
         cve_payload = payloads.cve1.copy()
 
         add_cve_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[cve_payload],
         )
 
@@ -724,7 +724,7 @@ class TestRoutes(unittest.TestCase):
 
         # Pass an update to the CVE
         update_cve_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[cve_payload],
         )
 
@@ -748,7 +748,7 @@ class TestRoutes(unittest.TestCase):
         cve_payload = payloads.cve1.copy()
 
         add_cve_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[cve_payload],
         )
 
@@ -756,7 +756,7 @@ class TestRoutes(unittest.TestCase):
 
         # Try to update updated_at field
         update_cve_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[{"updated_at": "2023-03-26T13:59:23.966558+00:00"}],
         )
 
@@ -777,13 +777,13 @@ class TestRoutes(unittest.TestCase):
         # Add releases because the DB only includes
         # 1 release upon initialization
         add_release_response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         add_release2_response = self.client.post(
-            "/security/releases.json", json=payloads.release2
+            "/security/updates/releases.json", json=payloads.release2
         )
         add_release3_response = self.client.post(
-            "/security/releases.json", json=payloads.release3
+            "/security/updates/releases.json", json=payloads.release3
         )
 
         assert add_release_response.status_code == 200
@@ -793,7 +793,7 @@ class TestRoutes(unittest.TestCase):
         # Add CVEs of varying priority, including one without
         # a status field (cve1)
         add_cves_response = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve1,
                 payloads.cve2,
@@ -849,21 +849,21 @@ class TestRoutes(unittest.TestCase):
 
         # Add CVEs at different intervals to create separate publish dates
         add_cves_response1 = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve2,
             ],
         )
 
         add_cves_response2 = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve3,
             ],
         )
 
         add_cves_response3 = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve4,
             ],
@@ -913,17 +913,17 @@ class TestRoutes(unittest.TestCase):
         payloads.cve4["codename"] = "new_name4"
 
         update_cves_response1 = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[payloads.cve2],
         )
 
         update_cves_response2 = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[payloads.cve3],
         )
 
         update_cves_response3 = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[payloads.cve4],
         )
 
@@ -963,7 +963,7 @@ class TestRoutes(unittest.TestCase):
         cve = payloads.cve1.copy()
         cve["hello"] = "world"
 
-        response = self.client.put("/security/cves.json", json=[cve])
+        response = self.client.put("/security/updates/cves.json", json=[cve])
 
         assert response.status_code == 422
         assert "Unknown field." in response.json["errors"]
@@ -980,7 +980,7 @@ class TestRoutes(unittest.TestCase):
         assert response_2.status_code == 404
 
         response_3 = self.client.put(
-            "/security/cves.json",
+            "/security/updates/cves.json",
             json=[
                 payloads.cve1,
                 payloads.cve2,
@@ -1000,14 +1000,14 @@ class TestRoutes(unittest.TestCase):
 
     def test_delete_non_existing_cve_returns_404(self):
         response = self.client.delete(
-            f"/security/cves/{payloads.cve1['id']}.json"
+            f"/security/updates/cves/{payloads.cve1['id']}.json"
         )
 
         assert response.status_code == 404
 
     def test_delete_cve(self):
         response = self.client.delete(
-            f"/security/cves/{self.models['cve'].id}.json"
+            f"/security/updates/cves/{self.models['cve'].id}.json"
         )
         assert response.status_code == 200
 
@@ -1034,14 +1034,14 @@ class TestRoutes(unittest.TestCase):
 
     def test_create_usn(self):
         response = self.client.post(
-            "/security/notices.json", json=payloads.notice
+            "/security/updates/notices.json", json=payloads.notice
         )
 
         assert response.status_code == 200
 
     def test_create_ssn_usn(self):
         response = self.client.post(
-            "/security/notices.json", json=payloads.ssn_notice
+            "/security/updates/notices.json", json=payloads.ssn_notice
         )
 
         assert response.status_code == 200
@@ -1049,13 +1049,13 @@ class TestRoutes(unittest.TestCase):
     def test_create_usn_returns_422_for_non_unique_id(self):
         # Create USN
         response_1 = self.client.post(
-            "/security/notices.json", json=payloads.notice
+            "/security/updates/notices.json", json=payloads.notice
         )
         assert response_1.status_code == 200
 
         # Create again
         response_2 = self.client.post(
-            "/security/notices.json", json=payloads.notice
+            "/security/updates/notices.json", json=payloads.notice
         )
         assert response_2.status_code == 422
         assert (
@@ -1067,7 +1067,9 @@ class TestRoutes(unittest.TestCase):
         notice = payloads.notice.copy()
         notice["unknown"] = "field"
 
-        response = self.client.post("/security/notices.json", json=notice)
+        response = self.client.post(
+            "/security/updates/notices.json", json=notice
+        )
 
         assert response.status_code == 422
         assert "Unknown field." in response.json["errors"]
@@ -1077,13 +1079,15 @@ class TestRoutes(unittest.TestCase):
 
         # Create first
         notice = payloads.notice.copy()
-        response_1 = self.client.post("/security/notices.json", json=notice)
+        response_1 = self.client.post(
+            "/security/updates/notices.json", json=notice
+        )
         assert response_1.status_code == 200
 
         # Update
         notice["instructions"] = instructions
         response_2 = self.client.put(
-            f"/security/notices/{notice['id']}.json", json=notice
+            f"/security/updates/notices/{notice['id']}.json", json=notice
         )
         assert response_2.status_code == 200
 
@@ -1093,7 +1097,7 @@ class TestRoutes(unittest.TestCase):
 
     def test_update_usn_returns_404_for_non_existing_id(self):
         response = self.client.put(
-            f"/security/notices/{payloads.notice['id']}.json",
+            f"/security/updates/notices/{payloads.notice['id']}.json",
             json=payloads.notice,
         )
 
@@ -1104,7 +1108,7 @@ class TestRoutes(unittest.TestCase):
         notice["unknown"] = "field"
 
         response = self.client.put(
-            f"/security/notices/{notice['id']}.json", json=notice
+            f"/security/updates/notices/{notice['id']}.json", json=notice
         )
 
         assert response.status_code == 422
@@ -1112,7 +1116,7 @@ class TestRoutes(unittest.TestCase):
 
     def test_delete_usn_returns_404_for_non_existing_usn(self):
         response = self.client.delete(
-            f"/security/notices/{payloads.notice['id']}.json"
+            f"/security/updates/notices/{payloads.notice['id']}.json"
         )
 
         assert response.status_code == 404
@@ -1120,19 +1124,19 @@ class TestRoutes(unittest.TestCase):
     def test_delete_usn(self):
         # Create USN first
         response = self.client.post(
-            "/security/notices.json", json=payloads.notice
+            "/security/updates/notices.json", json=payloads.notice
         )
         assert response.status_code == 200
 
         # Now delete it
         response = self.client.delete(
-            f"/security/notices/{payloads.notice['id']}.json"
+            f"/security/updates/notices/{payloads.notice['id']}.json"
         )
         assert response.status_code == 200
 
     def test_create_release(self):
         response = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
 
         assert response.status_code == 200
@@ -1140,13 +1144,13 @@ class TestRoutes(unittest.TestCase):
     def test_create_existing_release_returns_422(self):
         # Create release
         response_1 = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         assert response_1.status_code == 200
 
         # Create release again
         response_2 = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         assert response_2.status_code == 422
         assert (
@@ -1155,20 +1159,22 @@ class TestRoutes(unittest.TestCase):
         ) in response_2.json["errors"]
 
     def test_delete_non_existing_release_returns_404(self):
-        response = self.client.delete("/security/releases/no-exist.json")
+        response = self.client.delete(
+            "/security/updates/releases/no-exist.json"
+        )
 
         assert response.status_code == 404
 
     def test_delete_release(self):
         # Create release first
         response_1 = self.client.post(
-            "/security/releases.json", json=payloads.release
+            "/security/updates/releases.json", json=payloads.release
         )
         assert response_1.status_code == 200
 
         # Delete release
         response = self.client.delete(
-            f"/security/releases/{payloads.release['codename']}.json"
+            f"/security/updates/releases/{payloads.release['codename']}.json"
         )
         assert response.status_code == 200
 
