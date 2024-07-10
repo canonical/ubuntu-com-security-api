@@ -81,32 +81,12 @@ app.add_url_rule(
 )
 
 app.add_url_rule(
-    "/security/notices.json",
-    view_func=create_notice,
-    methods=["POST"],
-    provide_automatic_options=False,
-)
-
-app.add_url_rule(
-    "/security/notices/<notice_id>.json",
-    view_func=update_notice,
-    methods=["PUT"],
-    provide_automatic_options=False,
-)
-
-app.add_url_rule(
-    "/security/notices/<notice_id>.json",
-    view_func=delete_notice,
-    methods=["DELETE"],
-    provide_automatic_options=False,
-)
-
-app.add_url_rule(
     "/security/releases/<release_codename>.json",
     view_func=get_release,
     methods=["GET"],
     provide_automatic_options=False,
 )
+
 app.add_url_rule(
     "/security/releases.json",
     view_func=get_releases,
