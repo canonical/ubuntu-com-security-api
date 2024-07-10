@@ -1045,6 +1045,42 @@ class TestRoutes(unittest.TestCase):
         # Should not include cves
         assert response.json["notices"][0].get("cves") is None
 
+        # Test details field
+        response = self.client.get(
+            (
+                "/security/page/notices.json?"
+                f"details={self.models['notice'].id[:3]}"
+            )
+        )
+
+        assert response.status_code == 200
+        assert response.json["notices"][0]["id"] == self.models["notice"].id
+
+        # Test cve_id field
+        response = self.client.get(
+            (
+                "/security/page/notices.json"
+                f"?cve_id={self.models['notice'].cves[0].id}"
+            )
+        )
+
+        assert response.status_code == 200
+        assert response.json["notices"][0]["id"] == self.models["notice"].id
+
+        # Test release field
+        response = self.client.get(
+            (
+                "/security/page/notices.json?"
+                f"release={self.models['notice'].releases[0].codename}"
+            )
+        )
+
+        assert response.status_code == 200
+        assert (
+            response.json["notices"][0]["releases"][0]["codename"]
+            == self.models["notice"].releases[0].codename
+        )
+
     def test_usns_returns_200_for_non_existing_release(self):
         response = self.client.get("/security/notices.json?release=no-exist")
 
