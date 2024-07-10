@@ -9,20 +9,21 @@ from flask_migrate import Migrate
 from webapp.api_spec import WebappFlaskApiSpec
 from webapp.database import db
 from webapp.views import (
-    get_cve,
-    get_notice,
-    get_cves,
-    get_notices,
     create_notice,
-    update_notice,
-    delete_notice,
+    create_release,
     delete_cve,
     bulk_upsert_cve,
-    create_release,
+    delete_notice,
     delete_release,
-    update_release,
+    get_cve,
+    get_cves,
+    get_notice,
+    get_notices,
+    get_page_notices,
     get_release,
     get_releases,
+    update_notice,
+    update_release,
 )
 
 
@@ -74,11 +75,18 @@ app.add_url_rule(
 )
 
 app.add_url_rule(
+    "/security/page/notices.json",
+    view_func=get_page_notices,
+    provide_automatic_options=False,
+)
+
+app.add_url_rule(
     "/security/releases/<release_codename>.json",
     view_func=get_release,
     methods=["GET"],
     provide_automatic_options=False,
 )
+
 app.add_url_rule(
     "/security/releases.json",
     view_func=get_releases,
