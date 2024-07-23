@@ -47,6 +47,8 @@ warnings.filterwarnings(action="ignore", category=ResourceWarning)
 
 
 class BaseTestCase(unittest.TestCase):
+    db = db
+
     def setUp(self):
         app.testing = True
 
@@ -55,7 +57,7 @@ class BaseTestCase(unittest.TestCase):
         self.context.push()
 
         # Clear DB
-        db.drop_all()
+        self.db.drop_all()
         with redirect_stderr(io.StringIO()):
             flask_migrate.stamp(revision="base")
 
@@ -65,18 +67,18 @@ class BaseTestCase(unittest.TestCase):
 
         # Import data
         self.models = make_models()
-        db.session.add(self.models["cve"])
-        db.session.add(self.models["notice"])
-        db.session.add(self.models["release"])
-        db.session.add(self.models["package"])
-        db.session.add(self.models["status"])
-        db.session.commit()
+        self.db.session.add(self.models["cve"])
+        self.db.session.add(self.models["notice"])
+        self.db.session.add(self.models["release"])
+        self.db.session.add(self.models["package"])
+        self.db.session.add(self.models["status"])
+        self.db.session.commit()
 
         self.client = app.test_client()
         return super().setUp()
 
     def tearDown(self):
-        db.session.close()
+        self.db.session.close()
 
         self.context.pop()
 

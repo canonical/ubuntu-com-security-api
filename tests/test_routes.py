@@ -1,6 +1,7 @@
 import unittest
 from tests import BaseTestCase
 from tests.fixtures import payloads
+from tests.fixtures.models import make_cve, make_notice
 
 
 class TestRoutes(BaseTestCase):
@@ -944,6 +945,31 @@ class TestRoutes(BaseTestCase):
 
         assert response.status_code == 200
         assert response.json["cves_ids"] == self.models["notice"].cves_ids
+
+        # Test cves field
+        cve_id = self.models["notice"].cves[0].id
+
+        test_cve = make_cve("CVE-9999-0001")
+        test_notice = make_notice("USN-9999-0001", cves=[test_cve])
+        self.db.session.add(test_cve)
+        self.db.session.add(test_notice)
+        self.db.session.commit()
+
+        response = self.client.get(
+            f"/security/notices.json?cves={cve_id},{test_cve.id}"
+        )
+
+        assert response.status_code == 200
+        assert len(response.json["notices"]) == 2
+        # Check for either cve_id in the returned notices
+        assert (
+            cve_id in response.json["notices"][0]["cves_ids"]
+            or test_cve.id in response.json["notices"][0]["cves_ids"]
+        )
+        assert (
+            test_cve.id in response.json["notices"][0]["cves_ids"]
+            or cve_id in response.json["notices"][0]["cves_ids"]
+        )
 
     def test_multiple_usn(self):
         response = self.client.get("/security/notices.json")

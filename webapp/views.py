@@ -2,7 +2,6 @@ import dateutil
 from collections import defaultdict
 from datetime import datetime
 from distutils.util import strtobool
-
 from flask import make_response, jsonify, request
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import desc, or_, and_, case, asc, text
@@ -18,6 +17,7 @@ from webapp.models import (
     Status,
     Package,
     STATUS_STATUSES,
+    convert_cve_id_to_numerical_id,
 )
 from webapp.schemas import (
     CreateNoticeImportSchema,
@@ -425,6 +425,7 @@ def get_notices(**kwargs):
     limit = kwargs.get("limit", 20)
     offset = kwargs.get("offset", 0)
     order_by = kwargs.get("order")
+    cves = kwargs.get("cves")
 
     notices_query: Query = db.session.query(Notice)
 
@@ -445,29 +446,54 @@ def get_notices(**kwargs):
                 Notice.id.ilike(f"%{details}%"),
                 Notice.details.ilike(f"%{details}%"),
                 Notice.title.ilike(f"%{details}%"),
-                Notice.cves.any(CVE.id.ilike(f"%{details}%")),
             )
         )
 
     sort = asc if order_by == "oldest" else desc
 
-    notices = (
-        notices_query.options(
-            selectinload(Notice.cves).options(
-                selectinload(CVE.statuses),
-                selectinload(CVE.notices).options(
-                    load_only(
-                        Notice.id, Notice.is_hidden, Notice.release_packages
-                    )
-                ),
-            )
+    if cves:
+        # Get cves by numerical id
+        numerical_cve_ids = [
+            convert_cve_id_to_numerical_id(cve) for cve in cves
+        ]
+        matched_cves = (
+            db.session.query(CVE)
+            .filter(CVE.numerical_id.in_(numerical_cve_ids))
+            .all()
         )
-        .options(selectinload(Notice.releases))
-        .order_by(sort(Notice.published), sort(Notice.id))
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
+        # Get notices_ids from cves
+        notice_ids = []
+        for cve in matched_cves:
+            notice_ids += [notice.id for notice in cve.notices]
+
+        notices = (
+            notices_query.filter(Notice.id.in_(notice_ids))
+            .order_by(sort(Notice.published), sort(Notice.id))
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+    else:
+        notices = (
+            notices_query.options(
+                selectinload(Notice.cves).options(
+                    selectinload(CVE.statuses),
+                    selectinload(CVE.notices).options(
+                        load_only(
+                            Notice.id,
+                            Notice.is_hidden,
+                            Notice.release_packages,
+                        )
+                    ),
+                )
+            )
+            .options(selectinload(Notice.releases))
+            .order_by(sort(Notice.published), sort(Notice.id))
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
 
     return {
         "notices": notices,

@@ -1,5 +1,5 @@
 import dateutil.parser
-from marshmallow import Schema
+from marshmallow import Schema, ValidationError
 from marshmallow.fields import (
     Boolean,
     DateTime,
@@ -197,6 +197,21 @@ class PackageType(String):
         return super()._deserialize(value, attr, data, **kwargs)
 
 
+class StringDelimitedList(String):
+    """
+    Support lists of strings that are delimited by commas e.g
+    "foo,bar" -> ["foo", "bar",]
+    """
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        try:
+            return value.split(",")
+        except AttributeError:
+            raise ValidationError(
+                f"{attr} is not a string delimited list.\n value: {value}."
+            )
+
+
 # Notices
 # --
 class NoticePackage(Schema):
@@ -264,6 +279,7 @@ NoticesParameters = {
         allow_none=True,
     ),
     "cve_id": String(allow_none=True),
+    "cves": StringDelimitedList(allow_none=True),
     "release": String(allow_none=True),
     "limit": Int(
         validate=Range(min=1, max=100),

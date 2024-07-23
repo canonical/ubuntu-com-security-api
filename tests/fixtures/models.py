@@ -1,6 +1,76 @@
 from datetime import datetime
 
-from webapp.models import Notice, Release, Status, CVE, Package
+from webapp.models import (
+    Notice,
+    Release,
+    Status,
+    CVE,
+    Package,
+)
+
+
+def make_cve(
+    id,
+    published=datetime.now(),
+    description="",
+    ubuntu_description="",
+    notes=[
+        {
+            "author": "mysql",
+            "note": "mysql-1.2 is not affected by this CVE",
+        }
+    ],
+    priority="critical",
+    cvss3=2.3,
+    impact={},
+    codename="test_name",
+    mitigation="",
+    references={},
+    patches={},
+    tags={},
+    bugs={},
+    status="active",
+):
+    cve = CVE(
+        id=id,
+        published=published,
+        description=description,
+        ubuntu_description=ubuntu_description,
+        notes=notes,
+        priority=priority,
+        cvss3=cvss3,
+        impact=impact,
+        codename=codename,
+        mitigation=mitigation,
+        references=references,
+        patches=patches,
+        tags=tags,
+        bugs=bugs,
+        status=status,
+    )
+    return cve
+
+
+def make_notice(
+    id,
+    is_hidden=False,
+    published=datetime.now(),
+    summary="",
+    details="",
+    instructions="",
+    releases=[],
+    cves=[],
+):
+    return Notice(
+        id=id,
+        is_hidden=is_hidden,
+        published=published,
+        summary=summary,
+        details=details,
+        instructions=instructions,
+        releases=releases,
+        cves=cves,
+    )
 
 
 def make_models():
@@ -23,28 +93,7 @@ def make_models():
         debian="test-package-debian",
     )
 
-    cve = CVE(
-        id="CVE-1111-0001",
-        published=datetime.now(),
-        description="",
-        ubuntu_description="",
-        notes=[
-            {
-                "author": "mysql",
-                "note": "mysql-1.2 is not affected by this CVE",
-            }
-        ],
-        priority="critical",
-        cvss3=2.3,
-        impact={},
-        codename="test_name",
-        mitigation="",
-        references={},
-        patches={},
-        tags={},
-        bugs={},
-        status="active",
-    )
+    cve = make_cve("CVE-1111-0001")
 
     status = Status(
         status="pending",
@@ -53,16 +102,7 @@ def make_models():
         release=release,
     )
 
-    notice = Notice(
-        id="USN-1111-01",
-        is_hidden=False,
-        published=datetime.now(),
-        summary="",
-        details="",
-        instructions="",
-        releases=[release],
-        cves=[cve],
-    )
+    notice = make_notice("USN-1111-01", releases=[release], cves=[cve])
 
     return {
         "release": release,

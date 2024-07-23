@@ -163,10 +163,20 @@ def upsert_numerical_cve_ids():
     all_cves = db.session.query(CVE).all()
     updated_cves = []
     for cve in all_cves:
+        print(f"Updating numerical_id for {cve.id}")
         cve.numerical_id = convert_cve_id_to_numerical_id(cve.id)
         updated_cves.append(cve)
     db.session.add_all(updated_cves)
     db.session.commit()
+
+
+@db.event.listens_for(CVE, "after_insert")
+def insert_numerical_id(mapper, connection, target):
+    """
+    Update the numerical_id column using the CVE id whenever a new CVE is
+    inserted.
+    """
+    target.numerical_id = convert_cve_id_to_numerical_id(target.id)
 
 
 class Notice(db.Model):
