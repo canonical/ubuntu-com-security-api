@@ -6,6 +6,7 @@ from webapp.models import (
     Status,
     CVE,
     Package,
+    convert_cve_id_to_numerical_id,
 )
 
 
@@ -48,6 +49,8 @@ def make_cve(
         bugs=bugs,
         status=status,
     )
+    # Insert numerical CVE id since tests don't trigger events
+    cve.numerical_id = convert_cve_id_to_numerical_id(cve.id)
     return cve
 
 
