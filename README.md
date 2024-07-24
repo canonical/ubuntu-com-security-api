@@ -53,3 +53,11 @@ dotrun exec scripts/delete-notices.py USN-4414-2  # Delete a notice
 dotrun exec scripts/delete-release.py testy  # Delete a release
 dotrun exec scripts/generate-sample-security-data.py  # Fill the database with thousands of fake records
 ```
+
+### Flask scripts
+
+There are additionally some flask scripts to run needed database modifications.
+
+```bash
+flask insert_numerical_cve_ids # For each cve in the database, update the numerical_id column. Can be run repeatedly.
+```

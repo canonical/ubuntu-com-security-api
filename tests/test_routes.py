@@ -1,88 +1,10 @@
-# Standard library
-from contextlib import redirect_stderr
-import io
-import os
 import unittest
-import warnings
-
-# Packages
-from sqlalchemy_utils import database_exists, create_database
-import flask_migrate
-
-
-# Local
-from tests.fixtures.models import make_models
+from tests import BaseTestCase
 from tests.fixtures import payloads
-
-"""
-Monkey-patching before importing the main application
-===
-
-Get the database connection string from the TEST_DATABASE_URL environment
-variable. This variabel is required, as it's important not to accidentally
-wipe out a real database.
-
-Replace the authorization_required view decorator with a transparent function
-to disable authorization checks for testing privileged views.
-This is not ideal, as it means we're not testing the actual authorization
-functionality, but I don't know of a good way to do that right now.
-"""
-
-from webapp import auth
-from tests.helpers import transparent_decorator
-
-auth.authorization_required = transparent_decorator
-os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
-
-from webapp.app import app, db  # noqa: E402
+from tests.fixtures.models import make_cve, make_notice
 
 
-# Create database if it doesn't exist
-with app.app_context():
-    if not database_exists(db.engine.url):
-        create_database(db.engine.url)
-
-
-# Suppress annoying ResourceWarnings
-warnings.filterwarnings(action="ignore", category=ResourceWarning)
-
-
-class TestRoutes(unittest.TestCase):
-    def setUp(self):
-        app.testing = True
-
-        # Set up app context
-        self.context = app.app_context()
-        self.context.push()
-
-        # Clear DB
-        db.drop_all()
-        with redirect_stderr(io.StringIO()):
-            flask_migrate.stamp(revision="base")
-
-        # Prepare DB
-        with redirect_stderr(io.StringIO()):
-            flask_migrate.upgrade()
-
-        # Import data
-        self.models = make_models()
-        db.session.add(self.models["cve"])
-        db.session.add(self.models["notice"])
-        db.session.add(self.models["release"])
-        db.session.add(self.models["package"])
-        db.session.add(self.models["status"])
-        db.session.commit()
-
-        self.client = app.test_client()
-        return super().setUp()
-
-    def tearDown(self):
-        db.session.close()
-
-        self.context.pop()
-
-        return super().tearDown()
-
+class TestRoutes(BaseTestCase):
     def test_spec(self):
         response = self.client.get("/security/api/spec.json")
 
@@ -1023,6 +945,35 @@ class TestRoutes(unittest.TestCase):
 
         assert response.status_code == 200
         assert response.json["cves_ids"] == self.models["notice"].cves_ids
+
+        # Test cves field
+        cve_id = self.models["notice"].cves[0].id
+
+        test_cve = make_cve("CVE-9999-0001")
+        test_notice = make_notice("USN-9999-0001", cves=[test_cve])
+        self.db.session.add(test_cve)
+        self.db.session.add(test_notice)
+        self.db.session.commit()
+
+        response = self.client.get(f"/security/notices.json?cves={cve_id}")
+        assert response.status_code == 200
+        assert cve_id in response.json["notices"][0]["cves_ids"]
+
+        response = self.client.get(
+            f"/security/notices.json?cves={cve_id},{test_cve.id}"
+        )
+
+        assert response.status_code == 200
+        assert len(response.json["notices"]) == 2
+        # Check for either cve_id in the returned notices
+        assert (
+            cve_id in response.json["notices"][0]["cves_ids"]
+            or test_cve.id in response.json["notices"][0]["cves_ids"]
+        )
+        assert (
+            test_cve.id in response.json["notices"][0]["cves_ids"]
+            or cve_id in response.json["notices"][0]["cves_ids"]
+        )
 
     def test_multiple_usn(self):
         response = self.client.get("/security/notices.json")

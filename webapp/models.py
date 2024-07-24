@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
+import re
 
 from sqlalchemy import (
     Boolean,
@@ -9,6 +10,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     JSON,
+    Numeric,
     String,
     Table,
     func,
@@ -51,6 +53,7 @@ class CVE(db.Model):
     __tablename__ = "cve"
 
     id = Column(String, primary_key=True)
+    numerical_id = Column(Numeric, index=True)
     published = Column(DateTime)
     description = Column(String)
     ubuntu_description = Column(String)
@@ -141,6 +144,39 @@ class CVE(db.Model):
     @hybrid_property
     def notices_ids(self):
         return [notice.id for notice in self.notices]
+
+
+def convert_cve_id_to_numerical_id(cve_id):
+    """
+    Convert a CVE id to a numerical id.
+    """
+    id_match = re.match(r"^[A-Z]{1,3}-(\d*)-(\d*)", cve_id)
+    # Upsert numerical_id
+    return int(id_match.group(1) + id_match.group(2))
+
+
+def upsert_numerical_cve_ids():
+    """
+    Insert or update the numerical_id column using the CVE id.
+    e.g 'CVE-2025-12345' -> 202512345
+    """
+    all_cves = db.session.query(CVE).all()
+    updated_cves = []
+    for cve in all_cves:
+        print(f"Updating numerical_id for {cve.id}")
+        cve.numerical_id = convert_cve_id_to_numerical_id(cve.id)
+        updated_cves.append(cve)
+    db.session.add_all(updated_cves)
+    db.session.commit()
+
+
+@db.event.listens_for(CVE, "after_insert")
+def insert_numerical_id(mapper, connection, target):
+    """
+    Update the numerical_id column using the CVE id whenever a new CVE is
+    inserted.
+    """
+    target.numerical_id = convert_cve_id_to_numerical_id(target.id)
 
 
 class Notice(db.Model):

@@ -7,6 +7,7 @@ from flask import jsonify, make_response
 from flask_migrate import Migrate
 
 from webapp.api_spec import WebappFlaskApiSpec
+from webapp.commands import register_commands
 from webapp.database import db
 from webapp.views import (
     create_notice,
@@ -49,6 +50,8 @@ app.config.update(
 
 db.init_app(app)
 migrate = Migrate(app, db)
+
+register_commands(app)
 
 app.add_url_rule(
     "/security/cves/<cve_id>.json",
