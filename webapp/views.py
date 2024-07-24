@@ -466,9 +466,10 @@ def get_notices(**kwargs):
         for cve in matched_cves:
             notice_ids += [notice.id for notice in cve.notices]
 
+        notices_query = notices_query.filter(Notice.id.in_(notice_ids))
+        
         notices = (
-            notices_query.filter(Notice.id.in_(notice_ids))
-            .order_by(sort(Notice.published), sort(Notice.id))
+                        notices_query.order_by(sort(Notice.published), sort(Notice.id))
             .offset(offset)
             .limit(limit)
             .all()
