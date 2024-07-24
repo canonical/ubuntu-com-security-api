@@ -955,6 +955,10 @@ class TestRoutes(BaseTestCase):
         self.db.session.add(test_notice)
         self.db.session.commit()
 
+        response = self.client.get(f"/security/notices.json?cves={cve_id}")
+        assert response.status_code == 200
+        assert cve_id in response.json["notices"][0]["cves_ids"]
+
         response = self.client.get(
             f"/security/notices.json?cves={cve_id},{test_cve.id}"
         )
