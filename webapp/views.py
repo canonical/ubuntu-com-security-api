@@ -427,6 +427,12 @@ def get_notices(**kwargs):
     order_by = kwargs.get("order")
     cves = kwargs.get("cves")
 
+    # Restrict limit to 20 notices at a time
+    if limit > 20:
+        return make_response(
+            jsonify({"message": "Limit cannot exceed 20"}), 422
+        )
+
     notices_query: Query = db.session.query(Notice)
 
     if not kwargs.get("show_hidden", False):

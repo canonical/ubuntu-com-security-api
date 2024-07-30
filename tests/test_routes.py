@@ -946,6 +946,10 @@ class TestRoutes(BaseTestCase):
         assert response.status_code == 200
         assert response.json["cves_ids"] == self.models["notice"].cves_ids
 
+        # Test request limit
+        response = self.client.get("/security/notices.json?limit=21")
+        assert response.status_code == 422
+
         # Test cves field
         cve_id = self.models["notice"].cves[0].id
 
