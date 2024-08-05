@@ -192,6 +192,8 @@ def get_cves(**kwargs):
         sort = asc
     elif order == "descending":
         sort = desc
+    else:
+        sort = desc
 
     if sort_by == "published":
         sort_field = CVE.published
