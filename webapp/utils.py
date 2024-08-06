@@ -21,4 +21,5 @@ def stream_notices(
         else:
             first = False
         yield json.dumps(notice_schema.dump(notice))
-    yield f'],"offset":{offset},"limit":{limit},"total_results":{total_count}}}'
+    yield "],"
+    yield f'"offset":{offset},"limit":{limit},"total_results":{total_count}}}'

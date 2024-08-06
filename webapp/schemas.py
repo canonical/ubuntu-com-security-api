@@ -8,13 +8,11 @@ from marshmallow.fields import (
     List,
     Nested,
     String,
-    Enum,
     Int,
 )
 from marshmallow.validate import Regexp, Range
 
 from webapp.models import Package, Notice, Release, STATUS_STATUSES
-import enum
 
 # Types
 COMPONENT_OPTIONS = ["main", "universe"]
@@ -287,17 +285,20 @@ NoticesParameters = {
         allow_none=True,
     ),
     "release": String(
-        description='Ubuntu release codename to filter notices by, e.g. `"noble"`.',
+        description="Ubuntu release codename to filter notices by."
+        'example: `"noble"`.',
         allow_none=True,
     ),
     "limit": Int(
         validate=Range(min=1, max=20),
-        description="Number of Notices per response. Defaults to `20`. Max `20`.",
+        description="Number of Notices per response."
+        "Defaults to `20`. Max `20`.",
         allow_none=True,
         load_default=20,
     ),
     "offset": Int(
-        description="Number of Notices to omit from response. Defaults to `0`.",
+        description="Number of Notices to omit from response."
+        "Defaults to `0`.",
         allow_none=True,
         load_default=0,
     ),
