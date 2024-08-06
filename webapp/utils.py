@@ -1,4 +1,3 @@
-import json
 from typing import Generator
 
 from sqlalchemy.orm import Query
@@ -20,6 +19,6 @@ def stream_notices(
             yield ","
         else:
             first = False
-        yield json.dumps(notice_schema.dump(notice))
+        yield notice_schema.dumps(notice)
     yield "],"
     yield f'"offset":{offset},"limit":{limit},"total_results":{total_count}}}'
