@@ -14,7 +14,6 @@ from marshmallow.validate import Regexp, Range
 
 from webapp.models import Package, Notice, Release, STATUS_STATUSES
 
-
 # Types
 COMPONENT_OPTIONS = ["main", "universe"]
 
@@ -264,7 +263,7 @@ NoticeParameters = {
     "show_hidden": Boolean(
         description=(
             "True or False if you want to select hidden notices. "
-            "Default is False."
+            "Default is `false`."
         ),
         allow_none=True,
     ),
@@ -274,35 +273,50 @@ NoticesParameters = {
     "details": String(
         description=(
             "Any string - Selects notices that have either "
-            "id, details or cves.id matching it"
+            "id, details or cves.id matching it."
         ),
         allow_none=True,
     ),
-    "cve_id": String(allow_none=True),
-    "cves": StringDelimitedList(allow_none=True),
-    "release": String(allow_none=True),
-    "limit": Int(
-        validate=Range(min=1, max=100),
-        description="Number of Notices per response. Defaults to 20. Max 100.",
+    "cve_id": String(
+        description="CVE ID to filter notices by.", allow_none=True
+    ),
+    "cves": StringDelimitedList(
+        description="Comma-separated list of CVE IDs to filter notices by.",
         allow_none=True,
+    ),
+    "release": String(
+        description="Ubuntu release codename to filter notices by."
+        'example: `"noble"`.',
+        allow_none=True,
+    ),
+    "limit": Int(
+        validate=Range(min=1, max=20),
+        description="Number of Notices per response."
+        "Defaults to `20`. Max `20`.",
+        allow_none=True,
+        load_default=20,
     ),
     "offset": Int(
-        description="Number of Notices to omit from response. Defaults to 0.",
+        description="Number of Notices to omit from response."
+        "Defaults to `0`.",
         allow_none=True,
+        load_default=0,
     ),
     "order": String(
-        enum=["oldest"],
+        validate=lambda x: x in ["oldest", "newest"],
         description=(
             "Select order: choose `oldest` for ASC order; "
-            "leave empty for DESC order"
+            "`newest` for DESC order. Default is `newest`."
         ),
+        load_default="newest",
         allow_none=True,
     ),
     "show_hidden": Boolean(
         description=(
             "True or False if you want to select hidden notices. "
-            "Default is False."
+            "Default is `false`."
         ),
+        load_default=False,
         allow_none=True,
     ),
 }
