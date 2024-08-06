@@ -1,22 +1,30 @@
-import dateutil
 from collections import defaultdict
 from datetime import datetime
 from distutils.util import strtobool
-from flask import make_response, jsonify, request
+from typing import List, Literal, Optional
+
+import dateutil
+from flask import (
+    Response,
+    jsonify,
+    make_response,
+    request,
+    stream_with_context,
+)
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import desc, or_, and_, case, asc, text
+from sqlalchemy import and_, asc, case, desc, func, or_, text
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import load_only, selectinload, Query
+from sqlalchemy.orm import Query, load_only, selectinload
 
 from webapp.app import db
 from webapp.auth import authorization_required
 from webapp.models import (
     CVE,
+    STATUS_STATUSES,
     Notice,
+    Package,
     Release,
     Status,
-    Package,
-    STATUS_STATUSES,
     convert_cve_id_to_numerical_id,
 )
 from webapp.schemas import (
@@ -35,10 +43,11 @@ from webapp.schemas import (
     NoticesParameters,
     PageNoticesAPISchema,
     ReleaseAPISchema,
-    ReleaseSchema,
     ReleasesAPISchema,
+    ReleaseSchema,
     UpdateReleaseSchema,
 )
+from webapp.utils import stream_notices
 
 
 @marshal_with(CVEAPIDetailedSchema, code=200)
@@ -417,27 +426,25 @@ def get_notice(notice_id, **kwargs):
     return notice
 
 
+@use_kwargs(NoticesParameters, location="query")
 @marshal_with(NoticesAPISchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
-@use_kwargs(NoticesParameters, location="query")
 def get_notices(**kwargs):
-    details = kwargs.get("details")
-    cve_id = kwargs.get("cve_id")
-    release = kwargs.get("release")
-    limit = kwargs.get("limit", 20)
-    offset = kwargs.get("offset", 0)
-    order_by = kwargs.get("order")
-    cves = kwargs.get("cves")
+    limit: int = kwargs["limit"]
+    offset: int = kwargs["offset"]
+    order_by: Literal["oldest", "newest"] = kwargs["order"]
+    show_hidden: bool = kwargs["show_hidden"]
 
-    # Restrict limit to 20 notices at a time
-    if limit > 20:
-        return make_response(
-            jsonify({"message": "Limit cannot exceed 20"}), 422
-        )
+    release: Optional[str] = kwargs.get("release")
+    details: Optional[str] = kwargs.get("details")
+    cve_id: Optional[str] = kwargs.get("cve_id")
+    cves: Optional[List[str]] = kwargs.get("cves")
 
     notices_query: Query = db.session.query(Notice)
 
-    if not kwargs.get("show_hidden", False):
+    sort_order_by = asc if order_by == "oldest" else desc
+
+    if not show_hidden:
         notices_query = notices_query.filter(Notice.is_hidden == "False")
 
     if cve_id:
@@ -457,10 +464,8 @@ def get_notices(**kwargs):
             )
         )
 
-    sort = asc if order_by == "oldest" else desc
-
     if cves:
-        # Get cves by numerical id
+        # Get CVEs by numerical ID
         numerical_cve_ids = [
             convert_cve_id_to_numerical_id(cve) for cve in cves
         ]
@@ -476,40 +481,33 @@ def get_notices(**kwargs):
 
         notices_query = notices_query.filter(Notice.id.in_(notice_ids))
 
-        notices = (
-            notices_query.order_by(sort(Notice.published), sort(Notice.id))
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
+    total_count = (
+        notices_query.order_by(None).with_entities(func.count()).scalar()
+    )
 
-    else:
-        notices = (
-            notices_query.options(
-                selectinload(Notice.cves).options(
-                    selectinload(CVE.statuses),
-                    selectinload(CVE.notices).options(
-                        load_only(
-                            Notice.id,
-                            Notice.is_hidden,
-                            Notice.release_packages,
-                        )
-                    ),
-                )
+    notices_query = (
+        notices_query.options(
+            selectinload(Notice.cves).options(
+                selectinload(CVE.statuses),
+                selectinload(CVE.notices).options(
+                    load_only(
+                        Notice.id,
+                        Notice.is_hidden,
+                        Notice.release_packages,
+                    )
+                ),
             )
-            .options(selectinload(Notice.releases))
-            .order_by(sort(Notice.published), sort(Notice.id))
-            .offset(offset)
-            .limit(limit)
-            .all()
         )
+        .options(selectinload(Notice.releases))
+        .order_by(sort_order_by(Notice.published), sort_order_by(Notice.id))
+    )
 
-    return {
-        "notices": notices,
-        "offset": offset,
-        "limit": limit,
-        "total_results": notices_query.count(),
-    }
+    return Response(
+        stream_with_context(
+            stream_notices(notices_query, offset, limit, total_count)
+        ),
+        content_type="application/json",
+    )
 
 
 @marshal_with(PageNoticesAPISchema, code=200)
