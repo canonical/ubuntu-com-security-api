@@ -1,14 +1,14 @@
 # Standard library
-from contextlib import redirect_stderr
 import io
 import os
 import unittest
 import warnings
+from contextlib import redirect_stderr
 
-# Packages
-from sqlalchemy_utils import database_exists, create_database
 import flask_migrate
 
+# Packages
+from sqlalchemy_utils import create_database, database_exists
 
 # Local
 from tests.fixtures.models import make_models
@@ -27,14 +27,14 @@ This is not ideal, as it means we're not testing the actual authorization
 functionality, but I don't know of a good way to do that right now.
 """
 
-from webapp import auth
 from tests.helpers import transparent_decorator
+from webapp import auth
 
 auth.authorization_required = transparent_decorator
 os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
 
-from webapp.app import app, db  # noqa: E402
-
+from webapp.app import app  # noqa: E402
+from webapp.database import db  # noqa: E402
 
 # Create database if it doesn't exist
 with app.app_context():

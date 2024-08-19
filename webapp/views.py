@@ -16,8 +16,8 @@ from sqlalchemy import and_, asc, case, desc, func, or_, text
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Query, load_only, selectinload
 
-from webapp.app import db
 from webapp.auth import authorization_required
+from webapp.database import db
 from webapp.models import (
     CVE,
     STATUS_STATUSES,
