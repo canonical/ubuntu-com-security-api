@@ -4,16 +4,15 @@ from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from canonicalwebteam.flask_base.app import FlaskBase
 from flask import jsonify, make_response
-from flask_migrate import Migrate
 
 from webapp.api_spec import WebappFlaskApiSpec
 from webapp.commands import register_commands
-from webapp.database import db
+from webapp.database import init_db
 from webapp.views import (
+    bulk_upsert_cve,
     create_notice,
     create_release,
     delete_cve,
-    bulk_upsert_cve,
     delete_notice,
     delete_release,
     get_cve,
@@ -26,7 +25,6 @@ from webapp.views import (
     update_notice,
     update_release,
 )
-
 
 app = FlaskBase(
     __name__,
@@ -48,8 +46,7 @@ app.config.update(
     }
 )
 
-db.init_app(app)
-migrate = Migrate(app, db)
+init_db(app)
 
 register_commands(app)
 
