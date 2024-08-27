@@ -925,7 +925,7 @@ class TestRoutes(BaseTestCase):
             f"/security/cves/{payloads.cve3['id']}.json"
         )
         assert response.status_code == 200
-        
+
     def test_delete_non_existing_cve_returns_404(self):
         response = self.client.delete(
             f"/security/updates/cves/{payloads.cve1['id']}.json"
