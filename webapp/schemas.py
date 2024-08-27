@@ -21,11 +21,13 @@ POCKET_OPTIONS = [
     "security",
     "updates",
     "esm-infra",
+    "esm-infra-legacy",
     "esm-apps",
     "soss",
     "fips",
     "fips-updates",
     "ros-esm",
+    "realtime",
 ]
 
 PACKAGE_TYPE_OPTIONS = [

@@ -63,6 +63,7 @@ cve2 = {
                     "description": "",
                     "release_codename": "testrelease",
                     "status": "released",
+                    "pocket": "realtime",
                 }
             ],
             "ubuntu": (
@@ -89,6 +90,7 @@ cve3 = {
                     "description": "",
                     "release_codename": "testrelease",
                     "status": "released",
+                    "pocket": "esm-infra-legacy",
                 }
             ],
             "ubuntu": (

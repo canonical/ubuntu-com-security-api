@@ -297,11 +297,13 @@ class Status(db.Model):
             "security",
             "updates",
             "esm-infra",
+            "esm-infra-legacy",
             "esm-apps",
             "fips",
             "fips-updates",
             "ros-esm",
             "soss",
+            "realtime",
             name="pockets",
         ),
     )
