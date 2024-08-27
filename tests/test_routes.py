@@ -906,6 +906,7 @@ class TestRoutes(BaseTestCase):
             json=[
                 payloads.cve1,
                 payloads.cve2,
+                payloads.cve3,
             ],
         )
         assert response_3.status_code == 200
@@ -920,6 +921,11 @@ class TestRoutes(BaseTestCase):
         )
         assert response.status_code == 200
 
+        response = self.client.get(
+            f"/security/cves/{payloads.cve3['id']}.json"
+        )
+        assert response.status_code == 200
+        
     def test_delete_non_existing_cve_returns_404(self):
         response = self.client.delete(
             f"/security/updates/cves/{payloads.cve1['id']}.json"
