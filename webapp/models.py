@@ -19,18 +19,11 @@ from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy.orm import relationship
 
 from webapp.database import db
-
-
-STATUS_STATUSES = Enum(
-    "released",
-    "DNE",
-    "needed",
-    "not-affected",
-    "deferred",
-    "needs-triage",
-    "ignored",
-    "pending",
-    name="statuses",
+from webapp.types import (
+    STATUS_STATUSES,
+    COMPONENT_OPTIONS,
+    POCKET_OPTIONS,
+    PRIORITY_OPTIONS,
 )
 
 
@@ -62,17 +55,7 @@ class CVE(db.Model):
     )
     notes = Column(JSON)  # JSON array
     codename = Column(String)
-    priority = Column(
-        Enum(
-            "unknown",
-            "negligible",
-            "low",
-            "medium",
-            "high",
-            "critical",
-            name="priorities",
-        )
-    )
+    priority = Column(PRIORITY_OPTIONS)
     cvss3 = Column(Float)
     impact = Column(JSON)
     mitigation = Column(String)
@@ -289,24 +272,8 @@ class Status(db.Model):
     )
     status = Column(STATUS_STATUSES)
     description = Column(String)
-    component = Column(
-        Enum("main", "universe", name="components"),
-    )
-    pocket = Column(
-        Enum(
-            "security",
-            "updates",
-            "esm-infra",
-            "esm-infra-legacy",
-            "esm-apps",
-            "fips",
-            "fips-updates",
-            "ros-esm",
-            "soss",
-            "realtime",
-            name="pockets",
-        ),
-    )
+    component = Column(COMPONENT_OPTIONS)
+    pocket = Column(POCKET_OPTIONS)
 
     cve = relationship("CVE", back_populates="statuses")
     package = relationship("Package", back_populates="statuses")
