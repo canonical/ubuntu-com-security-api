@@ -12,41 +12,14 @@ from marshmallow.fields import (
 )
 from marshmallow.validate import Regexp, Range
 
-from webapp.models import Package, Notice, Release, STATUS_STATUSES
-
-# Types
-COMPONENT_OPTIONS = ["main", "universe"]
-
-POCKET_OPTIONS = [
-    "security",
-    "updates",
-    "esm-infra",
-    "esm-infra-legacy",
-    "esm-apps",
-    "soss",
-    "fips",
-    "fips-updates",
-    "ros-esm",
-    "realtime",
-]
-
-PACKAGE_TYPE_OPTIONS = [
-    "python",
-    "conda",
-    "golang",
-    "unpackaged",
-    "deb",
-]
-
-PRIORITY_OPTIONS = [
-    "unknown",
-    "negligible",
-    "low",
-    "medium",
-    "high",
-    "critical",
-]
-# ===
+from webapp.models import Package, Notice, Release
+from webapp.types import (
+    STATUS_STATUSES,
+    COMPONENT_OPTIONS,
+    POCKET_OPTIONS,
+    PACKAGE_TYPE_OPTIONS,
+    PRIORITY_OPTIONS,
+)
 
 
 class ParsedDateTime(DateTime):
@@ -82,7 +55,7 @@ class Component(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value not in COMPONENT_OPTIONS:
+        if value not in COMPONENT_OPTIONS.enums:
             raise self.make_error("unrecognised_component", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -106,7 +79,7 @@ class Priority(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value not in PRIORITY_OPTIONS:
+        if value not in PRIORITY_OPTIONS.enums:
             raise self.make_error("unrecognised_priority", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -180,7 +153,7 @@ class Pocket(String):
     default_error_messages = {"unrecognised_pocket": "Unrecognised pocket"}
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value not in POCKET_OPTIONS:
+        if value not in POCKET_OPTIONS.enums:
             raise self.make_error("unrecognised_pocket", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -362,8 +335,8 @@ class Status(Schema):
     release_codename = String(required=True)
     status = StatusStatuses(required=True)
     description = String(allow_none=True)
-    component = Component(enum=COMPONENT_OPTIONS)
-    pocket = Pocket(enum=POCKET_OPTIONS)
+    component = Component(allow_none=True)
+    pocket = Pocket(allow_none=True)
 
 
 class CvePackage(Schema):
@@ -523,9 +496,9 @@ CVEsParameters = {
         description="Number of CVEs to omit from response. Defaults to 0.",
         allow_none=True,
     ),
-    "component": Component(
+    "component": List(
+        Component(),
         allow_none=True,
-        enum=COMPONENT_OPTIONS,
         description="Package component",
     ),
     "version": List(
