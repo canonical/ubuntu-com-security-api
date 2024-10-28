@@ -2,10 +2,10 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: ubuntu-com-security-api-notices
+  name: ubuntu-com-security-api-notices-detail
 spec:
   selector:
-    app: ubuntu-com-security-api-notices
+    app: ubuntu-com-security-api-notices-detail
   ports:
     - name: http
       protocol: TCP
@@ -16,16 +16,16 @@ spec:
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: ubuntu-com-security-api-notices
+  name: ubuntu-com-security-api-notices-detail
 spec:
   replicas: 4
   selector:
     matchLabels:
-      app: ubuntu-com-security-api-notices
+      app: ubuntu-com-security-api-notices-detail
   template:
     metadata:
       labels:
-        app: ubuntu-com-security-api-notices
+        app: ubuntu-com-security-api-notices-detail
     spec:
       affinity:
         podAntiAffinity:
@@ -35,11 +35,11 @@ spec:
                   - key: app
                     operator: In
                     values:
-                      - ubuntu-com-security-api-notices
+                      - ubuntu-com-security-api-notices-detail
               topologyKey: "kubernetes.io/hostname"
       containers:
-        - name: ubuntu-com-security-api-notices
-          image: prod-comms.ps5.docker-registry.canonical.com/ubuntu-com-security-api-notices:${TAG_TO_DEPLOY}
+        - name: ubuntu-com-security-api-notices-detail
+          image: prod-comms.ps5.docker-registry.canonical.com/ubuntu-com-security-api-notices-detail:${TAG_TO_DEPLOY}
 
           ports:
             - name: http
