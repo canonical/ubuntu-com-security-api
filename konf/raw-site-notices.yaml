@@ -82,4 +82,4 @@ spec:
 
           resources:
             limits:
-              memory: 1GB
+              memory: 1G
