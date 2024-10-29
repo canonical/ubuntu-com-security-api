@@ -50,6 +50,9 @@ from webapp.schemas import (
 from webapp.utils import stream_notices
 
 
+SIX_HOURS_IN_SECONDS = 60 * 60 * 6
+
+
 @marshal_with(CVEAPIDetailedSchema, code=200)
 @marshal_with(MessageSchema, code=404)
 @use_kwargs(CVEParameter, location="query")
@@ -423,7 +426,11 @@ def get_notice(notice_id, **kwargs):
             404,
         )
 
-    return notice
+    result = NoticeAPIDetailedSchema().dump(notice)
+    response = jsonify(result)
+    response.cache_control.max_age = SIX_HOURS_IN_SECONDS
+
+    return response
 
 
 @use_kwargs(NoticesParameters, location="query")
@@ -502,12 +509,15 @@ def get_notices(**kwargs):
         .order_by(sort_order_by(Notice.published), sort_order_by(Notice.id))
     )
 
-    return Response(
+    response = Response(
         stream_with_context(
             stream_notices(notices_query, offset, limit, total_count)
         ),
         content_type="application/json",
     )
+
+    response.cache_control.max_age = SIX_HOURS_IN_SECONDS
+    return response
 
 
 @marshal_with(PageNoticesAPISchema, code=200)
