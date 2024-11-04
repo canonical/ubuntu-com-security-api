@@ -36,6 +36,7 @@ from webapp.schemas import (
     CVEsParameters,
     MessageSchema,
     MessageWithErrorsSchema,
+    NoticeAPISchema,
     NoticeAPIDetailedSchema,
     NoticeImportSchema,
     NoticeParameters,
@@ -426,7 +427,12 @@ def get_notice(notice_id, **kwargs):
             404,
         )
 
-    result = NoticeAPIDetailedSchema().dump(notice)
+    schema = (
+        NoticeAPISchema
+        if kwargs.get("cve_ids_only")
+        else NoticeAPIDetailedSchema
+    )
+    result = schema().dump(notice)
     response = jsonify(result)
     response.cache_control.max_age = SIX_HOURS_IN_SECONDS
 
