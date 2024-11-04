@@ -242,6 +242,14 @@ NoticeParameters = {
         ),
         allow_none=True,
     ),
+    "cve_ids_only": Boolean(
+        description=(
+            "Controls if the response includes full CVE payloads"
+            "Default is `false`."
+        ),
+        load_default=False,
+        allow_none=True,
+    ),
 }
 
 NoticesParameters = {
@@ -289,6 +297,14 @@ NoticesParameters = {
     "show_hidden": Boolean(
         description=(
             "True or False if you want to select hidden notices. "
+            "Default is `false`."
+        ),
+        load_default=False,
+        allow_none=True,
+    ),
+    "cve_ids_only": Boolean(
+        description=(
+            "Controls if the response includes full CVE payloads"
             "Default is `false`."
         ),
         load_default=False,
