@@ -9,12 +9,10 @@ else
     DEBUG_ARGS=""
 fi
 
-
 # Provision database
 # ===
 FLASK_APP=webapp.app flask db upgrade
 
-
 # Start server
 # ===
-talisker.gunicorn webapp.app:app --bind $1 --workers 1 --name talisker-`hostname` ${DEBUG_ARGS}
+talisker.gunicorn webapp.app:app --bind $1 --workers 2 --name talisker-$(hostname) ${DEBUG_ARGS} --timeout 90
