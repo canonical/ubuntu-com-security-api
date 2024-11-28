@@ -210,20 +210,12 @@ class Notice(db.Model):
     @hybrid_property
     def related_notices(self):
         seen_notices_ids = [self.id]
-        related_notices = []
         for cve in self.cves:
             for notice in cve.notices:
                 if notice.id not in seen_notices_ids:
                     if not notice.is_hidden:
-                        related_notices.append(
-                            {
-                                "id": notice.id,
-                                "packages": ", ".join(notice.packages),
-                            }
-                        )
+                        yield notice
                     seen_notices_ids.append(notice.id)
-
-        return related_notices
 
 
 class Release(db.Model):

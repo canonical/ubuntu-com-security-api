@@ -36,11 +36,12 @@ from webapp.schemas import (
     CVEsParameters,
     MessageSchema,
     MessageWithErrorsSchema,
-    NoticeAPISchema,
     NoticeAPIDetailedSchema,
+    NoticeAPIDetailedSchemaV2,
     NoticeImportSchema,
     NoticeParameters,
     NoticesAPISchema,
+    NoticesAPISchemaV2,
     NoticesParameters,
     PageNoticesAPISchema,
     ReleaseAPISchema,
@@ -427,11 +428,7 @@ def get_notice(notice_id, **kwargs):
             404,
         )
 
-    schema = (
-        NoticeAPISchema
-        if kwargs.get("cve_ids_only")
-        else NoticeAPIDetailedSchema
-    )
+    schema = NoticeAPIDetailedSchema
     result = schema().dump(notice)
     response = jsonify(result)
     response.cache_control.max_age = SIX_HOURS_IN_SECONDS
@@ -527,6 +524,80 @@ def get_notices(**kwargs):
 
     response.cache_control.max_age = SIX_HOURS_IN_SECONDS
     return response
+
+
+@marshal_with(NoticeAPIDetailedSchemaV2, code=200)
+@marshal_with(MessageSchema, code=404)
+@use_kwargs(NoticeParameters, location="query")
+def get_notice_v2(notice_id, **kwargs):
+    notice_query: Query = db.session.query(Notice)
+
+    if not kwargs.get("show_hidden", False):
+        notice_query = notice_query.filter_by(is_hidden=False)
+
+    notice: Notice = (
+        notice_query.filter(Notice.id == notice_id.upper())
+        .options(selectinload(Notice.cves), selectinload(Notice.releases))
+        .one_or_none()
+    )
+
+    if not notice:
+        return {"message": f"Notice with id '{notice_id}' does not exist"}, 404
+
+    return notice
+
+
+@use_kwargs(NoticesParameters, location="query")
+@marshal_with(NoticesAPISchemaV2, code=200)
+@marshal_with(MessageWithErrorsSchema, code=422)
+def get_notices_v2(**kwargs):
+    limit: int = kwargs["limit"]
+    offset: int = kwargs["offset"]
+    order_by: Literal["oldest", "newest"] = kwargs["order"]
+    show_hidden: bool = kwargs["show_hidden"]
+
+    release: Optional[str] = kwargs.get("release")
+    details: Optional[str] = kwargs.get("details")
+    cve_id: Optional[str] = kwargs.get("cve_id")
+    cves: Optional[List[str]] = kwargs.get("cves", [])
+
+    notices_query: Query = db.session.query(Notice)
+
+    sort_order_by = asc if order_by == "oldest" else desc
+
+    if not show_hidden:
+        notices_query = notices_query.filter(Notice.is_hidden == "False")
+
+    if release:
+        notices_query = notices_query.join(Release, Notice.releases).filter(
+            Release.codename == release
+        )
+
+    if details:
+        notices_query = notices_query.filter(
+            or_(
+                Notice.id.ilike(f"%{details}%"),
+                Notice.details.ilike(f"%{details}%"),
+                Notice.title.ilike(f"%{details}%"),
+            )
+        )
+
+    if cve_id:
+        cves.append(cve_id)
+
+    if cves:
+        notices_query = notices_query.filter(Notice.cves.any(CVE.id.in_(cves)))
+
+    notices_query = notices_query.options(
+        selectinload(Notice.cves), selectinload(Notice.releases)
+    ).order_by(sort_order_by(Notice.published), sort_order_by(Notice.id))
+
+    return {
+        "notices": notices_query.offset(offset).limit(limit).all(),
+        "offset": offset,
+        "limit": limit,
+        "total_results": notices_query.count(),
+    }
 
 
 @marshal_with(PageNoticesAPISchema, code=200)
