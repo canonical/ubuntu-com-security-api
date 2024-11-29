@@ -951,6 +951,15 @@ class TestRoutes(BaseTestCase):
 
         assert response.status_code == 200
         assert response.json["cves_ids"] == self.models["notice"].cves_ids
+        assert (
+            response.json["cves"][0]["id"] == self.models["notice"].cves[0].id
+        )
+        assert response.json["cves"][0]["notices_ids"] == [
+            self.models["notice"].id
+        ]
+
+        # related_notices in payload
+        assert response.json["related_notices"] == []
 
         # Test request limit
         response = self.client.get("/security/notices.json?limit=21")
@@ -968,6 +977,16 @@ class TestRoutes(BaseTestCase):
         response = self.client.get(f"/security/notices.json?cves={cve_id}")
         assert response.status_code == 200
         assert cve_id in response.json["notices"][0]["cves_ids"]
+        assert (
+            response.json["notices"][0]["cves"][0]["id"]
+            == self.models["notice"].cves[0].id
+        )
+        assert response.json["notices"][0]["cves"][0]["notices_ids"] == [
+            self.models["notice"].id
+        ]
+
+        # related_notices in payload
+        assert response.json["notices"][0]["related_notices"] == []
 
         response = self.client.get(
             f"/security/notices.json?cves={cve_id},{test_cve.id}"

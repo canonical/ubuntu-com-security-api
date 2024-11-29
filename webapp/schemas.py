@@ -9,6 +9,7 @@ from marshmallow.fields import (
     Nested,
     String,
     Int,
+    Pluck,
 )
 from marshmallow.validate import Regexp, Range
 
@@ -242,14 +243,6 @@ NoticeParameters = {
         ),
         allow_none=True,
     ),
-    "cve_ids_only": Boolean(
-        description=(
-            "Controls if the response includes full CVE payloads"
-            "Default is `false`."
-        ),
-        load_default=False,
-        allow_none=True,
-    ),
 }
 
 NoticesParameters = {
@@ -297,14 +290,6 @@ NoticesParameters = {
     "show_hidden": Boolean(
         description=(
             "True or False if you want to select hidden notices. "
-            "Default is `false`."
-        ),
-        load_default=False,
-        allow_none=True,
-    ),
-    "cve_ids_only": Boolean(
-        description=(
-            "Controls if the response includes full CVE payloads"
             "Default is `false`."
         ),
         load_default=False,
@@ -448,6 +433,19 @@ class NoticeAPIDetailedSchema(NoticeAPISchema):
     releases = List(Nested(NoticeReleasesSchema))
 
 
+class CVESummaryV2(Schema):
+    id = String()
+    notices_ids = List(String())
+
+
+class NoticeAPIDetailedSchemaV2(NoticeSchema):
+    notice_type = String(data_key="type")
+    cves = List(Nested(CVESummaryV2))
+    cves_ids = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
+    releases = List(Nested(NoticeReleasesSchema))
+    related_notices = Pluck(RelatedNoticesSchema, "id", many=True)
+
+
 class PageNoticeAPISchema(NoticeSchema):
     cves_ids = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
     notice_type = String(data_key="type")
@@ -467,6 +465,13 @@ class CVEAPIDetailedSchema(CVEAPISchema):
 
 class NoticesAPISchema(Schema):
     notices = List(Nested(NoticeAPIDetailedSchema))
+    offset = Int(allow_none=True)
+    limit = Int(allow_none=True)
+    total_results = Int()
+
+
+class NoticesAPISchemaV2(Schema):
+    notices = List(Nested(NoticeAPIDetailedSchemaV2))
     offset = Int(allow_none=True)
     limit = Int(allow_none=True)
     total_results = Int()

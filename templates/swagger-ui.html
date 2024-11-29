@@ -9,8 +9,20 @@
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@4.12.0/swagger-ui.css" />
 </head>
 <body>
+  <div class="swagger-ui">
+    <div class="wrapper">
+      <div class="bg-light-yellow pa4">
+        <h1 class="mt0">Warning</h1>
+        <p>We have reduced the nesting of <code>notices</code> endpoints due to an increase in the size of the payloads that compromised the availability of the service. For each notice, you will still find IDs for linked CVEs, but if you need further detail on the linked CVEs, an additional requests will be required.</p>
+        <p>We preserved the previous endpoints behaviour on different paths, but the performance will likely not see many improvments, if you wish to use them they are:</p>
+        <ul>
+          <li><strong>/security/compat/notices.json</strong></li>
+          <li><strong>/security/compat/notices/{notice_id}.json</strong></li>
+        </ul>
+      </div>
+    </div>
+  </div>
   <div id="swagger-ui-container"></div>
-
   <script type="text/javascript">
     var ui = SwaggerUIBundle({
       url: "/security/api/spec.json",

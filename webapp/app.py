@@ -19,6 +19,8 @@ from webapp.views import (
     get_cves,
     get_notice,
     get_notices,
+    get_notice_v2,
+    get_notices_v2,
     get_page_notices,
     get_release,
     get_releases,
@@ -64,12 +66,25 @@ app.add_url_rule(
 
 app.add_url_rule(
     "/security/notices/<notice_id>.json",
-    view_func=get_notice,
+    view_func=get_notice_v2,
     provide_automatic_options=False,
 )
 
 app.add_url_rule(
     "/security/notices.json",
+    view_func=get_notices_v2,
+    provide_automatic_options=False,
+)
+
+
+app.add_url_rule(
+    "/security/compat/notices/<notice_id>.json",
+    view_func=get_notice,
+    provide_automatic_options=False,
+)
+
+app.add_url_rule(
+    "/security/compat/notices.json",
     view_func=get_notices,
     provide_automatic_options=False,
 )
@@ -156,9 +171,11 @@ views_to_register_in_docs = [
     get_cves,
     bulk_upsert_cve,
     delete_cve,
-    get_notice,
     get_page_notices,
+    get_notice,
     get_notices,
+    get_notice_v2,
+    get_notices_v2,
     create_notice,
     update_notice,
     delete_notice,
