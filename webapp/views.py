@@ -103,14 +103,14 @@ def get_cves(**kwargs):
     sort_by = kwargs.get("sort_by")
     show_hidden = kwargs.get("show_hidden", False)
 
-    # query cves by filters. Default filter by active CVEs
+    # query cves by filters. Default filter by "in-progress" CVEs
     if cve_status:
         cves_query: Query = db.session.query(CVE).filter(
             CVE.status == cve_status
         )
     else:
         cves_query: Query = db.session.query(CVE).filter(
-            CVE.status == "active"
+            CVE.status == "in-progress"
         )
 
     # order by priority

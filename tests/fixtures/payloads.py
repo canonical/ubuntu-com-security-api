@@ -74,7 +74,7 @@ cve2 = {
     ],
     "published": "2020-11-01 12:42:54",
     "priority": "high",
-    "status": "active",
+    "status": "in-progress",
 }
 
 cve3 = {
@@ -101,7 +101,7 @@ cve3 = {
     ],
     "priority": "medium",
     "published": "2019-12-01 12:42:54",
-    "status": "active",
+    "status": "in-progress",
 }
 
 cve4 = {
@@ -127,7 +127,7 @@ cve4 = {
     ],
     "priority": "medium",
     "published": "2022-12-01 12:42:54",
-    "status": "active",
+    "status": "in-progress",
 }
 
 cve5 = {
@@ -152,7 +152,7 @@ cve5 = {
     ],
     "published": "2020-12-01 12:42:54",
     "priority": "low",
-    "status": "active",
+    "status": "in-progress",
 }
 
 cve6 = {
@@ -177,7 +177,7 @@ cve6 = {
     ],
     "published": "2020-12-01 12:42:54",
     "priority": "negligible",
-    "status": "active",
+    "status": "in-progress",
 }
 
 cve7 = {
@@ -202,7 +202,7 @@ cve7 = {
     ],
     "published": "2020-12-01 12:42:54",
     "priority": "negligible",
-    "status": "active",
+    "status": "in-progress",
 }
 
 cve8 = {
@@ -227,7 +227,7 @@ cve8 = {
     ],
     "published": "2020-12-01 12:42:54",
     "priority": "negligible",
-    "status": "active",
+    "status": "in-progress",
 }
 
 notice = {
