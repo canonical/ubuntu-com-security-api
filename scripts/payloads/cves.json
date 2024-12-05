@@ -80,7 +80,7 @@
             "https://www.mozilla.org/en-US/security/advisories/mfsa2020-08/#CVE-2019-20503",
             "https://usn.ubuntu.com/usn/usn-4299-1"
         ],
-        "status": "active",
+        "status": "in-progress",
         "tags": {},
         "ubuntu_description": ""
     }
