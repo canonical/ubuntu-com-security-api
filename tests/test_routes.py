@@ -689,7 +689,7 @@ class TestRoutes(BaseTestCase):
         Tests that CVEs are correctly grouped by priority
         and ordered by publish date.
         """
-        # Check that there is one CVE in the db with an active status
+        # Check that there is one CVE in the db with an "in-progress" status
         # and a critical priority
         initial_cves = self.client.get("/security/cves.json")
 
