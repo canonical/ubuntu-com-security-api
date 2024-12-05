@@ -48,6 +48,7 @@ cve1 = {
     },
     "priority": "critical",
     "published": "2020-08-01 12:42:54",
+    "status": "not-in-ubuntu",
 }
 
 cve2 = {
