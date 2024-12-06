@@ -268,9 +268,9 @@ NoticesParameters = {
     "limit": Int(
         validate=Range(min=1, max=20),
         description="Number of Notices per response."
-        "Defaults to `20`. Max `20`.",
+        "Defaults to `10`. Max `20`.",
         allow_none=True,
-        load_default=20,
+        load_default=10,
     ),
     "offset": Int(
         description="Number of Notices to omit from response."
@@ -509,8 +509,8 @@ CVEsParameters = {
     ),
     "package": String(description="Package name", allow_none=True),
     "limit": Int(
-        validate=Range(min=1, max=100),
-        description="Number of CVEs per response. Defaults to 20. Max 100.",
+        validate=Range(min=1, max=20),
+        description="Number of CVEs per response. Defaults to 10. Max 20.",
         allow_none=True,
     ),
     "offset": Int(
