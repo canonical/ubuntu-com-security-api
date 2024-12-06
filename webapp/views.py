@@ -234,12 +234,14 @@ def get_cves(**kwargs):
     )
 
     schema = CVEsAPISchema
-    result = schema().dump({
-        "cves": query.all(),
-        "offset": offset,
-        "limit": limit,
-        "total_results": cves_query.count(),
-    })
+    result = schema().dump(
+        {
+            "cves": query.all(),
+            "offset": offset,
+            "limit": limit,
+            "total_results": cves_query.count(),
+        }
+    )
     response = jsonify(result)
     response.cache_control.max_age = TEN_MINUTES_IN_SECONDS
     return response
