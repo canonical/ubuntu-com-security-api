@@ -53,7 +53,7 @@ from webapp.utils import stream_notices
 
 
 SIX_HOURS_IN_SECONDS = 60 * 60 * 6
-THIRTY_MINUTES_IN_SECONDS = 60 * 30
+TEN_MINUTES_IN_SECONDS = 60 * 10
 
 
 @marshal_with(CVEAPIDetailedSchema, code=200)
@@ -241,7 +241,7 @@ def get_cves(**kwargs):
         "total_results": cves_query.count(),
     })
     response = jsonify(result)
-    response.cache_control.max_age = THIRTY_MINUTES_IN_SECONDS
+    response.cache_control.max_age = TEN_MINUTES_IN_SECONDS
     return response
 
 
@@ -611,7 +611,7 @@ def get_notices_v2(**kwargs):
         }
     )
     response = jsonify(result)
-    response.cache_control.max_age = THIRTY_MINUTES_IN_SECONDS
+    response.cache_control.max_age = TEN_MINUTES_IN_SECONDS
     return response
 
 
