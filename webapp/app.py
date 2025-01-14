@@ -7,7 +7,7 @@ from flask import jsonify, make_response
 
 from webapp.api_spec import WebappFlaskApiSpec
 from webapp.commands import register_commands
-from webapp.database import init_db
+from webapp.database import db, init_db  # noqa: F401
 from webapp.views import (
     bulk_upsert_cve,
     create_notice,

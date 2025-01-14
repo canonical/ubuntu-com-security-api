@@ -53,6 +53,7 @@ from webapp.utils import stream_notices
 
 
 SIX_HOURS_IN_SECONDS = 60 * 60 * 6
+TEN_MINUTES_IN_SECONDS = 60 * 10
 
 
 @marshal_with(CVEAPIDetailedSchema, code=200)
@@ -93,7 +94,7 @@ def get_cves(**kwargs):
     priorities = kwargs.get("priority")
     group_by = kwargs.get("group_by")
     package = kwargs.get("package")
-    limit = kwargs.get("limit", 20)
+    limit = kwargs.get("limit", 10)
     offset = kwargs.get("offset", 0)
     component = kwargs.get("component")
     versions = kwargs.get("version")
@@ -232,12 +233,18 @@ def get_cves(**kwargs):
         .offset(offset)
     )
 
-    return {
-        "cves": query.all(),
-        "offset": offset,
-        "limit": limit,
-        "total_results": cves_query.count(),
-    }
+    schema = CVEsAPISchema
+    result = schema().dump(
+        {
+            "cves": query.all(),
+            "offset": offset,
+            "limit": limit,
+            "total_results": cves_query.count(),
+        }
+    )
+    response = jsonify(result)
+    response.cache_control.max_age = TEN_MINUTES_IN_SECONDS
+    return response
 
 
 @authorization_required
@@ -544,7 +551,11 @@ def get_notice_v2(notice_id, **kwargs):
     if not notice:
         return {"message": f"Notice with id '{notice_id}' does not exist"}, 404
 
-    return notice
+    schema = NoticeAPIDetailedSchemaV2
+    result = schema().dump(notice)
+    response = jsonify(result)
+    response.cache_control.max_age = SIX_HOURS_IN_SECONDS
+    return response
 
 
 @use_kwargs(NoticesParameters, location="query")
@@ -592,12 +603,18 @@ def get_notices_v2(**kwargs):
         selectinload(Notice.cves), selectinload(Notice.releases)
     ).order_by(sort_order_by(Notice.published), sort_order_by(Notice.id))
 
-    return {
-        "notices": notices_query.offset(offset).limit(limit).all(),
-        "offset": offset,
-        "limit": limit,
-        "total_results": notices_query.count(),
-    }
+    schema = NoticesAPISchemaV2
+    result = schema().dump(
+        {
+            "notices": notices_query.offset(offset).limit(limit).all(),
+            "offset": offset,
+            "limit": limit,
+            "total_results": notices_query.count(),
+        }
+    )
+    response = jsonify(result)
+    response.cache_control.max_age = TEN_MINUTES_IN_SECONDS
+    return response
 
 
 @marshal_with(PageNoticesAPISchema, code=200)
