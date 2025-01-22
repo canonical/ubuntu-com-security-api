@@ -61,7 +61,7 @@ class TestRoutes(BaseTestCase):
         response = self.client.get("/security/cves.json")
 
         assert response.status_code == 200
-        # Only the CVE with the default status should be returned
+        # Only the CVE with the default "in-progress" status should be returned
         assert len(response.json["cves"]) == 1
         assert response.json["cves"][0]["status"] == "in-progress"
 
