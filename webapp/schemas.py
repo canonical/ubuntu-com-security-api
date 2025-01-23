@@ -529,7 +529,7 @@ CVEsParameters = {
     ),
     "cve_status": String(
         description="CVE status",
-        enum=["not-in-ubuntu", "in-progress", "rejected"],
+        enum=["not-in-ubuntu", "active", "rejected"],
         allow_none=True,
     ),
     "status": List(

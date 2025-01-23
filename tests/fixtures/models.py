@@ -30,7 +30,7 @@ def make_cve(
     patches={},
     tags={},
     bugs={},
-    status="in-progress",
+    status="active",
 ):
     cve = CVE(
         id=id,

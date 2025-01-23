@@ -49,10 +49,3 @@ PRIORITY_OPTIONS = Enum(
     "critical",
     name="priorities",
 )
-
-CVE_STATUSES = Enum(
-    "not-in-ubuntu",
-    "in-progress",
-    "rejected",
-    name="cve_statuses",
-)

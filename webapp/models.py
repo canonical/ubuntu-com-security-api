@@ -6,6 +6,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Enum,
     Float,
     ForeignKey,
     JSON,
@@ -23,7 +24,6 @@ from webapp.types import (
     COMPONENT_OPTIONS,
     POCKET_OPTIONS,
     PRIORITY_OPTIONS,
-    CVE_STATUSES,
 )
 
 
@@ -63,7 +63,9 @@ class CVE(db.Model):
     patches = Column(JSON)
     tags = Column(JSON)
     bugs = Column(JSON)
-    status = Column(CVE_STATUSES)
+    status = Column(
+        Enum("not-in-ubuntu", "active", "rejected", name="cve_statuses")
+    )
     statuses = relationship("Status", cascade="all, delete-orphan")
     notices = relationship(
         "Notice", secondary=notice_cves, back_populates="cves"
