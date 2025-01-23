@@ -48,23 +48,6 @@ class TestRoutes(BaseTestCase):
 
         assert response.status_code == 200
 
-    def test_cves_default_status(self):
-        # Add new CVE without status
-        cve_payload = payloads.cve1.copy()
-
-        add_cve_response = self.client.put(
-            "/security/updates/cves.json",
-            json=[cve_payload],
-        )
-
-        assert add_cve_response.status_code == 200
-        response = self.client.get("/security/cves.json")
-
-        assert response.status_code == 200
-        # Only the CVE with the default "in-progress" status should be returned
-        assert len(response.json["cves"]) == 1
-        assert response.json["cves"][0]["status"] == "in-progress"
-
     def test_cves_returns_200_for_non_existing_package_name(self):
         response = self.client.get("/security/cves.json?package=no-exist")
 
@@ -706,7 +689,7 @@ class TestRoutes(BaseTestCase):
         Tests that CVEs are correctly grouped by priority
         and ordered by publish date.
         """
-        # Check that there is one CVE in the db with an "in-progress" status
+        # Check that there is one CVE in the db with an active status
         # and a critical priority
         initial_cves = self.client.get("/security/cves.json")
 

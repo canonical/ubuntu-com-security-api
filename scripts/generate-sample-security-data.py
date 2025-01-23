@@ -49,7 +49,7 @@ with app.app_context():
                 patches={},
                 tags={},
                 bugs={},
-                status="in-progress",
+                status="active",
             )
             db.session.add(cve)
             cves.append(cve)
