@@ -509,8 +509,8 @@ CVEsParameters = {
     ),
     "package": String(description="Package name", allow_none=True),
     "limit": Int(
-        validate=Range(min=1, max=20),
-        description="Number of CVEs per response. Defaults to 10. Max 20.",
+        validate=Range(min=1, max=100),
+        description="Number of CVEs per response. Defaults to 10. Max 100.",
         allow_none=True,
     ),
     "offset": Int(
