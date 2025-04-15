@@ -297,6 +297,58 @@ NoticesParameters = {
     ),
 }
 
+PageNoticesParameters = {
+    "details": String(
+        description=(
+            "Any string - Selects notices that have either "
+            "id, details or cves.id matching it."
+        ),
+        allow_none=True,
+    ),
+    "cve_id": String(
+        description="CVE ID to filter notices by.", allow_none=True
+    ),
+    "cves": StringDelimitedList(
+        description="Comma-separated list of CVE IDs to filter notices by.",
+        allow_none=True,
+    ),
+    "release": List(
+        String(),
+        description="List of release codenames ",
+        allow_none=True,
+    ),
+    "limit": Int(
+        validate=Range(min=1, max=20),
+        description="Number of Notices per response."
+        "Defaults to `10`. Max `20`.",
+        allow_none=True,
+        load_default=10,
+    ),
+    "offset": Int(
+        description="Number of Notices to omit from response."
+        "Defaults to `0`.",
+        allow_none=True,
+        load_default=0,
+    ),
+    "order": String(
+        validate=lambda x: x in ["oldest", "newest"],
+        description=(
+            "Select order: choose `oldest` for ASC order; "
+            "`newest` for DESC order. Default is `newest`."
+        ),
+        load_default="newest",
+        allow_none=True,
+    ),
+    "show_hidden": Boolean(
+        description=(
+            "True or False if you want to select hidden notices. "
+            "Default is `false`."
+        ),
+        load_default=False,
+        allow_none=True,
+    ),
+}
+
 
 # Release
 # --
