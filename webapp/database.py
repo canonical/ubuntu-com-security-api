@@ -27,14 +27,19 @@ both `app.py` and `models.py`, and then inside `app.py` we do:
 To add the application context
 """
 
-
-# Patch psycopg2 for gevent before importing any sqlalchemy stuff
-from psycogreen.gevent import patch_psycopg
-
-patch_psycopg()
-
-
+from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy  # noqa: E402
-
+from sqlalchemy import exc
 
 db = SQLAlchemy()
+
+
+def init_db(app):
+    db.init_app(app)
+    Migrate(app, db)
+
+    @app.errorhandler(exc.PendingRollbackError)
+    def handle_db_exceptions(error):
+        # log the error:
+        app.logger.error(error)
+        db.session.rollback()

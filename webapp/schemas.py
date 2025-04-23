@@ -1,5 +1,5 @@
 import dateutil.parser
-from marshmallow import Schema
+from marshmallow import Schema, ValidationError
 from marshmallow.fields import (
     Boolean,
     DateTime,
@@ -9,34 +9,18 @@ from marshmallow.fields import (
     Nested,
     String,
     Int,
+    Pluck,
 )
 from marshmallow.validate import Regexp, Range
 
-from webapp.models import Package, Notice, Release, STATUS_STATUSES
-
-
-# Types
-COMPONENT_OPTIONS = ["main", "universe"]
-
-POCKET_OPTIONS = [
-    "security",
-    "updates",
-    "esm-infra",
-    "esm-apps",
-    "soss",
-    "fips",
-    "fips-updates",
-    "ros-esm",
-]
-
-PACKAGE_TYPE_OPTIONS = [
-    "python",
-    "conda",
-    "golang",
-    "unpackaged",
-    "deb",
-]
-# ===
+from webapp.models import Package, Notice, Release
+from webapp.types import (
+    STATUS_STATUSES,
+    COMPONENT_OPTIONS,
+    POCKET_OPTIONS,
+    PACKAGE_TYPE_OPTIONS,
+    PRIORITY_OPTIONS,
+)
 
 
 class ParsedDateTime(DateTime):
@@ -72,7 +56,7 @@ class Component(String):
     }
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value not in COMPONENT_OPTIONS:
+        if value not in COMPONENT_OPTIONS.enums:
             raise self.make_error("unrecognised_component", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -86,6 +70,18 @@ class StatusStatuses(String):
     def _deserialize(self, value, attr, data, **kwargs):
         if value != "" and value not in STATUS_STATUSES.enums:
             raise self.make_error("unrecognised_status", input=value)
+
+        return super()._deserialize(value, attr, data, **kwargs)
+
+
+class Priority(String):
+    default_error_messages = {
+        "unrecognised_priority": "Unrecognized priority {input}"
+    }
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value not in PRIORITY_OPTIONS.enums:
+            raise self.make_error("unrecognised_priority", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
 
@@ -158,7 +154,7 @@ class Pocket(String):
     default_error_messages = {"unrecognised_pocket": "Unrecognised pocket"}
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if value not in POCKET_OPTIONS:
+        if value not in POCKET_OPTIONS.enums:
             raise self.make_error("unrecognised_pocket", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
@@ -174,6 +170,21 @@ class PackageType(String):
             raise self.make_error("unrecognised_package_type", input=value)
 
         return super()._deserialize(value, attr, data, **kwargs)
+
+
+class StringDelimitedList(String):
+    """
+    Support lists of strings that are delimited by commas e.g
+    "foo,bar" -> ["foo", "bar",]
+    """
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        try:
+            return value.split(",")
+        except AttributeError:
+            raise ValidationError(
+                f"{attr} is not a string delimited list.\n value: {value}."
+            )
 
 
 # Notices
@@ -228,7 +239,7 @@ NoticeParameters = {
     "show_hidden": Boolean(
         description=(
             "True or False if you want to select hidden notices. "
-            "Default is False."
+            "Default is `false`."
         ),
         allow_none=True,
     ),
@@ -238,34 +249,50 @@ NoticesParameters = {
     "details": String(
         description=(
             "Any string - Selects notices that have either "
-            "id, details or cves.id matching it"
+            "id, details or cves.id matching it."
         ),
         allow_none=True,
     ),
-    "cve_id": String(allow_none=True),
-    "release": String(allow_none=True),
-    "limit": Int(
-        validate=Range(min=1, max=100),
-        description="Number of Notices per response. Defaults to 20. Max 100.",
+    "cve_id": String(
+        description="CVE ID to filter notices by.", allow_none=True
+    ),
+    "cves": StringDelimitedList(
+        description="Comma-separated list of CVE IDs to filter notices by.",
         allow_none=True,
+    ),
+    "release": String(
+        description="Ubuntu release codename to filter notices by."
+        'example: `"noble"`.',
+        allow_none=True,
+    ),
+    "limit": Int(
+        validate=Range(min=1, max=20),
+        description="Number of Notices per response."
+        "Defaults to `10`. Max `20`.",
+        allow_none=True,
+        load_default=10,
     ),
     "offset": Int(
-        description="Number of Notices to omit from response. Defaults to 0.",
+        description="Number of Notices to omit from response."
+        "Defaults to `0`.",
         allow_none=True,
+        load_default=0,
     ),
     "order": String(
-        enum=["oldest"],
+        validate=lambda x: x in ["oldest", "newest"],
         description=(
             "Select order: choose `oldest` for ASC order; "
-            "leave empty for DESC order"
+            "`newest` for DESC order. Default is `newest`."
         ),
+        load_default="newest",
         allow_none=True,
     ),
     "show_hidden": Boolean(
         description=(
             "True or False if you want to select hidden notices. "
-            "Default is False."
+            "Default is `false`."
         ),
+        load_default=False,
         allow_none=True,
     ),
 }
@@ -309,8 +336,8 @@ class Status(Schema):
     release_codename = String(required=True)
     status = StatusStatuses(required=True)
     description = String(allow_none=True)
-    component = Component(enum=COMPONENT_OPTIONS)
-    pocket = Pocket(enum=POCKET_OPTIONS)
+    component = Component(allow_none=True)
+    pocket = Pocket(allow_none=True)
 
 
 class CvePackage(Schema):
@@ -406,12 +433,45 @@ class NoticeAPIDetailedSchema(NoticeAPISchema):
     releases = List(Nested(NoticeReleasesSchema))
 
 
+class CVESummaryV2(Schema):
+    id = String()
+    notices_ids = List(String())
+
+
+class NoticeAPIDetailedSchemaV2(NoticeSchema):
+    notice_type = String(data_key="type")
+    cves = List(Nested(CVESummaryV2))
+    cves_ids = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
+    releases = List(Nested(NoticeReleasesSchema))
+    related_notices = Pluck(RelatedNoticesSchema, "id", many=True)
+
+
+class PageNoticeAPISchema(NoticeSchema):
+    cves_ids = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
+    notice_type = String(data_key="type")
+    releases = List(Nested(NoticeReleasesSchema))
+
+
+class PageNoticesAPISchema(Schema):
+    notices = List(Nested(PageNoticeAPISchema))
+    offset = Int(allow_none=True)
+    limit = Int(allow_none=True)
+    total_results = Int()
+
+
 class CVEAPIDetailedSchema(CVEAPISchema):
     notices = List(Nested(NoticeAPISchema))
 
 
 class NoticesAPISchema(Schema):
     notices = List(Nested(NoticeAPIDetailedSchema))
+    offset = Int(allow_none=True)
+    limit = Int(allow_none=True)
+    total_results = Int()
+
+
+class NoticesAPISchemaV2(Schema):
+    notices = List(Nested(NoticeAPIDetailedSchemaV2))
     offset = Int(allow_none=True)
     limit = Int(allow_none=True)
     total_results = Int()
@@ -442,24 +502,24 @@ CVEsParameters = {
         ),
         allow_none=True,
     ),
-    "priority": String(
+    "priority": List(
+        Priority(),
         description="CVE priority",
-        enum=["unknown", "negligible", "low", "medium", "high", "critical"],
         allow_none=True,
     ),
     "package": String(description="Package name", allow_none=True),
     "limit": Int(
-        validate=Range(min=1, max=100),
-        description="Number of CVEs per response. Defaults to 20. Max 100.",
+        validate=Range(min=1, max=20),
+        description="Number of CVEs per response. Defaults to 10. Max 20.",
         allow_none=True,
     ),
     "offset": Int(
         description="Number of CVEs to omit from response. Defaults to 0.",
         allow_none=True,
     ),
-    "component": Component(
+    "component": List(
+        Component(),
         allow_none=True,
-        enum=COMPONENT_OPTIONS,
         description="Package component",
     ),
     "version": List(

@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
+import re
 
 from sqlalchemy import (
     Boolean,
@@ -9,6 +10,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     JSON,
+    Numeric,
     String,
     Table,
     func,
@@ -17,18 +19,11 @@ from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy.orm import relationship
 
 from webapp.database import db
-
-
-STATUS_STATUSES = Enum(
-    "released",
-    "DNE",
-    "needed",
-    "not-affected",
-    "deferred",
-    "needs-triage",
-    "ignored",
-    "pending",
-    name="statuses",
+from webapp.types import (
+    STATUS_STATUSES,
+    COMPONENT_OPTIONS,
+    POCKET_OPTIONS,
+    PRIORITY_OPTIONS,
 )
 
 
@@ -51,25 +46,16 @@ class CVE(db.Model):
     __tablename__ = "cve"
 
     id = Column(String, primary_key=True)
+    numerical_id = Column(Numeric, index=True)
     published = Column(DateTime)
     description = Column(String)
     ubuntu_description = Column(String)
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    notes = Column(JSON)
+    notes = Column(JSON)  # JSON array
     codename = Column(String)
-    priority = Column(
-        Enum(
-            "unknown",
-            "negligible",
-            "low",
-            "medium",
-            "high",
-            "critical",
-            name="priorities",
-        )
-    )
+    priority = Column(PRIORITY_OPTIONS)
     cvss3 = Column(Float)
     impact = Column(JSON)
     mitigation = Column(String)
@@ -143,6 +129,39 @@ class CVE(db.Model):
         return [notice.id for notice in self.notices]
 
 
+def convert_cve_id_to_numerical_id(cve_id):
+    """
+    Convert a CVE id to a numerical id.
+    """
+    id_match = re.match(r"^[A-Z]{1,3}-(\d*)-(\d*)", cve_id)
+    # Upsert numerical_id
+    return int(id_match.group(1) + id_match.group(2))
+
+
+def upsert_numerical_cve_ids():
+    """
+    Insert or update the numerical_id column using the CVE id.
+    e.g 'CVE-2025-12345' -> 202512345
+    """
+    all_cves = db.session.query(CVE).all()
+    updated_cves = []
+    for cve in all_cves:
+        print(f"Updating numerical_id for {cve.id}")
+        cve.numerical_id = convert_cve_id_to_numerical_id(cve.id)
+        updated_cves.append(cve)
+    db.session.add_all(updated_cves)
+    db.session.commit()
+
+
+@db.event.listens_for(CVE, "after_insert")
+def insert_numerical_id(mapper, connection, target):
+    """
+    Update the numerical_id column using the CVE id whenever a new CVE is
+    inserted.
+    """
+    target.numerical_id = convert_cve_id_to_numerical_id(target.id)
+
+
 class Notice(db.Model):
     __tablename__ = "notice"
 
@@ -191,20 +210,12 @@ class Notice(db.Model):
     @hybrid_property
     def related_notices(self):
         seen_notices_ids = [self.id]
-        related_notices = []
         for cve in self.cves:
             for notice in cve.notices:
                 if notice.id not in seen_notices_ids:
                     if not notice.is_hidden:
-                        related_notices.append(
-                            {
-                                "id": notice.id,
-                                "packages": ", ".join(notice.packages),
-                            }
-                        )
+                        yield notice
                     seen_notices_ids.append(notice.id)
-
-        return related_notices
 
 
 class Release(db.Model):
@@ -253,22 +264,8 @@ class Status(db.Model):
     )
     status = Column(STATUS_STATUSES)
     description = Column(String)
-    component = Column(
-        Enum("main", "universe", name="components"),
-    )
-    pocket = Column(
-        Enum(
-            "security",
-            "updates",
-            "esm-infra",
-            "esm-apps",
-            "fips",
-            "fips-updates",
-            "ros-esm",
-            "soss",
-            name="pockets",
-        ),
-    )
+    component = Column(COMPONENT_OPTIONS)
+    pocket = Column(POCKET_OPTIONS)
 
     cve = relationship("CVE", back_populates="statuses")
     package = relationship("Package", back_populates="statuses")

@@ -1,43 +1,59 @@
 from collections import defaultdict
 from datetime import datetime
 from distutils.util import strtobool
+from typing import List, Literal, Optional
 
-from flask import make_response, jsonify, request
-from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import desc, or_, and_, case, asc
-from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import load_only, selectinload, Query
 import dateutil
+from flask import (
+    Response,
+    jsonify,
+    make_response,
+    request,
+    stream_with_context,
+)
+from flask_apispec import marshal_with, use_kwargs
+from sqlalchemy import and_, asc, case, desc, func, or_, text
+from sqlalchemy.exc import DataError, IntegrityError
+from sqlalchemy.orm import Query, load_only, selectinload
 
-from webapp.app import db
 from webapp.auth import authorization_required
+from webapp.database import db
 from webapp.models import (
     CVE,
+    STATUS_STATUSES,
     Notice,
+    Package,
     Release,
     Status,
-    Package,
-    STATUS_STATUSES,
+    convert_cve_id_to_numerical_id,
 )
 from webapp.schemas import (
+    CreateNoticeImportSchema,
+    CVEAPIDetailedSchema,
+    CVEImportSchema,
+    CVEParameter,
     CVEsAPISchema,
     CVEsParameters,
-    NoticesParameters,
-    NoticesAPISchema,
-    NoticeImportSchema,
     MessageSchema,
     MessageWithErrorsSchema,
-    CreateNoticeImportSchema,
-    CVEImportSchema,
-    ReleaseSchema,
-    NoticeParameters,
-    CVEParameter,
-    CVEAPIDetailedSchema,
     NoticeAPIDetailedSchema,
+    NoticeAPIDetailedSchemaV2,
+    NoticeImportSchema,
+    NoticeParameters,
+    NoticesAPISchema,
+    NoticesAPISchemaV2,
+    NoticesParameters,
+    PageNoticesAPISchema,
     ReleaseAPISchema,
     ReleasesAPISchema,
+    ReleaseSchema,
     UpdateReleaseSchema,
 )
+from webapp.utils import stream_notices
+
+
+SIX_HOURS_IN_SECONDS = 60 * 60 * 6
+TEN_MINUTES_IN_SECONDS = 60 * 10
 
 
 @marshal_with(CVEAPIDetailedSchema, code=200)
@@ -75,10 +91,10 @@ def get_cve(cve_id, **kwargs):
 @use_kwargs(CVEsParameters, location="query")
 def get_cves(**kwargs):
     query = kwargs.get("q", "").strip()
-    priority = kwargs.get("priority")
+    priorities = kwargs.get("priority")
     group_by = kwargs.get("group_by")
     package = kwargs.get("package")
-    limit = kwargs.get("limit", 20)
+    limit = kwargs.get("limit", 10)
     offset = kwargs.get("offset", 0)
     component = kwargs.get("component")
     versions = kwargs.get("version")
@@ -103,8 +119,8 @@ def get_cves(**kwargs):
         cves_query = _sort_by_priority(cves_query)
 
     # filter by priority
-    if priority:
-        cves_query = cves_query.filter(CVE.priority == priority)
+    if priorities:
+        cves_query = cves_query.filter(CVE.priority.in_(priorities))
 
     # filter by all text based fields
     if query:
@@ -115,78 +131,73 @@ def get_cves(**kwargs):
                 CVE.ubuntu_description.ilike(f"%{query}%"),
                 CVE.codename.ilike(f"%{query}%"),
                 CVE.mitigation.ilike(f"%{query}%"),
+                # search through notes
+                text(
+                    """
+                    EXISTS (
+                      SELECT 1 FROM json_array_elements(notes) AS note
+                      WHERE note->>'note' ilike :query
+                      OR note->>'author' ilike :query
+                    )
+                    """
+                ).params(query=f"%{query}%"),
             )
         )
 
     # build CVE statuses filter parameters
     parameters = []
 
-    # filter by package name
-    if package:
-        parameters.append(Status.package_name == package)
-
-    # filter by component
-    if component:
-        parameters.append(Status.component == component)
-
-    # filter by package status and version
-    if _should_filter_by_version_and_status(statuses, versions):
-        clean_versions = _get_clean_versions(versions)
-        clean_statuses = _get_clean_statuses(statuses)
-
-        # filter for cves.statuses by status-version criteria
-        # exclude stauses that don't satisfy any status-version criteria
-        conditions = []
-        for key, sub_versions in enumerate(clean_versions):
-            # default to all statuses if match doesn't exists
-            sub_statuses = clean_statuses[key] or STATUS_STATUSES.enums
-
-            conditions.append(
-                and_(
-                    Status.release_codename.in_(sub_versions),
-                    Status.status.in_(sub_statuses),
-                )
-            )
-
-        parameters.append(or_(*[condition for condition in conditions]))
-
-        # filter for cve.statuses by status-version including package/component
-        # for situations where there are multiple version-statuses provided
-        # filter out cve that satisfy all version-statuses pairs
-        conditions = []
-        for key, sub_versions in enumerate(clean_versions):
-            # default to all statuses if match doesn't exists
-            sub_statuses = clean_statuses[key] or STATUS_STATUSES.enums
-
-            sub_conditions = [
-                Status.release_codename.in_(sub_versions),
-                Status.status.in_(sub_statuses),
-            ]
-
-            if package:
-                sub_conditions.append(Status.package_name == package)
-
-            if component:
-                sub_conditions.append(Status.component == component)
-
-            condition = CVE.statuses.any(
-                and_(*[sub_condition for sub_condition in sub_conditions])
-            )
-
-            conditions.append(condition)
-
-        parameters.append(and_(*[condition for condition in conditions]))
-
-    # apply CVE statuses filter parameters
     cve_statuses_query = CVE.statuses
-    if parameters:
+
+    if statuses:
+        if "" in statuses:
+            statuses.remove("")
+
+    should_filter_by_version_and_status = _should_filter_by_version_and_status(
+        versions, statuses
+    )
+
+    if should_filter_by_version_and_status:
+        parameters = _params_with_conditions(
+            versions, statuses, parameters, package, component
+        )
+
         # filter the CVEs that fulfill criteria
         cves_query = cves_query.filter(
             CVE.statuses.any(and_(*[p for p in parameters]))
         )
 
-        # filter the CVE statuses that fulfil creatia
-        cve_statuses_query = cve_statuses_query.and_(*[p for p in parameters])
+    else:
+        # If an empty string is provided for the status,
+        # retain legacy functionality by ignoring it
+        if statuses:
+            for status in statuses:
+                parameters.append(Status.status == status)
+
+        if versions:
+            for version in versions:
+                parameters.append(Status.release_codename == version)
+
+        # filter by package name
+        if package:
+            parameters.append(Status.package_name.ilike(f"%{package}%"))
+
+        # filter by component
+        if component:
+            parameters.append(Status.component == component)
+
+        if parameters:
+            if package:
+                cves_query = cves_query.filter(
+                    CVE.statuses.any(and_(*[p for p in parameters]))
+                )
+            else:
+                cves_query = cves_query.filter(
+                    CVE.statuses.any(or_(*[p for p in parameters]))
+                )
+
+    # filter the CVE statuses that fulfills criteria
+    cve_statuses_query = cve_statuses_query.and_(*[p for p in parameters])
 
     cve_notices_query = CVE.notices
     if not show_hidden:
@@ -195,6 +206,8 @@ def get_cves(**kwargs):
     if order in ("oldest", "ascending"):
         sort = asc
     elif order == "descending":
+        sort = desc
+    else:
         sort = desc
 
     if sort_by == "published":
@@ -208,7 +221,6 @@ def get_cves(**kwargs):
                 selectinload(Notice.cves).options(load_only(CVE.id))
             )
         )
-        .options(selectinload(cve_statuses_query))
         .order_by(
             case(
                 [(sort_field.is_(None), 1)],
@@ -221,12 +233,18 @@ def get_cves(**kwargs):
         .offset(offset)
     )
 
-    return {
-        "cves": query.all(),
-        "offset": offset,
-        "limit": limit,
-        "total_results": cves_query.count(),
-    }
+    schema = CVEsAPISchema
+    result = schema().dump(
+        {
+            "cves": query.all(),
+            "offset": offset,
+            "limit": limit,
+            "total_results": cves_query.count(),
+        }
+    )
+    response = jsonify(result)
+    response.cache_control.max_age = TEN_MINUTES_IN_SECONDS
+    return response
 
 
 @authorization_required
@@ -417,13 +435,192 @@ def get_notice(notice_id, **kwargs):
             404,
         )
 
-    return notice
+    schema = NoticeAPIDetailedSchema
+    result = schema().dump(notice)
+    response = jsonify(result)
+    response.cache_control.max_age = SIX_HOURS_IN_SECONDS
+
+    return response
 
 
+@use_kwargs(NoticesParameters, location="query")
 @marshal_with(NoticesAPISchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
-@use_kwargs(NoticesParameters, location="query")
 def get_notices(**kwargs):
+    limit: int = kwargs["limit"]
+    offset: int = kwargs["offset"]
+    order_by: Literal["oldest", "newest"] = kwargs["order"]
+    show_hidden: bool = kwargs["show_hidden"]
+    cve_ids_only: bool = kwargs["cve_ids_only"]
+
+    release: Optional[str] = kwargs.get("release")
+    details: Optional[str] = kwargs.get("details")
+    cve_id: Optional[str] = kwargs.get("cve_id")
+    cves: Optional[List[str]] = kwargs.get("cves")
+
+    notices_query: Query = db.session.query(Notice)
+
+    sort_order_by = asc if order_by == "oldest" else desc
+
+    if not show_hidden:
+        notices_query = notices_query.filter(Notice.is_hidden == "False")
+
+    if cve_id:
+        notices_query = notices_query.filter(Notice.cves.any(CVE.id == cve_id))
+
+    if release:
+        notices_query = notices_query.join(Release, Notice.releases).filter(
+            Release.codename == release
+        )
+
+    if details:
+        notices_query = notices_query.filter(
+            or_(
+                Notice.id.ilike(f"%{details}%"),
+                Notice.details.ilike(f"%{details}%"),
+                Notice.title.ilike(f"%{details}%"),
+            )
+        )
+
+    if cves:
+        # Get CVEs by numerical ID
+        numerical_cve_ids = [
+            convert_cve_id_to_numerical_id(cve) for cve in cves
+        ]
+        matched_cves = (
+            db.session.query(CVE)
+            .filter(CVE.numerical_id.in_(numerical_cve_ids))
+            .all()
+        )
+        # Get notices_ids from cves
+        notice_ids = []
+        for cve in matched_cves:
+            notice_ids += [notice.id for notice in cve.notices]
+
+        notices_query = notices_query.filter(Notice.id.in_(notice_ids))
+
+    total_count = (
+        notices_query.order_by(None).with_entities(func.count()).scalar()
+    )
+
+    notices_query = (
+        notices_query.options(
+            selectinload(Notice.cves).options(
+                selectinload(CVE.statuses),
+                selectinload(CVE.notices).options(
+                    load_only(
+                        Notice.id,
+                        Notice.is_hidden,
+                        Notice.release_packages,
+                    )
+                ),
+            )
+        )
+        .options(selectinload(Notice.releases))
+        .order_by(sort_order_by(Notice.published), sort_order_by(Notice.id))
+    )
+
+    response = Response(
+        stream_with_context(
+            stream_notices(
+                notices_query, offset, limit, total_count, cve_ids_only
+            )
+        ),
+        content_type="application/json",
+    )
+
+    response.cache_control.max_age = SIX_HOURS_IN_SECONDS
+    return response
+
+
+@marshal_with(NoticeAPIDetailedSchemaV2, code=200)
+@marshal_with(MessageSchema, code=404)
+@use_kwargs(NoticeParameters, location="query")
+def get_notice_v2(notice_id, **kwargs):
+    notice_query: Query = db.session.query(Notice)
+
+    if not kwargs.get("show_hidden", False):
+        notice_query = notice_query.filter_by(is_hidden=False)
+
+    notice: Notice = (
+        notice_query.filter(Notice.id == notice_id.upper())
+        .options(selectinload(Notice.cves), selectinload(Notice.releases))
+        .one_or_none()
+    )
+
+    if not notice:
+        return {"message": f"Notice with id '{notice_id}' does not exist"}, 404
+
+    schema = NoticeAPIDetailedSchemaV2
+    result = schema().dump(notice)
+    response = jsonify(result)
+    response.cache_control.max_age = SIX_HOURS_IN_SECONDS
+    return response
+
+
+@use_kwargs(NoticesParameters, location="query")
+@marshal_with(NoticesAPISchemaV2, code=200)
+@marshal_with(MessageWithErrorsSchema, code=422)
+def get_notices_v2(**kwargs):
+    limit: int = kwargs["limit"]
+    offset: int = kwargs["offset"]
+    order_by: Literal["oldest", "newest"] = kwargs["order"]
+    show_hidden: bool = kwargs["show_hidden"]
+
+    release: Optional[str] = kwargs.get("release")
+    details: Optional[str] = kwargs.get("details")
+    cve_id: Optional[str] = kwargs.get("cve_id")
+    cves: Optional[List[str]] = kwargs.get("cves", [])
+
+    notices_query: Query = db.session.query(Notice)
+
+    sort_order_by = asc if order_by == "oldest" else desc
+
+    if not show_hidden:
+        notices_query = notices_query.filter(Notice.is_hidden == "False")
+
+    if release:
+        notices_query = notices_query.join(Release, Notice.releases).filter(
+            Release.codename == release
+        )
+
+    if details:
+        notices_query = notices_query.filter(
+            or_(
+                Notice.id.ilike(f"%{details}%"),
+                Notice.details.ilike(f"%{details}%"),
+                Notice.title.ilike(f"%{details}%"),
+            )
+        )
+
+    if cve_id:
+        cves.append(cve_id)
+
+    if cves:
+        notices_query = notices_query.filter(Notice.cves.any(CVE.id.in_(cves)))
+
+    notices_query = notices_query.options(
+        selectinload(Notice.cves), selectinload(Notice.releases)
+    ).order_by(sort_order_by(Notice.published), sort_order_by(Notice.id))
+
+    schema = NoticesAPISchemaV2
+    result = schema().dump(
+        {
+            "notices": notices_query.offset(offset).limit(limit).all(),
+            "offset": offset,
+            "limit": limit,
+            "total_results": notices_query.count(),
+        }
+    )
+    response = jsonify(result)
+    response.cache_control.max_age = TEN_MINUTES_IN_SECONDS
+    return response
+
+
+@marshal_with(PageNoticesAPISchema, code=200)
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(NoticesParameters, location="query")
+def get_page_notices(**kwargs):
     details = kwargs.get("details")
     cve_id = kwargs.get("cve_id")
     release = kwargs.get("release")
@@ -450,24 +647,13 @@ def get_notices(**kwargs):
                 Notice.id.ilike(f"%{details}%"),
                 Notice.details.ilike(f"%{details}%"),
                 Notice.title.ilike(f"%{details}%"),
-                Notice.cves.any(CVE.id.ilike(f"%{details}%")),
             )
         )
 
     sort = asc if order_by == "oldest" else desc
 
     notices = (
-        notices_query.options(
-            selectinload(Notice.cves).options(
-                selectinload(CVE.statuses),
-                selectinload(CVE.notices).options(
-                    load_only(
-                        Notice.id, Notice.is_hidden, Notice.release_packages
-                    )
-                ),
-            )
-        )
-        .options(selectinload(Notice.releases))
+        notices_query.options(selectinload(Notice.releases))
         .order_by(sort(Notice.published), sort(Notice.id))
         .offset(offset)
         .limit(limit)
@@ -680,20 +866,53 @@ def _sort_by_priority(cves_query):
     return cves_query
 
 
-def _should_filter_by_version_and_status(statuses, versions) -> bool:
-    """
-    version-status filter should apply if parameters have been provided
+def _params_with_conditions(
+    versions, statuses, parameters, package, component
+):
+    conditions = []
 
-    Don't apply filter if the 1st version and status value is ""
-    """
-    return (
-        versions
-        and statuses
-        and not (
-            (len(versions) == 1 and versions[0] == "")
-            and (len(statuses) == 1 and statuses[0] == "")
+    clean_versions = _get_clean_versions(versions)
+    clean_statuses = _get_clean_statuses(statuses)
+
+    # Add parent condition
+    if versions or statuses:
+        for key, sub_versions in enumerate(clean_versions):
+            for key, sub_statuses in enumerate(clean_statuses):
+                conditions.append(
+                    and_(
+                        Status.release_codename.in_(sub_versions),
+                        Status.status.in_(sub_statuses),
+                    )
+                )
+
+        parameters.append(or_(*[condition for condition in conditions]))
+
+    if package or component:
+        sub_conditions = []
+        for key, sub_versions in enumerate(clean_versions):
+            for key, sub_statuses in enumerate(clean_statuses):
+                sub_conditions.append(
+                    and_(
+                        Status.release_codename.in_(sub_versions),
+                        Status.status.in_(sub_statuses),
+                    )
+                )
+
+        if package:
+            sub_conditions.append(Status.package_name == package)
+
+        if component:
+            sub_conditions.append(Status.component == component)
+
+        condition = CVE.statuses.any(
+            and_(*[sub_condition for sub_condition in sub_conditions])
         )
-    )
+
+        conditions.append(condition)
+
+        parameters.append(and_(*[condition for condition in conditions]))
+
+    return parameters
 
 
 def _get_clean_statuses(statuses) -> list:
@@ -771,6 +990,15 @@ def _get_clean_versions(versions) -> list:
             clean_versions.append([release.codename for release in releases])
 
     return clean_versions
+
+
+def _should_filter_by_version_and_status(versions, statuses) -> bool:
+    """
+    Returns True if filtering by versions or
+    statuses
+    """
+
+    return versions and statuses
 
 
 def _update_notice_object(notice, data):
