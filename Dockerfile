@@ -10,7 +10,7 @@ ADD requirements.txt /tmp/requirements.txt
 RUN pip3 config set global.disable-pip-version-check true
 RUN python3 -m venv /venv
 ENV PATH="/venv/bin:${PATH}"
-RUN --mount=type=cache,target=/root/.cache/pip pip3 install --user --requirement /tmp/requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip pip3 install --requirement /tmp/requirements.txt
 
 
 # Build the production image
