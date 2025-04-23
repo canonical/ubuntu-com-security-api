@@ -1105,7 +1105,7 @@ class TestRoutes(BaseTestCase):
             "release=test_release2&release=test_release3"
         )
 
-        # Check that the response is succesful and contains expected notices
+        # Check that the response succeeds and contains the expected notices
         valid_ids = {"USN-9999-0005", "USN-9999-0003"}
 
         assert multiple_releases_response.status_code == 200
