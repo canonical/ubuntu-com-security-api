@@ -1104,9 +1104,13 @@ class TestRoutes(BaseTestCase):
             "/security/page/notices.json?"
             "release=test_release2&release=test_release3"
         )
+        # Check that the response is succesful and contains expected notices
+        valid_ids = {"USN-9999-0005", "USN-9999-0003"}
 
         assert multiple_releases_response.status_code == 200
         assert multiple_releases_response.json["total_results"] == 2
+        for notice in multiple_releases_response.json["notices"]:
+            assert notice["id"] in valid_ids
 
     def test_usns_returns_200_for_non_existing_release(self):
         response = self.client.get("/security/notices.json?release=no-exist")
