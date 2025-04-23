@@ -6,7 +6,7 @@ env:
 
 jobs:
   run-image:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     services:
       postgres:
@@ -34,7 +34,7 @@ jobs:
           curl --head --fail --retry-delay 1 --retry 30 --retry-connrefused http://localhost/security/api/docs
 
   run-dotrun:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     services:
       postgres:
@@ -66,7 +66,7 @@ jobs:
           curl --head --fail --retry-delay 1 --retry 30 --retry-connrefused http://localhost:8030/security/api/docs
 
   lint-python:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -83,7 +83,7 @@ jobs:
 
 
   test-python:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     services:
       postgres:
@@ -118,7 +118,7 @@ jobs:
           bash <(curl -s https://codecov.io/bash) -cF python
           
   check-inclusive-naming:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
