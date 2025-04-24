@@ -76,6 +76,28 @@ def make_notice(
     )
 
 
+def make_release(
+    codename="",
+    name="",
+    version="",
+    lts=True,
+    development=False,
+    release_date=datetime.now(),
+    esm_expires=datetime.now(),
+    support_expires=datetime.now(),
+):
+    return Release(
+        codename=codename,
+        name=name,
+        version=version,
+        lts=lts,
+        development=development,
+        release_date=release_date,
+        esm_expires=esm_expires,
+        support_expires=support_expires,
+    )
+
+
 def make_models():
     release = Release(
         codename="testrelease",
@@ -104,7 +126,6 @@ def make_models():
         package=package,
         release=release,
     )
-
     notice = make_notice("USN-1111-01", releases=[release], cves=[cve])
 
     return {

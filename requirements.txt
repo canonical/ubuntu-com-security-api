@@ -1,4 +1,4 @@
-canonicalwebteam.flask-base==1.1.0
+canonicalwebteam.flask-base==2.2.2.dev1
 alchemy-mock==0.4.3
 apispec==4.7.1
 flask-apispec==0.11.4
@@ -13,4 +13,3 @@ sortedcontainers==2.4.0
 Flask-SQLAlchemy==2.5.1
 Flask-Migrate==3.1.0
 SQLAlchemy-Utils==0.41.1
-

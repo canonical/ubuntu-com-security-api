@@ -43,6 +43,7 @@ from webapp.schemas import (
     NoticesAPISchema,
     NoticesAPISchemaV2,
     NoticesParameters,
+    PageNoticesParameters,
     PageNoticesAPISchema,
     ReleaseAPISchema,
     ReleasesAPISchema,
@@ -619,11 +620,11 @@ def get_notices_v2(**kwargs):
 
 @marshal_with(PageNoticesAPISchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
-@use_kwargs(NoticesParameters, location="query")
+@use_kwargs(PageNoticesParameters, location="query")
 def get_page_notices(**kwargs):
     details = kwargs.get("details")
     cve_id = kwargs.get("cve_id")
-    release = kwargs.get("release")
+    releases = kwargs.get("release")
     limit = kwargs.get("limit", 20)
     offset = kwargs.get("offset", 0)
     order_by = kwargs.get("order")
@@ -636,9 +637,9 @@ def get_page_notices(**kwargs):
     if cve_id:
         notices_query = notices_query.filter(Notice.cves.any(CVE.id == cve_id))
 
-    if release:
+    if releases:
         notices_query = notices_query.join(Release, Notice.releases).filter(
-            Release.codename == release
+            Release.codename.in_(releases)
         )
 
     if details:

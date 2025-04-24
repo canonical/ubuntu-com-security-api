@@ -1,7 +1,7 @@
 import unittest
 from tests import BaseTestCase
 from tests.fixtures import payloads
-from tests.fixtures.models import make_cve, make_notice
+from tests.fixtures.models import make_cve, make_notice, make_release
 
 
 class TestRoutes(BaseTestCase):
@@ -1047,7 +1047,6 @@ class TestRoutes(BaseTestCase):
         assert response.status_code == 200
         assert response.json["notices"][0]["id"] == self.models["notice"].id
 
-        # Test release field
         response = self.client.get(
             (
                 "/security/page/notices.json?"
@@ -1060,6 +1059,58 @@ class TestRoutes(BaseTestCase):
             response.json["notices"][0]["releases"][0]["codename"]
             == self.models["notice"].releases[0].codename
         )
+
+    def test_page_usns_multiple_releases_filter(self):
+        # Build test releases and notices
+        test_cve = make_cve("CVE-1111-0002")
+        test_release = make_release(
+            codename="test_release",
+            version="00.06",
+            name="Ubuntu Testrelease 00.06 LTS",
+        )
+        test_release2 = make_release(
+            codename="test_release2",
+            version="00.07",
+            name="Ubuntu Testrelease 00.07 LTS",
+        )
+        test_release3 = make_release(
+            codename="test_release3",
+            version="00.08",
+            name="Ubuntu Testrelease 00.08 LTS",
+        )
+        test_notice = make_notice(
+            "USN-9999-0003",
+            releases=[test_release, test_release2],
+            cves=[test_cve],
+        )
+        test_notice2 = make_notice(
+            "USN-9999-0004", releases=[test_release], cves=[test_cve]
+        )
+        test_notice3 = make_notice(
+            "USN-9999-0005", releases=[test_release3], cves=[test_cve]
+        )
+
+        self.db.session.add(test_cve)
+        self.db.session.add(test_release)
+        self.db.session.add(test_release2)
+        self.db.session.add(test_release3)
+        self.db.session.add(test_notice)
+        self.db.session.add(test_notice2)
+        self.db.session.add(test_notice3)
+
+        self.db.session.commit()
+
+        multiple_releases_response = self.client.get(
+            "/security/page/notices.json?"
+            "release=test_release2&release=test_release3"
+        )
+        # Check that the response is succesful and contains expected notices
+        valid_ids = {"USN-9999-0005", "USN-9999-0003"}
+
+        assert multiple_releases_response.status_code == 200
+        assert multiple_releases_response.json["total_results"] == 2
+        for notice in multiple_releases_response.json["notices"]:
+            assert notice["id"] in valid_ids
 
     def test_usns_returns_200_for_non_existing_release(self):
         response = self.client.get("/security/notices.json?release=no-exist")
