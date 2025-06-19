@@ -81,5 +81,8 @@ spec:
             timeoutSeconds: 3
 
           resources:
+            requests:
+              ephemeral-storage: 128Mi
             limits:
+              ephemeral-storage: 1Gi
               memory: 2G
