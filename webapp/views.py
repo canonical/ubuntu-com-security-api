@@ -12,10 +12,10 @@ from flask import (
     stream_with_context,
 )
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import and_, asc, case, desc, func, or_, text
+from sqlalchemy import and_, asc, case, desc, func, or_, text, select
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import Query, load_only, selectinload
-
+from sqlalchemy.orm import Query, load_only, selectinload, aliased
+from sqlalchemy.sql import over, literal_column
 from webapp.auth import authorization_required
 from webapp.database import db
 from webapp.models import (
@@ -55,7 +55,7 @@ from webapp.utils import stream_notices
 
 SIX_HOURS_IN_SECONDS = 60 * 60 * 6
 TEN_MINUTES_IN_SECONDS = 60 * 10
-
+MAX_PAGE = 100
 
 @marshal_with(CVEAPIDetailedSchema, code=200)
 @marshal_with(MessageSchema, code=404)
@@ -90,159 +90,127 @@ def get_cve(cve_id, **kwargs):
 @marshal_with(CVEsAPISchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(CVEsParameters, location="query")
-def get_cves(**kwargs):
+def get_cves(**kwargs):    
     query = kwargs.get("q", "").strip()
-    priorities = kwargs.get("priority")
-    group_by = kwargs.get("group_by")
-    package = kwargs.get("package")
-    limit = kwargs.get("limit", 10)
-    offset = kwargs.get("offset", 0)
-    component = kwargs.get("component")
-    versions = kwargs.get("version")
-    cve_status = kwargs.get("cve_status")
-    statuses = kwargs.get("status")
-    order = kwargs.get("order")
-    sort_by = kwargs.get("sort_by")
-    show_hidden = kwargs.get("show_hidden", False)
+    priorities: Optional[List[str]] = kwargs.get("priority")
+    group_by: Optional[str] = kwargs.get("group_by")
+    package: Optional[str] = kwargs.get("package")
+    limit: int = kwargs.get("limit", 10)
+    offset: int = kwargs.get("offset", 0)
+    component: Optional[str] = kwargs.get("component")
+    versions: Optional[List[str]] = kwargs.get("version")
+    cve_status: Optional[str] = kwargs.get("cve_status")
+    statuses: Optional[List[str]] = kwargs.get("status")
+    order: Optional[Literal["oldest", "ascending", "descending"]] = kwargs.get("order")
+    sort_by: Optional[Literal["published", "updated"]] = kwargs.get("sort_by")
+    show_hidden: bool = kwargs.get("show_hidden", False)
 
-    # query cves by filters. Default filter by active CVEs
+    # Compute compatible pagination parameters
+    per_page = limit
+    page = (offset // per_page) + 1
+    if page > MAX_PAGE:
+        abort(400, description="Result set too large. Please reduce the 'offset' or 'limit' value, or apply more specific filters to narrow the result set.")
+
     if cve_status:
-        cves_query: Query = db.session.query(CVE).filter(
-            CVE.status == cve_status
-        )
+        cves_query: Query = db.session.query(CVE).filter(CVE.status == cve_status)
     else:
-        cves_query: Query = db.session.query(CVE).filter(
-            CVE.status == "active"
-        )
+        cves_query: Query = db.session.query(CVE)
 
-    # order by priority
     if group_by == "priority":
         cves_query = _sort_by_priority(cves_query)
 
-    # filter by priority
     if priorities:
         cves_query = cves_query.filter(CVE.priority.in_(priorities))
 
-    # filter by all text based fields
+    notes_filter = text("""
+        EXISTS (
+            SELECT 1 FROM json_array_elements(notes) AS note
+            WHERE note->>'note' ILIKE :query
+            OR note->>'author' ILIKE :query
+        )
+    """).params(query=f"%{query}%")
+
     if query:
+        lowered_query = f"%{query.lower()}%"
         cves_query = cves_query.filter(
             or_(
-                CVE.id.ilike(f"%{query}%"),
-                CVE.description.ilike(f"%{query}%"),
-                CVE.ubuntu_description.ilike(f"%{query}%"),
-                CVE.codename.ilike(f"%{query}%"),
-                CVE.mitigation.ilike(f"%{query}%"),
-                # search through notes
-                text(
-                    """
-                    EXISTS (
-                      SELECT 1 FROM json_array_elements(notes) AS note
-                      WHERE note->>'note' ilike :query
-                      OR note->>'author' ilike :query
-                    )
-                    """
-                ).params(query=f"%{query}%"),
+                func.lower(CVE.id).like(lowered_query),
+                func.lower(CVE.description).like(lowered_query),
+                func.lower(CVE.ubuntu_description).like(lowered_query),
+                func.lower(CVE.codename).like(lowered_query),
+                func.lower(CVE.mitigation).like(lowered_query),
+                notes_filter
             )
         )
 
-    # build CVE statuses filter parameters
-    parameters = []
-
-    cve_statuses_query = CVE.statuses
-
-    if statuses:
-        if "" in statuses:
-            statuses.remove("")
-
-    should_filter_by_version_and_status = _should_filter_by_version_and_status(
-        versions, statuses
-    )
-
-    if should_filter_by_version_and_status:
-        parameters = _params_with_conditions(
-            versions, statuses, parameters, package, component
-        )
-
-        # filter the CVEs that fulfill criteria
-        cves_query = cves_query.filter(
-            CVE.statuses.any(and_(*[p for p in parameters]))
-        )
-
-    else:
-        # If an empty string is provided for the status,
-        # retain legacy functionality by ignoring it
-        if statuses:
-            for status in statuses:
-                parameters.append(Status.status == status)
+    StatusAlias = aliased(Status)
+    join_applied = any([statuses, versions, package, component])
+    if join_applied:
+        cves_query = cves_query.join(StatusAlias, CVE.id == StatusAlias.cve_id)
 
         if versions:
-            for version in versions:
-                parameters.append(Status.release_codename == version)
-
-        # filter by package name
+            cves_query = cves_query.filter(StatusAlias.release_codename.in_(versions))
         if package:
-            parameters.append(Status.package_name.ilike(f"%{package}%"))
-
-        # filter by component
+            cves_query = cves_query.filter(StatusAlias.package_name.ilike(f"%{package}%"))
         if component:
-            parameters.append(Status.component == component)
+            cves_query = cves_query.filter(StatusAlias.component == component)
+        if statuses:
+            statuses = [s for s in statuses if s]
+            if statuses:
+                cves_query = cves_query.filter(StatusAlias.status.in_(statuses))
 
-        if parameters:
-            if package:
-                cves_query = cves_query.filter(
-                    CVE.statuses.any(and_(*[p for p in parameters]))
-                )
-            else:
-                cves_query = cves_query.filter(
-                    CVE.statuses.any(or_(*[p for p in parameters]))
-                )
-
-    # filter the CVE statuses that fulfills criteria
-    cve_statuses_query = cve_statuses_query.and_(*[p for p in parameters])
-
-    cve_notices_query = CVE.notices
     if not show_hidden:
-        cve_notices_query = cve_notices_query.and_(Notice.is_hidden == "False")
-
-    if order in ("oldest", "ascending"):
-        sort = asc
-    elif order == "descending":
-        sort = desc
+        cve_notices_query = CVE.notices.and_(Notice.is_hidden == "False")
     else:
-        sort = desc
+        cve_notices_query = CVE.notices
 
-    if sort_by == "published":
-        sort_field = CVE.published
-    elif sort_by == "updated":
-        sort_field = CVE.updated_at
+    sort = asc if order in ("oldest", "ascending") else desc
+    sort_field = {"published": CVE.published, "updated": CVE.updated_at}.get(sort_by, CVE.updated_at)
 
-    query: Query = (
-        cves_query.options(
-            selectinload(cve_notices_query).options(
-                selectinload(Notice.cves).options(load_only(CVE.id))
-            )
+    if sort_by and sort_by not in {"published", "updated"}:
+        raise ValueError("Invalid sort_by value")
+
+    # Deduplication only if join was applied
+    if join_applied:
+        cves_subq = cves_query.add_columns(
+            func.row_number().over(
+                partition_by=CVE.id,
+                order_by=[
+                    case([(sort_field.is_(None), 1)], else_=0),
+                    sort(sort_field),
+                    sort(CVE.id)
+                ]
+            ).label("row_num")
+        ).subquery()
+
+        cves_query = db.session.query(CVE).join(
+            cves_subq, CVE.id == cves_subq.c.id
+        ).filter(cves_subq.c.row_num == 1)
+
+    cves_query = cves_query.options(
+        selectinload(cve_notices_query).options(
+            selectinload(Notice.cves).options(load_only(CVE.id))
         )
-        .order_by(
-            case(
-                [(sort_field.is_(None), 1)],
-                else_=0,
-            ),
-            sort(sort_field),
-            sort(CVE.id),
-        )
-        .limit(limit)
-        .offset(offset)
+    ).order_by(
+        case([(sort_field.is_(None), 1)], else_=0),
+        sort(sort_field),
+        sort(CVE.id)
     )
 
-    schema = CVEsAPISchema
-    result = schema().dump(
-        {
-            "cves": query.all(),
-            "offset": offset,
-            "limit": limit,
-            "total_results": cves_query.count(),
-        }
+    pagination = db.paginate(
+        cves_query,
+        page=page,
+        per_page=per_page,
+        error_out=False
     )
+
+    result = CVEsAPISchema().dump({
+        "cves": pagination.items,
+        "offset": offset,
+        "limit": per_page,
+        "total_results": pagination.total,
+    })
+
     response = jsonify(result)
     response.cache_control.max_age = TEN_MINUTES_IN_SECONDS
     return response
@@ -865,141 +833,6 @@ def _sort_by_priority(cves_query):
     cves_query = cves_query.order_by(priority_sorting)
 
     return cves_query
-
-
-def _params_with_conditions(
-    versions, statuses, parameters, package, component
-):
-    conditions = []
-
-    clean_versions = _get_clean_versions(versions)
-    clean_statuses = _get_clean_statuses(statuses)
-
-    # Add parent condition
-    if versions or statuses:
-        for key, sub_versions in enumerate(clean_versions):
-            for key, sub_statuses in enumerate(clean_statuses):
-                conditions.append(
-                    and_(
-                        Status.release_codename.in_(sub_versions),
-                        Status.status.in_(sub_statuses),
-                    )
-                )
-
-        parameters.append(or_(*[condition for condition in conditions]))
-
-    if package or component:
-        sub_conditions = []
-        for key, sub_versions in enumerate(clean_versions):
-            for key, sub_statuses in enumerate(clean_statuses):
-                sub_conditions.append(
-                    and_(
-                        Status.release_codename.in_(sub_versions),
-                        Status.status.in_(sub_statuses),
-                    )
-                )
-
-        if package:
-            sub_conditions.append(Status.package_name == package)
-
-        if component:
-            sub_conditions.append(Status.component == component)
-
-        condition = CVE.statuses.any(
-            and_(*[sub_condition for sub_condition in sub_conditions])
-        )
-
-        conditions.append(condition)
-
-        parameters.append(and_(*[condition for condition in conditions]))
-
-    return parameters
-
-
-def _get_clean_statuses(statuses) -> list:
-    """
-    Response: Returns a array of `status` arrays
-
-    User can provide multiple `version` and `status` parameters.
-    We group one `version` and one `status` together by matching their position
-    in the arrays.
-
-    The query checks for `CVEs.statuses` that matches each group of
-    `version-status`.
-
-    E.g.::
-
-        and_(
-            Status.release_codename.in_(versions),
-            Status.status.in_(statuses),
-        )
-
-    We return an array of 'status' arrays for the case where users
-    provide "" (Any) as a value for the 'status'.
-    'Any' means user wants all statuses
-    """
-
-    clean_statuses = []
-
-    for status in statuses:
-        if status != "" and status in STATUS_STATUSES.enums:
-            clean_statuses.append([status])
-        else:
-            clean_statuses.append(STATUS_STATUSES.enums)
-
-    return clean_statuses
-
-
-def _get_clean_versions(versions) -> list:
-    """
-    Response: Returns a array of `version` arrays
-
-    User can provide multiple `version` and `status` parameters.
-    We group one `version` and one `status` together by matching their position
-    in the arrays.
-
-    The query checks for `CVEs.statuses` that matches each group of
-    `version-status`.
-
-    E.g.::
-
-        and_(
-            Status.release_codename.in_(versions),
-            Status.status.in_(statuses),
-        )
-
-    We return an array of 'version' arrays for the case where users
-    provide "" (Any) as a value for the 'version'.
-    'Any' means user wants all versions that are still supported
-    """
-
-    clean_versions = []
-
-    for version in versions:
-        if version not in ["", "current"]:
-            clean_versions.append([version])
-        else:
-            releases_query = Release.query.filter(
-                or_(
-                    Release.support_expires > datetime.now(),
-                    Release.esm_expires > datetime.now(),
-                )
-            ).filter(Release.codename != "upstream")
-
-            releases = releases_query.order_by(Release.release_date).all()
-
-            clean_versions.append([release.codename for release in releases])
-
-    return clean_versions
-
-
-def _should_filter_by_version_and_status(versions, statuses) -> bool:
-    """
-    Returns True if filtering by versions or
-    statuses
-    """
-
-    return versions and statuses
 
 
 def _update_notice_object(notice, data):
