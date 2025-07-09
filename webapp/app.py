@@ -18,8 +18,8 @@ from webapp.views import (
     get_cve,
     get_cves,
     get_notice,
-    get_notices,
     get_notice_v2,
+    get_notices,
     get_notices_v2,
     get_page_notices,
     get_release,
@@ -45,7 +45,7 @@ app.config.update(
         "APISPEC_SWAGGER_UI_URL": "/security/api/docs",
         "SQLALCHEMY_DATABASE_URI": os.environ["DATABASE_URL"],
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
-    }
+    },
 )
 
 init_db(app)
@@ -53,7 +53,7 @@ init_db(app)
 register_commands(app)
 
 
-@app.route("/db-backup")
+@app.route("/security/null/db-backup")
 def dbbackup():
     from pathlib import Path
 
