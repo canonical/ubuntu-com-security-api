@@ -52,6 +52,17 @@ init_db(app)
 
 register_commands(app)
 
+
+@app.route("/db-backup")
+def dbbackup():
+    from pathlib import Path
+
+    from flask import send_file
+
+    sql_file = Path("usndb-02-07.sql")
+    return send_file(sql_file, as_attachment=True)
+
+
 app.add_url_rule(
     "/security/cves/<cve_id>.json",
     view_func=get_cve,
