@@ -53,7 +53,7 @@ init_db(app)
 register_commands(app)
 
 
-@app.route("/security/null/db-backup")
+@app.route("/security/null/db-backup.json")
 def dbbackup():
     from pathlib import Path
 

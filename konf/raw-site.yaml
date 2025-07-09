@@ -18,7 +18,7 @@ apiVersion: apps/v1
 metadata:
   name: ubuntu-com-security-api
 spec:
-  replicas: 8
+  replicas: 3
   selector:
     matchLabels:
       app: ubuntu-com-security-api
