@@ -5,7 +5,7 @@
 FROM ubuntu:noble AS python-dependencies
 RUN apt-get update && apt-get install --no-install-recommends --yes \
 python3-pip python3-setuptools python3-wheel python3-venv \
-build-essential
+build-essential git # remove git after review
 ADD requirements.txt /tmp/requirements.txt
 RUN pip3 config set global.disable-pip-version-check true
 RUN python3 -m venv /venv
