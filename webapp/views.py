@@ -1,5 +1,4 @@
 from collections import defaultdict
-from datetime import datetime
 from distutils.util import strtobool
 from typing import List, Literal, Optional
 
@@ -12,15 +11,13 @@ from flask import (
     stream_with_context,
 )
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import and_, asc, case, desc, func, or_, text, select
+from sqlalchemy import asc, case, desc, func, or_, text
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Query, load_only, selectinload, aliased
-from sqlalchemy.sql import over, literal_column
 from webapp.auth import authorization_required
 from webapp.database import db
 from webapp.models import (
     CVE,
-    STATUS_STATUSES,
     Notice,
     Package,
     Release,
@@ -52,10 +49,10 @@ from webapp.schemas import (
 )
 from webapp.utils import stream_notices
 
-
 SIX_HOURS_IN_SECONDS = 60 * 60 * 6
 TEN_MINUTES_IN_SECONDS = 60 * 10
 MAX_PAGE = 100
+
 
 @marshal_with(CVEAPIDetailedSchema, code=200)
 @marshal_with(MessageSchema, code=404)
@@ -90,7 +87,7 @@ def get_cve(cve_id, **kwargs):
 @marshal_with(CVEsAPISchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(CVEsParameters, location="query")
-def get_cves(**kwargs):    
+def get_cves(**kwargs):
     query = kwargs.get("q", "").strip()
     priorities: Optional[List[str]] = kwargs.get("priority")
     group_by: Optional[str] = kwargs.get("group_by")
@@ -101,20 +98,24 @@ def get_cves(**kwargs):
     versions: Optional[List[str]] = kwargs.get("version")
     cve_status: Optional[str] = kwargs.get("cve_status")
     statuses: Optional[List[str]] = kwargs.get("status")
-    order: Optional[Literal["oldest", "ascending", "descending"]] = kwargs.get("order")
+    order: Optional[Literal["oldest", "ascending", "descending"]] = kwargs.get(
+        "order"
+    )
     sort_by: Optional[Literal["published", "updated"]] = kwargs.get("sort_by")
     show_hidden: bool = kwargs.get("show_hidden", False)
 
-    # Compute compatible pagination parameters
-    per_page = limit
-    page = (offset // per_page) + 1
-    if page > MAX_PAGE:
-        abort(400, description="Result set too large. Please reduce the 'offset' or 'limit' value, or apply more specific filters to narrow the result set.")
+    # Convert offset-based input to page number for db.paginate compatibility
+    page = (offset // limit) + 1
 
+    # Default to 'active' CVE status if not provided
     if cve_status:
-        cves_query: Query = db.session.query(CVE).filter(CVE.status == cve_status)
+        cves_query: Query = db.session.query(CVE).filter(
+            CVE.status == cve_status
+        )
     else:
-        cves_query: Query = db.session.query(CVE)
+        cves_query: Query = db.session.query(CVE).filter(
+            CVE.status == "active"
+        )
 
     if group_by == "priority":
         cves_query = _sort_by_priority(cves_query)
@@ -122,15 +123,19 @@ def get_cves(**kwargs):
     if priorities:
         cves_query = cves_query.filter(CVE.priority.in_(priorities))
 
-    notes_filter = text("""
-        EXISTS (
-            SELECT 1 FROM json_array_elements(notes) AS note
-            WHERE note->>'note' ILIKE :query
-            OR note->>'author' ILIKE :query
-        )
-    """).params(query=f"%{query}%")
-
     if query:
+        # Notes subfields are queried via raw SQL because
+        # json_array_elements() is not supported by SQLAlchemy
+        notes_filter = text(
+            """
+            EXISTS (
+                SELECT 1 FROM json_array_elements(notes) AS note
+                WHERE note->>'note' ILIKE :query
+                OR note->>'author' ILIKE :query
+            )
+        """
+        ).params(query=f"%{query}%")
+
         lowered_query = f"%{query.lower()}%"
         cves_query = cves_query.filter(
             or_(
@@ -139,77 +144,94 @@ def get_cves(**kwargs):
                 func.lower(CVE.ubuntu_description).like(lowered_query),
                 func.lower(CVE.codename).like(lowered_query),
                 func.lower(CVE.mitigation).like(lowered_query),
-                notes_filter
+                notes_filter,
             )
         )
 
-    StatusAlias = aliased(Status)
-    join_applied = any([statuses, versions, package, component])
-    if join_applied:
+    join_required = any([statuses, versions, package, component])
+
+    if join_required:
+        # Use an alias to safely join Status table
+        StatusAlias = aliased(Status)
         cves_query = cves_query.join(StatusAlias, CVE.id == StatusAlias.cve_id)
 
         if versions:
-            cves_query = cves_query.filter(StatusAlias.release_codename.in_(versions))
+            cves_query = cves_query.filter(
+                StatusAlias.release_codename.in_(versions)
+            )
         if package:
-            cves_query = cves_query.filter(StatusAlias.package_name.ilike(f"%{package}%"))
+            cves_query = cves_query.filter(
+                StatusAlias.package_name.ilike(f"%{package}%")
+            )
         if component:
             cves_query = cves_query.filter(StatusAlias.component == component)
         if statuses:
             statuses = [s for s in statuses if s]
             if statuses:
-                cves_query = cves_query.filter(StatusAlias.status.in_(statuses))
+                cves_query = cves_query.filter(
+                    StatusAlias.status.in_(statuses)
+                )
 
     if not show_hidden:
         cve_notices_query = CVE.notices.and_(Notice.is_hidden == "False")
     else:
         cve_notices_query = CVE.notices
 
+    # Default to sorting by published date unless sort_by is explicitly passed
+    sort_field = {"published": CVE.published, "updated": CVE.updated_at}.get(
+        sort_by, CVE.published
+    )
     sort = asc if order in ("oldest", "ascending") else desc
-    sort_field = {"published": CVE.published, "updated": CVE.updated_at}.get(sort_by, CVE.updated_at)
 
     if sort_by and sort_by not in {"published", "updated"}:
-        raise ValueError("Invalid sort_by value")
+        raise ValueError(
+            "Invalid sort value. Please use 'published' or 'updated'."
+        )
 
-    # Deduplication only if join was applied
-    if join_applied:
+    if join_required:
         cves_subq = cves_query.add_columns(
-            func.row_number().over(
+            func.row_number()
+            .over(
                 partition_by=CVE.id,
                 order_by=[
                     case([(sort_field.is_(None), 1)], else_=0),
                     sort(sort_field),
-                    sort(CVE.id)
-                ]
-            ).label("row_num")
+                    sort(CVE.id),
+                ],
+            )
+            .label("row_num")
         ).subquery()
 
-        cves_query = db.session.query(CVE).join(
-            cves_subq, CVE.id == cves_subq.c.id
-        ).filter(cves_subq.c.row_num == 1)
+        cves_query = (
+            db.session.query(CVE)
+            .join(cves_subq, CVE.id == cves_subq.c.id)
+            .filter(cves_subq.c.row_num == 1)
+        )
+    else:
+        cves_query = cves_query.order_by(
+            case([(sort_field.is_(None), 1)], else_=0),
+            sort(sort_field),
+            sort(CVE.id),
+        )
 
     cves_query = cves_query.options(
         selectinload(cve_notices_query).options(
             selectinload(Notice.cves).options(load_only(CVE.id))
         )
-    ).order_by(
-        case([(sort_field.is_(None), 1)], else_=0),
-        sort(sort_field),
-        sort(CVE.id)
     )
 
     pagination = db.paginate(
-        cves_query,
-        page=page,
-        per_page=per_page,
-        error_out=False
+        cves_query, page=page, per_page=limit, error_out=False
     )
 
-    result = CVEsAPISchema().dump({
-        "cves": pagination.items,
-        "offset": offset,
-        "limit": per_page,
-        "total_results": pagination.total,
-    })
+    result = CVEsAPISchema().dump(
+        {
+            "cves": pagination.items,
+            "offset": offset,
+            "limit": limit,
+            "total_results": pagination.total,
+        }
+    )
 
     response = jsonify(result)
     response.cache_control.max_age = TEN_MINUTES_IN_SECONDS

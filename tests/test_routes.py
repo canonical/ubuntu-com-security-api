@@ -5,6 +5,7 @@ from tests.fixtures.models import make_cve, make_notice, make_release
 from collections import defaultdict
 from datetime import datetime
 
+
 class TestRoutes(BaseTestCase):
     def test_spec(self):
         response = self.client.get("/security/api/spec.json")
@@ -746,9 +747,9 @@ class TestRoutes(BaseTestCase):
 
         # Check that they are grouped by desc priority (critical -> unknown)
         numeric_priorities = [PRIORITY_ORDER[p] for p in priorities]
-        assert numeric_priorities == sorted(numeric_priorities, reverse=True), \
-            f"CVEs are not sorted from highest to lowest priority: {priorities}"
-
+        assert numeric_priorities == sorted(
+            numeric_priorities, reverse=True
+        ), f"CVEs are not sorted from highest to lowest priority: {priorities}"
 
         # Check that CVEs with same priority are ordered by publication date
         priority_buckets = defaultdict(list)
@@ -757,8 +758,10 @@ class TestRoutes(BaseTestCase):
             priority_buckets[cve["priority"]].append(dt)
 
         for priority, dates in priority_buckets.items():
-            assert dates == sorted(dates, reverse=True), \
-                f"CVEs with priority '{priority}' are not in descending publish order: {dates}"
+            assert dates == sorted(dates, reverse=True), (
+                f"CVEs with priority '{priority}' are not in descending "
+                f"publish order: {dates}"
+            )
 
         # Check that CVE with a missing status is excluded from the payload
         for cve in grouped_cves["cves"]:
@@ -780,9 +783,10 @@ class TestRoutes(BaseTestCase):
             priority_buckets_asc[cve["priority"]].append(dt)
 
         for priority, dates in priority_buckets_asc.items():
-            assert dates == sorted(dates), \
-                f"CVEs with priority '{priority}' are not in ascending publish order: {dates}"
-
+            assert dates == sorted(dates), (
+                f"CVEs with priority '{priority}' are not in ascending "
+                f"publish order: {dates}"
+            )
 
     def test_cve_sort_by_functionality(self):
         """
