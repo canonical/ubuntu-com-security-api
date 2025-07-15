@@ -2,6 +2,8 @@ import unittest
 from tests import BaseTestCase
 from tests.fixtures import payloads
 from tests.fixtures.models import make_cve, make_notice, make_release
+from collections import defaultdict
+from datetime import datetime
 
 
 class TestRoutes(BaseTestCase):
@@ -732,19 +734,34 @@ class TestRoutes(BaseTestCase):
             "/security/cves.json?group_by=priority"
         ).json
 
+        PRIORITY_ORDER = {
+            "critical": 5,
+            "high": 4,
+            "medium": 3,
+            "low": 2,
+            "negligible": 1,
+            "unknown": 0,
+        }
+
+        priorities = [cve["priority"] for cve in grouped_cves["cves"]]
+
         # Check that they are grouped by desc priority (critical -> unknown)
-        assert grouped_cves["cves"][0]["priority"] == "critical"
-        assert grouped_cves["cves"][1]["priority"] == "high"
-        assert grouped_cves["cves"][2]["priority"] == "medium"
-        assert grouped_cves["cves"][3]["priority"] == "medium"
-        assert grouped_cves["cves"][4]["priority"] == "low"
-        assert grouped_cves["cves"][5]["priority"] == "negligible"
+        numeric_priorities = [PRIORITY_ORDER[p] for p in priorities]
+        assert numeric_priorities == sorted(
+            numeric_priorities, reverse=True
+        ), f"CVEs are not sorted from highest to lowest priority: {priorities}"
 
         # Check that CVEs with same priority are ordered by publication date
-        assert (
-            grouped_cves["cves"][2]["published"]
-            > grouped_cves["cves"][3]["published"]
-        )
+        priority_buckets = defaultdict(list)
+        for cve in grouped_cves["cves"]:
+            dt = datetime.fromisoformat(cve["published"])
+            priority_buckets[cve["priority"]].append(dt)
+
+        for priority, dates in priority_buckets.items():
+            assert dates == sorted(dates, reverse=True), (
+                f"CVEs with priority '{priority}' are not in descending "
+                f"publish order: {dates}"
+            )
 
         # Check that CVE with a missing status is excluded from the payload
         for cve in grouped_cves["cves"]:
@@ -757,11 +774,19 @@ class TestRoutes(BaseTestCase):
         grouped_cves_asc = self.client.get(
             "/security/cves.json?group_by=priority&order=ascending"
         ).json
+        cves_asc = grouped_cves_asc["cves"]
 
-        assert (
-            grouped_cves_asc["cves"][2]["published"]
-            < grouped_cves_asc["cves"][3]["published"]
-        )
+        # Rebuild priority buckets
+        priority_buckets_asc = defaultdict(list)
+        for cve in cves_asc:
+            dt = datetime.fromisoformat(cve["published"])
+            priority_buckets_asc[cve["priority"]].append(dt)
+
+        for priority, dates in priority_buckets_asc.items():
+            assert dates == sorted(dates), (
+                f"CVEs with priority '{priority}' are not in ascending "
+                f"publish order: {dates}"
+            )
 
     def test_cve_sort_by_functionality(self):
         """
