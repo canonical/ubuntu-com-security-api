@@ -13,4 +13,3 @@ sortedcontainers==2.4.0
 Flask-SQLAlchemy==3.0.0
 Flask-Migrate==3.1.0
 SQLAlchemy-Utils==0.41.1
-flask-cors==3.0.10
