@@ -23,6 +23,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Create pg_trgm extension
+        run: |
+          psql -h localhost -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 
       - name: Build image
         run: DOCKER_BUILDKIT=1 docker build --tag ubuntu-com-security-api .
@@ -51,7 +60,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
 
+      - name: Create pg_trgm extension
+        run: |
+          psql -h localhost -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
       - name: Install dotrun
         run: sudo pip3 install dotrun requests==2.31.0 # requests version is pinned to avoid breaking changes, can be removed once issue is resolved: https://github.com/docker/docker-py/issues/3256resolved: https://github.com/docker/docker-py/issues/3256
 
@@ -111,6 +128,15 @@ jobs:
 
       - name: Install node dependencies
         run: yarn install --immutable
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Create pg_trgm extension
+        run: |
+          psql -h localhost -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"     
 
       - name: Run tests with coverage
         run: |
