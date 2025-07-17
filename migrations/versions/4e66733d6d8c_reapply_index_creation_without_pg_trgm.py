@@ -1,9 +1,7 @@
 """add indexes for CVE status filtering and search
-
 Revision ID: 4e66733d6d8c
-Revises: 085878f314e9
+Revises: 645c9424286e
 Create Date: 2025-06-18 21:54:21.547540
-
 """
 from alembic import op
 import sqlalchemy as sa
@@ -11,14 +9,18 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '4e66733d6d8c'
-down_revision = '085878f314e9'
+down_revision = '645c9424286e'
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
-    # Enable pg_trgm
-    op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+    # Create GIN indexes with pg_trgm ops on cve table (assumes extension already exists)
+    op.execute("CREATE INDEX idx_cve_description_trgm ON cve USING gin (description gin_trgm_ops)")
+    op.execute("CREATE INDEX idx_cve_ubuntu_description_trgm ON cve USING gin (ubuntu_description gin_trgm_ops)")
+    op.execute("CREATE INDEX idx_cve_codename_trgm ON cve USING gin (codename gin_trgm_ops)")
+    op.execute("CREATE INDEX idx_cve_mitigation_trgm ON cve USING gin (mitigation gin_trgm_ops)")
+    op.execute("CREATE INDEX idx_cve_id_trgm ON cve USING gin (id gin_trgm_ops)")
 
     # B-tree indexes for common join and filter operations
     op.execute("CREATE INDEX idx_status_cve_id ON status (cve_id)")
@@ -34,10 +36,16 @@ def upgrade():
 
 
 def downgrade():
-    # Drop indexes in reverse order
+    # Drop all created indexes in reverse order
     op.execute("DROP INDEX IF EXISTS idx_status_package_trgm")
     op.execute("DROP INDEX IF EXISTS idx_status_multi")
     op.execute("DROP INDEX IF EXISTS idx_status_component")
     op.execute("DROP INDEX IF EXISTS idx_status_release_codename")
     op.execute("DROP INDEX IF EXISTS idx_status_status")
     op.execute("DROP INDEX IF EXISTS idx_status_cve_id")
+
+    op.execute("DROP INDEX IF EXISTS idx_cve_id_trgm")
+    op.execute("DROP INDEX IF EXISTS idx_cve_mitigation_trgm")
+    op.execute("DROP INDEX IF EXISTS idx_cve_codename_trgm")
+    op.execute("DROP INDEX IF EXISTS idx_cve_ubuntu_description_trgm")
+    op.execute("DROP INDEX IF EXISTS idx_cve_description_trgm")
