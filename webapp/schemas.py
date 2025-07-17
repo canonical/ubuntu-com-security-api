@@ -1,4 +1,6 @@
 import dateutil.parser
+import orjson
+
 from marshmallow import Schema, ValidationError
 from marshmallow.fields import (
     Boolean,
@@ -201,6 +203,9 @@ class NoticePackage(Schema):
     package_type = PackageType()
     channel = String(allow_none=True)
 
+    class Meta:
+        render_module = orjson
+
 
 class NoticeSchema(Schema):
     id = String(
@@ -219,15 +224,24 @@ class NoticeSchema(Schema):
         values=List(Nested(NoticePackage), required=True),
     )
 
+    class Meta:
+        render_module = orjson
+
 
 class NoticeImportSchema(NoticeSchema):
     cves = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
+
+    class Meta:
+        render_module = orjson
 
 
 class CreateNoticeImportSchema(NoticeImportSchema):
     id = UniqueNoticeId(
         required=True, validate=Regexp(r"(USN|LSN|SSN)-\d{1,5}-\d{1,2}")
     )
+
+    class Meta:
+        render_module = orjson
 
 
 class NoticeAPISchema(NoticeSchema):
@@ -362,6 +376,9 @@ class ReleaseSchema(Schema):
     esm_expires = ParsedDateTime(required=True)
     support_expires = ParsedDateTime(required=True)
 
+    class Meta:
+        render_module = orjson
+
 
 class UpdateReleaseSchema(Schema):
     name = String(required=True)
@@ -373,13 +390,22 @@ class UpdateReleaseSchema(Schema):
     esm_expires = ParsedDateTime(required=True)
     support_expires = ParsedDateTime(required=True)
 
+    class Meta:
+        render_module = orjson
+
 
 class ReleaseAPISchema(ReleaseSchema):
     support_tag = String()
 
+    class Meta:
+        render_module = orjson
+
 
 class ReleasesAPISchema(Schema):
     releases = List(Nested(ReleaseAPISchema))
+
+    class Meta:
+        render_module = orjson
 
 
 # CVEs
@@ -391,6 +417,9 @@ class Status(Schema):
     component = Component(allow_none=True)
     pocket = Pocket(allow_none=True)
 
+    class Meta:
+        render_module = orjson
+
 
 class CvePackage(Schema):
     name = String(required=True)
@@ -398,6 +427,9 @@ class CvePackage(Schema):
     ubuntu = String(required=True)
     debian = String(required=True)
     statuses = List(Nested(Status))
+
+    class Meta:
+        render_module = orjson
 
 
 class CvssV3(Schema):
@@ -414,20 +446,32 @@ class CvssV3(Schema):
     baseScore = Float(allow_none=True)
     baseSeverity = String(allow_none=True)
 
+    class Meta:
+        render_module = orjson
+
 
 class CveBaseMetric(Schema):
     cvssV3 = Nested(CvssV3)
     exploitabilityScore = Float(allow_none=True)
     impactScore = Float(allow_none=True)
 
+    class Meta:
+        render_module = orjson
+
 
 class CveImpact(Schema):
     baseMetricV3 = Nested(CveBaseMetric)
+
+    class Meta:
+        render_module = orjson
 
 
 class Note(Schema):
     author = String(required=True)
     note = String(required=True)
+
+    class Meta:
+        render_module = orjson
 
 
 class CVESchema(Schema):
@@ -456,9 +500,15 @@ class CVESchema(Schema):
         allow_none=True,
     )
 
+    class Meta:
+        render_module = orjson
+
 
 class CVEImportSchema(CVESchema):
     packages = List(Nested(CvePackage))
+
+    class Meta:
+        render_module = orjson
 
 
 class CVEAPISchema(CVESchema):
@@ -467,10 +517,16 @@ class CVEAPISchema(CVESchema):
         String(validate=Regexp(r"(USN|LSN|SSN)-\d{1,5}-\d{1,2}")),
     )
 
+    class Meta:
+        render_module = orjson
+
 
 class RelatedNoticesSchema(Schema):
     id = String()
     packages = String()
+
+    class Meta:
+        render_module = orjson
 
 
 class NoticeReleasesSchema(Schema):
@@ -478,16 +534,25 @@ class NoticeReleasesSchema(Schema):
     version = String()
     support_tag = String()
 
+    class Meta:
+        render_module = orjson
+
 
 class NoticeAPIDetailedSchema(NoticeAPISchema):
     cves = List(Nested(CVEAPISchema))
     related_notices = List(Nested(RelatedNoticesSchema))
     releases = List(Nested(NoticeReleasesSchema))
 
+    class Meta:
+        render_module = orjson
+
 
 class CVESummaryV2(Schema):
     id = String()
     notices_ids = List(String())
+
+    class Meta:
+        render_module = orjson
 
 
 class NoticeAPIDetailedSchemaV2(NoticeSchema):
@@ -497,11 +562,17 @@ class NoticeAPIDetailedSchemaV2(NoticeSchema):
     releases = List(Nested(NoticeReleasesSchema))
     related_notices = Pluck(RelatedNoticesSchema, "id", many=True)
 
+    class Meta:
+        render_module = orjson
+
 
 class PageNoticeAPISchema(NoticeSchema):
     cves_ids = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
     notice_type = String(data_key="type")
     releases = List(Nested(NoticeReleasesSchema))
+
+    class Meta:
+        render_module = orjson
 
 
 class PageNoticesAPISchema(Schema):
@@ -510,9 +581,15 @@ class PageNoticesAPISchema(Schema):
     limit = Int(allow_none=True)
     total_results = Int()
 
+    class Meta:
+        render_module = orjson
+
 
 class CVEAPIDetailedSchema(CVEAPISchema):
     notices = List(Nested(NoticeAPISchema))
+
+    class Meta:
+        render_module = orjson
 
 
 class NoticesAPISchema(Schema):
@@ -521,6 +598,9 @@ class NoticesAPISchema(Schema):
     limit = Int(allow_none=True)
     total_results = Int()
 
+    class Meta:
+        render_module = orjson
+
 
 class NoticesAPISchemaV2(Schema):
     notices = List(Nested(NoticeAPIDetailedSchemaV2))
@@ -528,12 +608,18 @@ class NoticesAPISchemaV2(Schema):
     limit = Int(allow_none=True)
     total_results = Int()
 
+    class Meta:
+        render_module = orjson
+
 
 class CVEsAPISchema(Schema):
     cves = List(Nested(CVEAPIDetailedSchema))
     offset = Int(allow_none=True)
     limit = Int(allow_none=True)
     total_results = Int()
+
+    class Meta:
+        render_module = orjson
 
 
 CVEParameter = {
@@ -625,7 +711,13 @@ CVEsParameters = {
 class MessageSchema(Schema):
     message = String()
 
+    class Meta:
+        render_module = orjson
+
 
 class MessageWithErrorsSchema(Schema):
     message = String()
     errors = String()
+
+    class Meta:
+        render_module = orjson
