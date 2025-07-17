@@ -1,7 +1,5 @@
 import dateutil.parser
 import orjson
-import json
-
 
 from marshmallow import Schema, ValidationError
 from marshmallow.fields import (
