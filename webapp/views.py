@@ -543,8 +543,9 @@ def get_notice_v2(notice_id, **kwargs):
         return {"message": f"Notice with id '{notice_id}' does not exist"}, 404
 
     schema = NoticeAPIDetailedSchemaV2
-    result = schema().dump(notice)
-    response = jsonify(result)
+    result = schema().dumps(notice)
+    response = make_response(result)
+    response.content_type = "application/json"
     response.cache_control.max_age = SIX_HOURS_IN_SECONDS
     return response
 
@@ -595,7 +596,7 @@ def get_notices_v2(**kwargs):
     ).order_by(sort_order_by(Notice.published), sort_order_by(Notice.id))
 
     schema = NoticesAPISchemaV2
-    result = schema().dump(
+    result = schema().dumps(
         {
             "notices": notices_query.offset(offset).limit(limit).all(),
             "offset": offset,
@@ -603,8 +604,11 @@ def get_notices_v2(**kwargs):
             "total_results": notices_query.count(),
         }
     )
-    response = jsonify(result)
+    response = make_response(result)
+    response.content_type = "application/json"
+    response.cache_control.public = True
     response.cache_control.max_age = TEN_MINUTES_IN_SECONDS
+
     return response
 
 
