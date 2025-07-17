@@ -60,7 +60,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
@@ -136,7 +136,7 @@ jobs:
 
       - name: Create pg_trgm extension
         run: |
-          psql -h localhost -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"     
+          PGPASSWORD=pw psql -h localhost -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"     
 
       - name: Run tests with coverage
         run: |
