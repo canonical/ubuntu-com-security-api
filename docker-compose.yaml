@@ -3,8 +3,12 @@ services:
   security_db:
     container_name: security_db
     ports: ["5432:5432"]
-    environment: [POSTGRES_HOST_AUTH_METHOD=trust]
+    environment: 
+      - POSTGRES_HOST_AUTH_METHOD=trust
+      - POSTGRES_DB=postgres
     image: postgres
     volumes:
       - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - pgdata:/var/lib/postgresql/data
+
 
