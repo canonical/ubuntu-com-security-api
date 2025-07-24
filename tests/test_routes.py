@@ -1085,6 +1085,100 @@ class TestRoutes(BaseTestCase):
             == self.models["notice"].releases[0].codename
         )
 
+    def test_flat_notices(self):
+        # Build test releases and notices
+        test_cve = make_cve("CVE-1111-0002")
+        test_release = make_release(
+            codename="test_release",
+            version="00.06",
+            name="Ubuntu Testrelease 00.06 LTS",
+        )
+        test_release2 = make_release(
+            codename="test_release2",
+            version="00.07",
+            name="Ubuntu Testrelease 00.07 LTS",
+        )
+        test_release3 = make_release(
+            codename="test_release3",
+            version="00.08",
+            name="Ubuntu Testrelease 00.08 LTS",
+        )
+        test_notice = make_notice(
+            "USN-9999-0003",
+            releases=[test_release, test_release2],
+            cves=[test_cve],
+            details="Test release details Linux-1",
+        )
+        test_notice2 = make_notice(
+            "USN-9999-0004",
+            releases=[test_release],
+            cves=[test_cve],
+            details="Test release details Linux-2",
+        )
+        test_notice3 = make_notice(
+            "USN-9999-0005",
+            releases=[test_release3],
+            cves=[test_cve],
+            details="Test release details Firefox",
+        )
+
+        self.db.session.add(test_cve)
+        self.db.session.add(test_release)
+        self.db.session.add(test_release2)
+        self.db.session.add(test_release3)
+        self.db.session.add(test_notice)
+        self.db.session.add(test_notice2)
+        self.db.session.add(test_notice3)
+
+        self.db.session.commit()
+
+        response = self.client.get("/security/flat/notices.json")
+        assert response.status_code == 200
+
+        assert response.json["total_results"] == 4
+
+        expected_ids_base = {
+            "USN-9999-0005",
+            "USN-9999-0004",
+            "USN-9999-0003",
+            "USN-1111-01",
+        }
+
+        for notice in response.json["notices"]:
+            notice_id = notice.get("id")
+            assert notice_id in expected_ids_base, (
+                f"Unexpected notice ID in response: '{notice_id}'\n"
+                f"Expected one of: {expected_ids_base}"
+            )
+
+        # Test details query parameter
+        response_details = self.client.get(
+            ("/security/flat/notices.json?details=linux")
+        )
+
+        assert response_details.status_code == 200
+
+        expected_ids_details = {
+            "USN-9999-0004",
+            "USN-9999-0003",
+        }
+
+        for notice in response_details.json["notices"]:
+            notice_id = notice.get("id")
+            assert notice_id in expected_ids_details, (
+                f"Unexpected notice ID in response: '{notice_id}'\n"
+                f"Expected one of: {expected_ids_details}"
+            )
+        assert response_details.json["total_results"] == 2
+
+        # Test releases query parameter
+        response_releases = self.client.get(
+            ("/security/flat/notices.json?release=test_release2")
+        )
+        assert response_releases.status_code == 200
+        assert response_releases.json["total_results"] == 1
+        assert response_releases.json["notices"][0]["id"] == "USN-9999-0003"
+
     def test_page_usns_multiple_releases_filter(self):
         # Build test releases and notices
         test_cve = make_cve("CVE-1111-0002")

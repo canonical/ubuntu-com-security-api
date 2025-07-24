@@ -42,6 +42,8 @@ from webapp.schemas import (
     NoticesParameters,
     PageNoticesParameters,
     PageNoticesAPISchema,
+    FlatNoticesAPISchema,
+    FlatNoticesParameters,
     ReleaseAPISchema,
     ReleasesAPISchema,
     ReleaseSchema,
@@ -630,6 +632,53 @@ def get_page_notices(**kwargs):
 
     if cve_id:
         notices_query = notices_query.filter(Notice.cves.any(CVE.id == cve_id))
+
+    if releases:
+        notices_query = notices_query.join(Release, Notice.releases).filter(
+            Release.codename.in_(releases)
+        )
+
+    if details:
+        notices_query = notices_query.filter(
+            or_(
+                Notice.id.ilike(f"%{details}%"),
+                Notice.details.ilike(f"%{details}%"),
+                Notice.title.ilike(f"%{details}%"),
+            )
+        )
+
+    sort = asc if order_by == "oldest" else desc
+
+    notices = (
+        notices_query.options(selectinload(Notice.releases))
+        .order_by(sort(Notice.published), sort(Notice.id))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "notices": notices,
+        "offset": offset,
+        "limit": limit,
+        "total_results": notices_query.count(),
+    }
+
+
+@marshal_with(FlatNoticesAPISchema, code=200)
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(FlatNoticesParameters, location="query")
+def get_flat_notices(**kwargs):
+    details: Optional[str] = kwargs.get("details")
+    releases: Optional[List[str]] = kwargs.get("release")
+    limit: int = kwargs.get("limit", 10)
+    offset: int = kwargs.get("offset", 0)
+    order_by: Optional[str] = kwargs.get("order")
+
+    notices_query: Query = db.session.query(Notice)
+
+    # Filter out hidden notices by default
+    notices_query = notices_query.filter(Notice.is_hidden.is_(False))
 
     if releases:
         notices_query = notices_query.join(Release, Notice.releases).filter(
