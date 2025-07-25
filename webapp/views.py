@@ -693,7 +693,9 @@ def get_flat_notices(**kwargs):
                 Notice.title.ilike(f"%{details}%"),
             )
         )
-
+        
+    # Determine sort order based on user input
+    # default to 'oldest' if not specified
     sort = asc if order_by == "oldest" else desc
 
     notices = (
