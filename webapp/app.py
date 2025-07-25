@@ -22,6 +22,7 @@ from webapp.views import (
     get_notice_v2,
     get_notices_v2,
     get_page_notices,
+    get_flat_notices,
     get_release,
     get_releases,
     update_notice,
@@ -92,6 +93,12 @@ app.add_url_rule(
 app.add_url_rule(
     "/security/page/notices.json",
     view_func=get_page_notices,
+    provide_automatic_options=False,
+)
+
+app.add_url_rule(
+    "/security/flat/notices.json",
+    view_func=get_flat_notices,
     provide_automatic_options=False,
 )
 

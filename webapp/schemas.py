@@ -363,6 +363,43 @@ PageNoticesParameters = {
     ),
 }
 
+FlatNoticesParameters = {
+    "details": String(
+        description=(
+            "Any string - Selects notices that have either "
+            "id, details or cves.id matching it."
+        ),
+        allow_none=True,
+    ),
+    "release": List(
+        String(),
+        description="List of release codenames ",
+        allow_none=True,
+    ),
+    "limit": Int(
+        validate=Range(min=1, max=20),
+        description="Number of Notices per response."
+        "Defaults to `10`. Max `20`.",
+        allow_none=True,
+        load_default=10,
+    ),
+    "offset": Int(
+        description="Number of Notices to omit from response."
+        "Defaults to `0`.",
+        allow_none=True,
+        load_default=0,
+    ),
+    "order": String(
+        validate=lambda x: x in ["oldest", "newest"],
+        description=(
+            "Select order: choose `oldest` for ASC order; "
+            "`newest` for DESC order. Default is `newest`."
+        ),
+        load_default="newest",
+        allow_none=True,
+    ),
+}
+
 
 # Release
 # --
@@ -577,6 +614,30 @@ class PageNoticeAPISchema(NoticeSchema):
 
 class PageNoticesAPISchema(Schema):
     notices = List(Nested(PageNoticeAPISchema))
+    offset = Int(allow_none=True)
+    limit = Int(allow_none=True)
+    total_results = Int()
+
+    class Meta:
+        render_module = orjson
+
+
+class FlatNoticeSchema(Schema):
+    id = String(
+        required=True,
+        validate=Regexp(r"(USN|LSN|SSN)-\d{1,5}-\d{1,2}"),
+    )
+    title = String(required=True)
+    published = ParsedDateTime(required=True)
+    details = String(allow_none=True, data_key="description")
+    cves_ids = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
+
+    class Meta:
+        render_module = orjson
+
+
+class FlatNoticesAPISchema(NoticeSchema):
+    notices = List(Nested(FlatNoticeSchema))
     offset = Int(allow_none=True)
     limit = Int(allow_none=True)
     total_results = Int()
