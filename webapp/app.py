@@ -179,6 +179,7 @@ views_to_register_in_docs = [
     bulk_upsert_cve,
     delete_cve,
     get_page_notices,
+    get_flat_notices,
     get_notice,
     get_notices,
     get_notice_v2,
