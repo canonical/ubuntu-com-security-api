@@ -31,20 +31,46 @@ args = parser.parse_args()
 notice_endpoint = f"{args.host}/security/updates/authtest.json"
 
 client = httpbakery.Client(cookies=MozillaCookieJar(".login"))
+if args.auth == "oauth":
+    # For OAuth, make an initial request to get the authorization URL
+    print("Initiating OAuth flow...")
 
-if args.auth != "oauth":
+    try:
+        with open(args.file_path) as json_file:
+            response = client.request(
+                "PUT",
+                url=notice_endpoint,
+                json=json.load(json_file),
+            )
+
+        print(f"Response: {response}")
+        print(f"Response text: {response.text}")
+
+        if response.status_code == 302:
+            print("\n🔗 Please visit this URL to authorize the application:")
+            print(f"   {response.text}")
+            print(
+                "\nAfter authorization, the script will continue automatically.",
+            )
+        else:
+            print(f"Unexpected response code: {response.status_code}")
+
+    except Exception as e:
+        print(f"OAuth flow error: {e}")
+else:
+    # Non-OAuth authentication (jujucharms)
     if os.path.exists(client.cookies.filename):
         client.cookies.load(ignore_discard=True)
     # Make a first call to make sure we are logged in
     response = client.request("PUT", url=notice_endpoint)
     client.cookies.save(ignore_discard=True)
 
-# Post the stuff
-with open(args.file_path) as json_file:
-    response = client.request(
-        "PUT",
-        url=notice_endpoint,
-        json=json.load(json_file),
-    )
+    # Post the stuff
+    with open(args.file_path) as json_file:
+        response = client.request(
+            "PUT",
+            url=notice_endpoint,
+            json=json.load(json_file),
+        )
 
-print(response, response.text)
+    print(response, response.text)
