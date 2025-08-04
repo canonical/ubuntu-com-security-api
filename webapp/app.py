@@ -20,13 +20,13 @@ from webapp.views import (
     get_released_cves,
     get_sitemap_cves,
     get_notice,
-    get_notices,
     get_notice_v2,
+    get_notices,
     get_notices_v2,
     get_page_notices,
-    get_flat_notices,
     get_release,
     get_releases,
+    test_authorization_required,
     update_notice,
     update_release,
 )
@@ -76,7 +76,7 @@ app.config.update(
         "APISPEC_SWAGGER_UI_URL": "/security/api/docs",
         "SQLALCHEMY_DATABASE_URI": os.environ["DATABASE_URL"],
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
-    }
+    },
 )
 
 init_db(app)
@@ -212,6 +212,13 @@ app.add_url_rule(
     "/security/updates/releases/<release_codename>.json",
     view_func=delete_release,
     methods=["DELETE"],
+    provide_automatic_options=False,
+)
+## Remove after PR
+app.add_url_rule(
+    "/security/updates/authtest.json",
+    view_func=test_authorization_required,
+    methods=["PUT"],
     provide_automatic_options=False,
 )
 
