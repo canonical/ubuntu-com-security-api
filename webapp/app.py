@@ -214,7 +214,7 @@ app.add_url_rule(
     methods=["DELETE"],
     provide_automatic_options=False,
 )
-## Remove after PR
+# Remove after PR
 app.add_url_rule(
     "/security/updates/authtest.json",
     view_func=test_authorization_required,
