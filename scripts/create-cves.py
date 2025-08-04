@@ -28,7 +28,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-notice_endpoint = f"{args.host}/security/updates/oauth/cves.json"
+notice_endpoint = f"{args.host}/security/updates/authtest.json"
 
 client = httpbakery.Client(cookies=MozillaCookieJar(".login"))
 
