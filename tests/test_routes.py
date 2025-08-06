@@ -906,6 +906,138 @@ class TestRoutes(BaseTestCase):
             < sorted_cves2_asc["cves"][2]["updated_at"]
         )
 
+    def test_released_cves_endpoint(self):
+        """
+        Tests that /security/released/cves.json:
+        - returns successfully
+        - returns only released CVEs with an active status
+        - allows filtering by package and version
+        """
+
+        # Add releases because the DB only
+        # includes 1 release upon initialization
+        add_release_response = self.client.post(
+            "/security/updates/releases.json", json=payloads.release
+        )
+        add_release2_response = self.client.post(
+            "/security/updates/releases.json", json=payloads.release2
+        )
+        add_release3_response = self.client.post(
+            "/security/updates/releases.json", json=payloads.release3
+        )
+
+        assert add_release_response.status_code == 200
+        assert add_release2_response.status_code == 200
+        assert add_release3_response.status_code == 200
+
+        # Add cves with different statuses because the
+        # DB only includes 1 cve upon initialization
+        add_cves_response = self.client.put(
+            "/security/updates/cves.json",
+            json=[
+                payloads.cve2,
+                payloads.cve3,
+                payloads.cve4,
+                payloads.cve5,
+                payloads.cve6,
+                payloads.cve7,
+                payloads.cve8,
+            ],
+        )
+        assert add_cves_response.status_code == 200
+
+        cves_response = self.client.get("/security/released/cves.json")
+        # Check that the response is successful
+        assert cves_response.status_code == 200
+
+        returned_cve_ids = {cve["id"] for cve in cves_response.json["cves"]}
+
+        expected_cve_ids = {
+            "CVE-9999-0002",  # released in 'realtime'
+            "CVE-9999-0003",  # released in 'esm-infra-legacy'
+            "CVE-9999-0004",  # released (standard)
+            "CVE-9999-0005",  # released in 'testrelease3'
+            "CVE-9999-0006",  # released in 'testrelease2'
+        }
+
+        # Check for unexpected IDs in the response
+        for cve_id in returned_cve_ids:
+            assert cve_id in expected_cve_ids, (
+                f"Unexpected CVE ID in response: '{cve_id}'\n"
+                f"Expected one of: {sorted(expected_cve_ids)}"
+            )
+
+        # Check for missing expected IDs
+        for expected_id in expected_cve_ids:
+            assert expected_id in returned_cve_ids, (
+                f"Expected CVE ID not found in response: '{expected_id}'\n"
+                f"Returned CVEs: {sorted(returned_cve_ids)}"
+            )
+
+        # Confirm that only CVEs with an active status are returned
+        # CVE with id CVE-9999-0001 should not be present
+        assert not any(
+            cve["id"] == "CVE-9999-0001" for cve in cves_response.json["cves"]
+        ), "Inactive CVE ID 'CVE-9999-0001' found in response."
+
+        # Test filtering by package
+        filtered_cves_response_package = self.client.get(
+            "/security/released/cves.json?package=test_package_3"
+        )
+
+        # Expected CVE IDs for package=test_package_3
+        expected_package_cve_ids = {
+            "CVE-9999-0004",
+            "CVE-9999-0005",
+            "CVE-9999-0006",
+        }
+
+        returned_package_cve_ids = {
+            cve["id"] for cve in filtered_cves_response_package.json["cves"]
+        }
+
+        assert returned_package_cve_ids == expected_package_cve_ids, (
+            "Filtered CVEs by package returned unexpected results.\n"
+            f"Expected: {expected_package_cve_ids}\n"
+            f"Got: {returned_package_cve_ids}"
+        )
+
+        # Test filtering by version
+        filtered_cves_response_version = self.client.get(
+            "/security/released/cves.json?version=testrelease2"
+        )
+
+        expected_version_cve_ids = {"CVE-9999-0006"}
+
+        returned_version_cve_ids = {
+            cve["id"] for cve in filtered_cves_response_version.json["cves"]
+        }
+
+        assert returned_version_cve_ids == expected_version_cve_ids, (
+            "Filtered CVEs by version returned unexpected results.\n"
+            f"Expected: {expected_version_cve_ids}\n"
+            f"Got: {returned_version_cve_ids}"
+        )
+
+        # Test filtering by version(exact match) and package(fuzzy match)
+        filtered_cves_response_version_package = self.client.get(
+            "/security/released/cves.json?version=testrelease&package=sql"
+        )
+
+        expected_version_package_ids = {"CVE-9999-0002", "CVE-9999-0003"}
+
+        returned_version_package_ids = {
+            cve["id"]
+            for cve in filtered_cves_response_version_package.json["cves"]
+        }
+
+        assert returned_version_package_ids == expected_version_package_ids, (
+            "Filtered CVEs by version and package returned unexpected "
+            "results.\n"
+            f"Expected: {expected_version_package_ids}\n"
+            f"Got: {returned_version_package_ids}"
+        )
+
     def test_bulk_upsert_cves_returns_422_for_invalid_cve(self):
         cve = payloads.cve1.copy()
         cve["hello"] = "world"
