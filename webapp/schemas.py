@@ -592,6 +592,35 @@ class CVESummaryV2(Schema):
         render_module = orjson
 
 
+class ReleasedCVEAPISchema(Schema):
+    id = String(required=True)
+    description = String(allow_none=True)
+    codename = String(allow_none=True)
+    priority = String(allow_none=True)
+    published = ParsedDateTime(allow_none=True)
+    updated_at = ParsedDateTime(allow_none=True)
+    references = List(String())
+    bugs = List(String())
+    patches = Dict(
+        keys=String(),
+        values=List(String(), required=False),
+        allow_none=True,
+    )
+
+    class Meta:
+        render_module = orjson
+
+
+class ReleasedCVEsAPISchema(CVESchema):
+    cves = List(Nested(ReleasedCVEAPISchema))
+    offset = Int(allow_none=True)
+    limit = Int(allow_none=True)
+    total_results = Int()
+
+    class Meta:
+        render_module = orjson
+
+
 class NoticeAPIDetailedSchemaV2(NoticeSchema):
     notice_type = String(data_key="type")
     cves = List(Nested(CVESummaryV2))
@@ -765,6 +794,32 @@ CVEsParameters = {
             "Default is False."
         ),
         allow_none=True,
+    ),
+}
+
+ReleasedCVEsParameters = {
+    "package": String(description="Package name", allow_none=True),
+    "limit": Int(
+        validate=Range(min=1, max=20),
+        description="Number of CVEs per response. Defaults to 10. Max 20.",
+        allow_none=True,
+    ),
+    "offset": Int(
+        description="Number of CVEs to omit from response. Defaults to 0.",
+        allow_none=True,
+    ),
+    "version": List(
+        String(),
+        description="List of release codenames ",
+        allow_none=True,
+    ),
+    "order": String(
+        load_default="descending",
+        enum=["oldest, descending, ascending"],
+        description=(
+            "Select `ascending` or `oldest` (depreciated) for ASC order;"
+            "leave empty for descending order"
+        ),
     ),
 }
 
