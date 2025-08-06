@@ -126,18 +126,6 @@ def get_cves(**kwargs):
         cves_query = cves_query.filter(CVE.priority.in_(priorities))
 
     if query:
-        # Notes subfields are queried via raw SQL because
-        # json_array_elements() is not supported by SQLAlchemy
-        notes_filter = text(
-            """
-            EXISTS (
-                SELECT 1 FROM json_array_elements(notes) AS note
-                WHERE note->>'note' ILIKE :query
-                OR note->>'author' ILIKE :query
-            )
-        """
-        ).params(query=f"%{query}%")
-
         lowered_query = f"%{query.lower()}%"
         cves_query = cves_query.filter(
             or_(
@@ -146,7 +134,6 @@ def get_cves(**kwargs):
                 func.lower(CVE.ubuntu_description).like(lowered_query),
                 func.lower(CVE.codename).like(lowered_query),
                 func.lower(CVE.mitigation).like(lowered_query),
-                notes_filter,
             )
         )
 
