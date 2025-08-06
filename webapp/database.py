@@ -43,3 +43,8 @@ def init_db(app):
         # log the error:
         app.logger.error(error)
         db.session.rollback()
+
+    @app.errorhandler(exc.SQLAlchemyError)
+    def rollback_failed_transactoins(error):
+        app.logger.error(error)
+        db.session.rollback()
