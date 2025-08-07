@@ -11,7 +11,7 @@ from flask import (
     stream_with_context,
 )
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import asc, case, desc, func, or_, text
+from sqlalchemy import asc, case, desc, func, or_
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Query, load_only, selectinload, aliased
 from webapp.auth import authorization_required
@@ -126,18 +126,6 @@ def get_cves(**kwargs):
         cves_query = cves_query.filter(CVE.priority.in_(priorities))
 
     if query:
-        # Notes subfields are queried via raw SQL because
-        # json_array_elements() is not supported by SQLAlchemy
-        notes_filter = text(
-            """
-            EXISTS (
-                SELECT 1 FROM json_array_elements(notes) AS note
-                WHERE note->>'note' ILIKE :query
-                OR note->>'author' ILIKE :query
-            )
-        """
-        ).params(query=f"%{query}%")
-
         lowered_query = f"%{query.lower()}%"
         cves_query = cves_query.filter(
             or_(
@@ -146,7 +134,6 @@ def get_cves(**kwargs):
                 func.lower(CVE.ubuntu_description).like(lowered_query),
                 func.lower(CVE.codename).like(lowered_query),
                 func.lower(CVE.mitigation).like(lowered_query),
-                notes_filter,
             )
         )
 
