@@ -18,6 +18,7 @@ from webapp.views import (
     get_cve,
     get_cves,
     get_released_cves,
+    get_sitemap_cves,
     get_notice,
     get_notices,
     get_notice_v2,
@@ -97,6 +98,12 @@ app.add_url_rule(
 app.add_url_rule(
     "/security/released/cves.json",
     view_func=get_released_cves,
+    provide_automatic_options=False,
+)
+
+app.add_url_rule(
+    "/security/sitemap/cves.json",
+    view_func=get_sitemap_cves,
     provide_automatic_options=False,
 )
 

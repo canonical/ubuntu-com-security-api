@@ -1037,6 +1037,15 @@ class TestRoutes(BaseTestCase):
             f"Expected: {expected_version_package_ids}\n"
             f"Got: {returned_version_package_ids}"
         )
+        
+    def test_sitemap_cves(self):
+        response = self.client.get("/security/sitemap/cves.json")
+
+        assert response.status_code == 200
+        # Check that the response includes id and publish date
+        cves = response.json["cves"]
+        for cve in cves:
+            assert set(cve.keys()) == {"id", "published"}
 
     def test_bulk_upsert_cves_returns_422_for_invalid_cve(self):
         cve = payloads.cve1.copy()

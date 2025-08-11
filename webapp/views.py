@@ -33,6 +33,8 @@ from webapp.schemas import (
     CVEsParameters,
     ReleasedCVEsAPISchema,
     ReleasedCVEsParameters,
+    SitemapCVEsAPISchema,
+    CVESitemapParameters,
     MessageSchema,
     MessageWithErrorsSchema,
     NoticeAPIDetailedSchema,
@@ -768,6 +770,40 @@ def get_flat_notices(**kwargs):
         "offset": offset,
         "limit": limit,
         "total_results": notices_query.count(),
+    }
+
+
+@marshal_with(SitemapCVEsAPISchema, code=200)
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(CVESitemapParameters, location="query")
+def get_sitemap_cves(**kwargs):
+    limit: int = kwargs.get("limit", 20)
+    offset: int = kwargs.get("offset", 0)
+
+    base_filter = CVE.status == "active"
+
+    total_results = (
+        db.session.query(func.count())
+        .select_from(CVE)
+        .filter(base_filter)
+        .scalar()
+    )
+
+    cves = (
+        db.session.query(CVE)
+        .options(load_only(CVE.id, CVE.published))  # hydrate only these two
+        .filter(base_filter)
+        .order_by(CVE.published.desc().nullslast(), CVE.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "cves": cves,
+        "offset": offset,
+        "limit": limit,
+        "total_results": total_results,
     }
 
 
