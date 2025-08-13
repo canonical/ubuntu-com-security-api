@@ -11,7 +11,7 @@ from flask import (
     stream_with_context,
 )
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import asc, case, desc, func, or_
+from sqlalchemy import asc, case, desc, func, or_, distinct
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Query, load_only, selectinload, aliased
 from webapp.auth import authorization_required
@@ -31,6 +31,8 @@ from webapp.schemas import (
     CVEParameter,
     CVEsAPISchema,
     CVEsParameters,
+    ReleasedCVEsAPISchema,
+    ReleasedCVEsParameters,
     MessageSchema,
     MessageWithErrorsSchema,
     NoticeAPIDetailedSchema,
@@ -219,6 +221,74 @@ def get_cves(**kwargs):
             "offset": offset,
             "limit": limit,
             "total_results": pagination.total,
+        }
+    )
+
+    response = jsonify(result)
+    response.cache_control.max_age = TEN_MINUTES_IN_SECONDS
+    return response
+
+
+@marshal_with(ReleasedCVEsAPISchema, code=200)
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(ReleasedCVEsParameters, location="query")
+def get_released_cves(**kwargs):
+    package: Optional[str] = kwargs.get("package")
+    limit: int = kwargs.get("limit", 10)
+    offset: int = kwargs.get("offset", 0)
+    versions: Optional[List[str]] = kwargs.get("version")
+
+    # Base status query for released statuses
+    status_query = db.session.query(Status.cve_id).filter(
+        Status.status == "released"
+    )
+
+    if versions:
+        status_query = status_query.filter(
+            Status.release_codename.in_(versions)
+        )
+
+    if package:
+        lowered_package = f"%{package.lower()}%"
+        status_query = status_query.filter(
+            func.lower(Status.package_name).like(lowered_package)
+        )
+
+    # Subquery of released CVE IDs with optional filters
+    released_cve_ids_subquery = status_query.distinct().subquery()
+
+    # Main query: CVEs that are active and have a released status
+    cve_query = (
+        db.session.query(CVE)
+        .join(
+            released_cve_ids_subquery,
+            CVE.id == released_cve_ids_subquery.c.cve_id,
+        )
+        .filter(CVE.status == "active")
+        .order_by(CVE.published.desc().nullslast())
+        .offset(offset)
+        .limit(limit)
+    )
+
+    cves = cve_query.all()
+
+    # Count distinct active CVEs with released statuses
+    total_results = (
+        db.session.query(func.count(distinct(CVE.id)))
+        .join(
+            released_cve_ids_subquery,
+            CVE.id == released_cve_ids_subquery.c.cve_id,
+        )
+        .filter(CVE.status == "active")
+        .scalar()
+    )
+
+    result = ReleasedCVEsAPISchema().dump(
+        {
+            "cves": cves,
+            "offset": offset,
+            "limit": limit,
+            "total_results": total_results,
         }
     )
 
