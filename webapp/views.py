@@ -799,12 +799,19 @@ def get_sitemap_cves(**kwargs):
         .all()
     )
 
-    return {
-        "cves": cves,
-        "offset": offset,
-        "limit": limit,
-        "total_results": total_results,
-    }
+    result = SitemapCVEsAPISchema().dump(
+        {
+            "cves": cves,
+            "offset": offset,
+            "limit": limit,
+            "total_results": total_results,
+        }
+    )
+
+    response = jsonify(result)
+    response.cache_control.public = True
+    response.cache_control.max_age = 43200
+    return response
 
 
 @authorization_required
