@@ -11,7 +11,7 @@ from flask import (
     stream_with_context,
 )
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import asc, case, desc, func, or_, text, distinct
+from sqlalchemy import asc, case, desc, func, or_, distinct
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Query, load_only, selectinload, aliased
 from webapp.auth import authorization_required
