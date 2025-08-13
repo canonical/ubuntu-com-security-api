@@ -1037,7 +1037,7 @@ class TestRoutes(BaseTestCase):
             f"Expected: {expected_version_package_ids}\n"
             f"Got: {returned_version_package_ids}"
         )
-        
+
     def test_sitemap_cves(self):
         response = self.client.get("/security/sitemap/cves.json")
 
