@@ -75,7 +75,10 @@ app.config.update(
         ),
         "APISPEC_SWAGGER_URL": "/security/api/spec.json",
         "APISPEC_SWAGGER_UI_URL": "/security/api/docs",
-        "SQLALCHEMY_DATABASE_URI": os.environ["DATABASE_URL"],
+        "SQLALCHEMY_DATABASE_URI": os.environ.get(
+            "POSTGRESQL_DB_CONNECT_STRING",
+            os.environ.get("DATABASE_URL", "sqlite:///security.db"),
+        ),
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
     },
 )
