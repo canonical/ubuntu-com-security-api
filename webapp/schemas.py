@@ -667,7 +667,7 @@ class SitemapsCVESchema(Schema):
         render_module = orjson
 
 
-class SitemapCVEsAPISchema(CVESchema):
+class SitemapCVEsAPISchema(Schema):
     cves = List(Nested(SitemapsCVESchema))
     offset = Int(allow_none=True)
     limit = Int(allow_none=True)
