@@ -1,0 +1,66 @@
+name: ubuntu-com-security-api
+# see https://documentation.ubuntu.com/rockcraft/en/1.13.0/explanation/bases/
+# for more information about bases and using 'bare' bases for chiselled rocks
+base: ubuntu@22.04 # the base environment for this Flask application
+version: "0.1" # just for humans. Semantic versioning is recommended
+summary: ubuntu-com-security-api
+description: |
+  API functions under ubuntu.com for querying CVEs and security notices.
+
+platforms:
+  amd64:
+
+
+# to ensure the flask-framework extension works properly, your Flask application
+# should have an `app.py` file with an `app` object as the WSGI entrypoint.
+# a `requirements.txt` file with at least the flask package should also exist.
+# see https://documentation.ubuntu.com/rockcraft/en/1.13.0/reference/extensions/flask-framework
+# for more information.
+extensions:
+  - flask-framework
+  
+parts:  # you need to uncomment this line to add or update any part.
+  flask-framework/install-app:
+    prime:
+      # by default, only the files in app/, templates/, static/, migrate, migrate.sh,
+      # migrate.py and app.py are copied into the image. You can modify the list
+      # below to override the default list and include or exclude specific
+      # files/directories in your project.
+      # note: prefix each entry with "flask/app/" followed by the local path.
+      - flask/app/.env
+      - flask/app/app.py
+      - flask/app/webapp
+      - flask/app/templates
+      - flask/app/migrate.sh
+      - flask/app/migrations
+
+
+
+# you may need Ubuntu packages to build a python dependency. Add them here if necessary.
+#   flask-framework/dependencies:
+#     build-packages:
+#       # for example, if you need pkg-config and libxmlsec1-dev to build one
+#       # of your packages:
+#       - pkg-config
+#       - libxmlsec1-dev
+
+# you can add package slices or Debian packages to the image.
+# package slices are subsets of Debian packages, which result
+# in smaller and more secure images.
+# see https://documentation.ubuntu.com/rockcraft/en/1.13.0/explanation/chisel/
+
+# add this part if you want to add packages slices to your image.
+# you can find a list of packages slices at https://github.com/canonical/chisel-releases
+#   runtime-slices:
+#     plugin: nil
+#     stage-packages:
+#       # list the required package slices for your flask application below.
+#       # for example, for the slice libs of libpq5:
+#       - libpq5_libs
+
+# if you want to add a Debian package to your image, add the next part
+#   runtime-debs:
+#     plugin: nil
+#     stage-packages:
+#       # list required Debian packages for your flask application below.
+#       - libpq5
