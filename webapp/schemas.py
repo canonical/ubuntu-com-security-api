@@ -642,6 +642,8 @@ class PageNoticeAPISchema(Schema):
     summary = String(required=True)
     notice_type = String(data_key="type")
     releases = List(Nested(NoticeReleasesSchema))
+    title = String(required=True)
+    details = String(allow_none=True, data_key="description")
 
     class Meta:
         render_module = orjson
