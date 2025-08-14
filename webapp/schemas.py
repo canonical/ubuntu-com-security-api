@@ -632,10 +632,18 @@ class NoticeAPIDetailedSchemaV2(NoticeSchema):
         render_module = orjson
 
 
-class PageNoticeAPISchema(NoticeSchema):
+class PageNoticeAPISchema(Schema):
+    id = String(
+        required=True,
+        validate=Regexp(r"(USN|LSN|SSN)-\d{1,5}-\d{1,2}"),
+    )
     cves_ids = List(String(validate=Regexp(r"(cve-|CVE-)\d{4}-\d{4,7}")))
+    published = ParsedDateTime(required=True)
+    summary = String(required=True)
     notice_type = String(data_key="type")
     releases = List(Nested(NoticeReleasesSchema))
+    title = String(required=True)
+    details = String(allow_none=True, data_key="description")
 
     class Meta:
         render_module = orjson
@@ -665,7 +673,7 @@ class FlatNoticeSchema(Schema):
         render_module = orjson
 
 
-class FlatNoticesAPISchema(NoticeSchema):
+class FlatNoticesAPISchema(Schema):
     notices = List(Nested(FlatNoticeSchema))
     offset = Int(allow_none=True)
     limit = Int(allow_none=True)
