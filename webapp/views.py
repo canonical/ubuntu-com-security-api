@@ -11,9 +11,10 @@ from flask import (
     stream_with_context,
 )
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import asc, case, desc, func, or_, distinct
+from sqlalchemy import asc, case, desc, distinct, func, or_
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import Query, load_only, selectinload, aliased
+from sqlalchemy.orm import Query, aliased, load_only, selectinload
+
 from webapp.auth import authorization_required
 from webapp.database import db
 from webapp.models import (
@@ -30,11 +31,10 @@ from webapp.schemas import (
     CVEImportSchema,
     CVEParameter,
     CVEsAPISchema,
-    CVEsParameters,
-    ReleasedCVEsAPISchema,
-    ReleasedCVEsParameters,
-    SitemapCVEsAPISchema,
     CVESitemapParameters,
+    CVEsParameters,
+    FlatNoticesAPISchema,
+    FlatNoticesParameters,
     MessageSchema,
     MessageWithErrorsSchema,
     NoticeAPIDetailedSchema,
@@ -44,13 +44,14 @@ from webapp.schemas import (
     NoticesAPISchema,
     NoticesAPISchemaV2,
     NoticesParameters,
-    PageNoticesParameters,
     PageNoticesAPISchema,
-    FlatNoticesAPISchema,
-    FlatNoticesParameters,
+    PageNoticesParameters,
     ReleaseAPISchema,
+    ReleasedCVEsAPISchema,
+    ReleasedCVEsParameters,
     ReleasesAPISchema,
     ReleaseSchema,
+    SitemapCVEsAPISchema,
     UpdateReleaseSchema,
 )
 from webapp.utils import stream_notices

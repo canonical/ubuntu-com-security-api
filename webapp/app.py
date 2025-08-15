@@ -17,14 +17,14 @@ from webapp.views import (
     delete_release,
     get_cve,
     get_cves,
+    get_flat_notices,
     get_released_cves,
     get_sitemap_cves,
     get_notice,
-    get_notices,
     get_notice_v2,
+    get_notices,
     get_notices_v2,
     get_page_notices,
-    get_flat_notices,
     get_release,
     get_releases,
     update_notice,
@@ -76,7 +76,7 @@ app.config.update(
         "APISPEC_SWAGGER_UI_URL": "/security/api/docs",
         "SQLALCHEMY_DATABASE_URI": os.environ["DATABASE_URL"],
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
-    }
+    },
 )
 
 init_db(app)
