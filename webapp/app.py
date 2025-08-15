@@ -26,7 +26,6 @@ from webapp.views import (
     get_page_notices,
     get_release,
     get_releases,
-    test_authorization_required,
     update_notice,
     update_release,
 )
@@ -212,13 +211,6 @@ app.add_url_rule(
     "/security/updates/releases/<release_codename>.json",
     view_func=delete_release,
     methods=["DELETE"],
-    provide_automatic_options=False,
-)
-# Remove after PR
-app.add_url_rule(
-    "/security/updates/authtest.json",
-    view_func=test_authorization_required,
-    methods=["PUT"],
     provide_automatic_options=False,
 )
 

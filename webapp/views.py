@@ -992,14 +992,6 @@ def delete_release(release_codename):
     )
 
 
-# Remove after PR review
-@oauth_authorization_required
-def test_authorization_required():
-    """Test method for auth."""
-    print("Authorization test function called.")
-    return "This is a test function for authorization_required decorator.", 200
-
-
 def _sort_by_priority(cves_query):
     priority_list = [
         "critical",
