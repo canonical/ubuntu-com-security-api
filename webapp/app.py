@@ -17,6 +17,7 @@ from webapp.views import (
     delete_release,
     get_cve,
     get_cves,
+    get_flat_notices,
     get_released_cves,
     get_sitemap_cves,
     get_notice,
