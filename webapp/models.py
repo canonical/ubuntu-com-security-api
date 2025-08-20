@@ -16,7 +16,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, deferred
 
 from webapp.database import db
 from webapp.types import (
@@ -171,7 +171,7 @@ class Notice(db.Model):
     summary = Column(String)
     details = Column(String)
     instructions = Column(String)
-    release_packages = Column(JSON)
+    release_packages = deferred(Column(JSON))
     cves = relationship("CVE", secondary=notice_cves, back_populates="notices")
     references = Column(JSON)
     is_hidden = Column(Boolean, nullable=False)

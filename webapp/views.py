@@ -630,14 +630,17 @@ def get_notices_v2(**kwargs):
 
     sort_order_by = asc if order_by == "oldest" else desc
 
+    # Exclude hidden notices unless explicitly requested
     if not show_hidden:
-        notices_query = notices_query.filter(Notice.is_hidden == "False")
+        notices_query = notices_query.filter(Notice.is_hidden.is_(False))
 
+    # Filter by release codename via many-to-many join
     if release:
         notices_query = notices_query.join(Release, Notice.releases).filter(
             Release.codename == release
         )
 
+    # Apply fuzzy search across notice ID, title, and details
     if details:
         notices_query = notices_query.filter(
             or_(
@@ -647,25 +650,47 @@ def get_notices_v2(**kwargs):
             )
         )
 
+    # Merge cve_id into the list of CVEs to filter by
     if cve_id:
         cves.append(cve_id)
 
+    # Filter notices that are linked to any of the given CVE IDs
     if cves:
         notices_query = notices_query.filter(Notice.cves.any(CVE.id.in_(cves)))
 
+    # Count total matching results before pagination
+    total_results = notices_query.count()
+
+    # Optimize the query:
+    # - Only select necessary scalar fields
+    # - Eager load related CVEs (and their notices for related_notices)
+    # - Eager load related releases
+    # - Apply final sort order
     notices_query = notices_query.options(
-        selectinload(Notice.cves), selectinload(Notice.releases)
+        load_only(
+            Notice.id,
+            Notice.title,
+            Notice.details,
+            Notice.published,
+            Notice.is_hidden,
+        ),
+        selectinload(Notice.cves).selectinload(CVE.notices),
+        selectinload(Notice.releases),
     ).order_by(sort_order_by(Notice.published), sort_order_by(Notice.id))
+
+    # Fetch final paginated results
+    notices: List[Notice] = notices_query.offset(offset).limit(limit).all()
 
     schema = NoticesAPISchemaV2
     result = schema().dumps(
         {
-            "notices": notices_query.offset(offset).limit(limit).all(),
+            "notices": notices,
             "offset": offset,
             "limit": limit,
-            "total_results": notices_query.count(),
+            "total_results": total_results,
         }
     )
+
     response = make_response(result)
     response.content_type = "application/json"
     response.cache_control.public = True
