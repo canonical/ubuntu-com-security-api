@@ -20,6 +20,7 @@ from webapp.views import (
     get_flat_notices,
     get_released_cves,
     get_sitemap_cves,
+    get_sitemap_notices,
     get_notice,
     get_notice_v2,
     get_notices,
@@ -104,6 +105,12 @@ app.add_url_rule(
 app.add_url_rule(
     "/security/sitemap/cves.json",
     view_func=get_sitemap_cves,
+    provide_automatic_options=False,
+)
+
+app.add_url_rule(
+    "/security/sitemap/notices.json",
+    view_func=get_sitemap_notices,
     provide_automatic_options=False,
 )
 
