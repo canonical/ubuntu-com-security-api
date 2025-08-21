@@ -67,8 +67,8 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  key: database_url
-                  name: usn-db-url
+                  key: database-url
+                  name: usndbreplicatwo
 
             - name: SENTRY_DSN
               value: "https://1e974d641a14437e9573e8fe9958a252@sentry.is.canonical.com//48"
