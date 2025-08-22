@@ -49,6 +49,9 @@ spec:
             - name: TALISKER_NETWORKS
               value: 10.0.0.0/8
 
+            - name: GUNICORN_TIMEOUT
+              value: "30"
+
             - name: SECRET_KEY
               valueFrom:
                 secretKeyRef:
@@ -67,8 +70,8 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  key: database_url
-                  name: usn-db-url
+                  key: database-url
+                  name: usndbreplica
 
             - name: SENTRY_DSN
               value: "https://1e974d641a14437e9573e8fe9958a252@sentry.is.canonical.com//48"
