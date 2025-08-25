@@ -41,6 +41,7 @@ from webapp.schemas import (
     NoticeAPIDetailedSchemaV2,
     NoticeImportSchema,
     NoticeParameters,
+    NoticeSitemapParameters,
     NoticesAPISchema,
     NoticesAPISchemaV2,
     NoticesParameters,
@@ -52,6 +53,7 @@ from webapp.schemas import (
     ReleasesAPISchema,
     ReleaseSchema,
     SitemapCVEsAPISchema,
+    SitemapNoticesAPISchema,
     UpdateReleaseSchema,
 )
 from webapp.utils import stream_notices
@@ -797,6 +799,48 @@ def get_flat_notices(**kwargs):
         "limit": limit,
         "total_results": notices_query.count(),
     }
+
+
+@marshal_with(SitemapNoticesAPISchema, code=200)
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(NoticeSitemapParameters, location="query")
+def get_sitemap_notices(**kwargs):
+    limit: int = kwargs.get("limit", 20)
+    offset: int = kwargs.get("offset", 0)
+
+    # Filter out hidden notices by default
+    base_filter = Notice.is_hidden.is_(False)
+
+    total_results = (
+        db.session.query(func.count())
+        .select_from(Notice)
+        .filter(base_filter)
+        .scalar()
+    )
+
+    notices = (
+        db.session.query(Notice)
+        .options(load_only(Notice.id, Notice.published))
+        .filter(base_filter)
+        .order_by(Notice.published.desc().nullslast(), Notice.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    result = SitemapNoticesAPISchema().dump(
+        {
+            "notices": notices,
+            "offset": offset,
+            "limit": limit,
+            "total_results": total_results,
+        }
+    )
+
+    response = jsonify(result)
+    response.cache_control.public = True
+    response.cache_control.max_age = 43200
+    return response
 
 
 @marshal_with(SitemapCVEsAPISchema, code=200)

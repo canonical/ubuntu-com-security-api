@@ -1380,6 +1380,15 @@ class TestRoutes(BaseTestCase):
             "errors", []
         )
 
+    def test_sitemap_notices(self):
+        response = self.client.get("/security/sitemap/notices.json")
+
+        assert response.status_code == 200
+        # Check that the response includes id and publish date
+        notices = response.json["notices"]
+        for notice in notices:
+            assert set(notice.keys()) == {"id", "published"}
+
     def test_create_usn(self):
         response = self.client.post(
             "/security/updates/notices.json", json=payloads.notice
