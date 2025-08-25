@@ -15,4 +15,9 @@ FLASK_APP=webapp.app flask db upgrade
 
 # Start server
 # ===
-talisker.gunicorn webapp.app:app --bind $1 --workers 3 --name talisker-$(hostname) ${DEBUG_ARGS} --timeout 90
+if [ -z "${GUNICORN_TIMEOUT}" ]; then
+    WORKER_TIMEOUT="30"
+else
+    WORKER_TIMEOUT="${GUNICORN_TIMEOUT}"
+fi
+talisker.gunicorn webapp.app:app --bind $1 --workers 3 --name talisker-$(hostname) ${DEBUG_ARGS} --timeout $WORKER_TIMEOUT

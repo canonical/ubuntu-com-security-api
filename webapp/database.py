@@ -31,7 +31,7 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy  # noqa: E402
 from sqlalchemy import exc
 
-db = SQLAlchemy()
+db = SQLAlchemy(session_options={"autoflush": False})
 
 
 def init_db(app):
