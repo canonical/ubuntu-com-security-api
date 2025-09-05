@@ -69,15 +69,29 @@ MAX_PAGE = 100
 def get_cve(cve_id, **kwargs):
     cve_query: Query = db.session.query(CVE)
 
-    cve_notices_query = CVE.notices
+    cve_notices_relation = CVE.notices
+
     if not kwargs.get("show_hidden", False):
-        cve_notices_query = cve_notices_query.and_(Notice.is_hidden == "False")
+        cve_notices_relation = cve_notices_relation.and_(
+            Notice.is_hidden.is_(False)
+        )
 
     cve: CVE = (
         cve_query.filter(CVE.id == cve_id.upper())
         .options(
-            selectinload(cve_notices_query).options(
-                selectinload(Notice.cves).options(load_only(CVE.id))
+            selectinload(cve_notices_relation).options(
+                load_only(
+                    Notice.id,
+                    Notice.title,
+                    Notice.published,
+                    Notice.summary,
+                    Notice.details,
+                    Notice.instructions,
+                    Notice.references,
+                    Notice.is_hidden,
+                    Notice.release_packages,
+                ),
+                selectinload(Notice.cves).options(load_only(CVE.id)),
             )
         )
         .options(selectinload(CVE.statuses))
