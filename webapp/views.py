@@ -11,7 +11,7 @@ from flask import (
     stream_with_context,
 )
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import asc, case, desc, distinct, func, or_
+from sqlalchemy import asc, case, desc, distinct, func, or_, exists
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Query, aliased, load_only, selectinload
 
@@ -41,6 +41,7 @@ from webapp.schemas import (
     NoticeAPIDetailedSchemaV2,
     NoticeImportSchema,
     NoticeParameters,
+    NoticeSitemapParameters,
     NoticesAPISchema,
     NoticesAPISchemaV2,
     NoticesParameters,
@@ -52,6 +53,7 @@ from webapp.schemas import (
     ReleasesAPISchema,
     ReleaseSchema,
     SitemapCVEsAPISchema,
+    SitemapNoticesAPISchema,
     UpdateReleaseSchema,
 )
 from webapp.utils import stream_notices
@@ -67,15 +69,29 @@ MAX_PAGE = 100
 def get_cve(cve_id, **kwargs):
     cve_query: Query = db.session.query(CVE)
 
-    cve_notices_query = CVE.notices
+    cve_notices_relation = CVE.notices
+
     if not kwargs.get("show_hidden", False):
-        cve_notices_query = cve_notices_query.and_(Notice.is_hidden == "False")
+        cve_notices_relation = cve_notices_relation.and_(
+            Notice.is_hidden.is_(False)
+        )
 
     cve: CVE = (
         cve_query.filter(CVE.id == cve_id.upper())
         .options(
-            selectinload(cve_notices_query).options(
-                selectinload(Notice.cves).options(load_only(CVE.id))
+            selectinload(cve_notices_relation).options(
+                load_only(
+                    Notice.id,
+                    Notice.title,
+                    Notice.published,
+                    Notice.summary,
+                    Notice.details,
+                    Notice.instructions,
+                    Notice.references,
+                    Notice.is_hidden,
+                    Notice.release_packages,
+                ),
+                selectinload(Notice.cves).options(load_only(CVE.id)),
             )
         )
         .options(selectinload(CVE.statuses))
@@ -111,9 +127,6 @@ def get_cves(**kwargs):
     sort_by: Optional[Literal["published", "updated"]] = kwargs.get("sort_by")
     show_hidden: bool = kwargs.get("show_hidden", False)
 
-    # Convert offset-based input to page number for db.paginate compatibility
-    page = (offset // limit) + 1
-
     # Default to 'active' CVE status if not provided
     if cve_status:
         cves_query: Query = db.session.query(CVE).filter(
@@ -134,37 +147,37 @@ def get_cves(**kwargs):
         lowered_query = f"%{query.lower()}%"
         cves_query = cves_query.filter(
             or_(
-                func.lower(CVE.id).like(lowered_query),
-                func.lower(CVE.description).like(lowered_query),
-                func.lower(CVE.ubuntu_description).like(lowered_query),
-                func.lower(CVE.codename).like(lowered_query),
-                func.lower(CVE.mitigation).like(lowered_query),
+                CVE.id.ilike(lowered_query),
+                CVE.description.ilike(lowered_query),
+                CVE.ubuntu_description.ilike(lowered_query),
+                CVE.codename.ilike(lowered_query),
+                CVE.mitigation.ilike(lowered_query),
             )
         )
 
     join_required = any([statuses, versions, package, component])
 
     if join_required:
-        # Use an alias to safely join Status table
         StatusAlias = aliased(Status)
-        cves_query = cves_query.join(StatusAlias, CVE.id == StatusAlias.cve_id)
-
+        status_preds = []
         if versions:
-            cves_query = cves_query.filter(
-                StatusAlias.release_codename.in_(versions)
-            )
+            status_preds.append(StatusAlias.release_codename.in_(versions))
         if package:
-            cves_query = cves_query.filter(
-                StatusAlias.package_name.ilike(f"%{package}%")
-            )
+            status_preds.append(StatusAlias.package_name.ilike(f"%{package}%"))
         if component:
-            cves_query = cves_query.filter(StatusAlias.component == component)
+            status_preds.append(StatusAlias.component == component)
         if statuses:
-            statuses = [s for s in statuses if s]
-            if statuses:
-                cves_query = cves_query.filter(
-                    StatusAlias.status.in_(statuses)
-                )
+            _statuses = [s for s in statuses if s]
+            if _statuses:
+                status_preds.append(StatusAlias.status.in_(_statuses))
+
+        # Keep CVEs that have at least one Status row matching the filters,
+        # avoiding join duplicates
+        exists_clause = exists().where(
+            (StatusAlias.cve_id == CVE.id),
+            *status_preds,
+        )
+        cves_query = cves_query.filter(exists_clause)
 
     if not show_hidden:
         cve_notices_query = CVE.notices.and_(Notice.is_hidden == "False")
@@ -182,31 +195,13 @@ def get_cves(**kwargs):
             "Invalid sort value. Please use 'published' or 'updated'."
         )
 
-    if join_required:
-        cves_subq = cves_query.add_columns(
-            func.row_number()
-            .over(
-                partition_by=CVE.id,
-                order_by=[
-                    case([(sort_field.is_(None), 1)], else_=0),
-                    sort(sort_field),
-                    sort(CVE.id),
-                ],
-            )
-            .label("row_num")
-        ).subquery()
+    cves_query = cves_query.order_by(
+        case([(sort_field.is_(None), 1)], else_=0),
+        sort(sort_field),
+        sort(CVE.id),
+    )
 
-        cves_query = (
-            db.session.query(CVE)
-            .join(cves_subq, CVE.id == cves_subq.c.id)
-            .filter(cves_subq.c.row_num == 1)
-        )
-    else:
-        cves_query = cves_query.order_by(
-            case([(sort_field.is_(None), 1)], else_=0),
-            sort(sort_field),
-            sort(CVE.id),
-        )
+    total_results = cves_query.order_by(None).count()
 
     cves_query = cves_query.options(
         selectinload(cve_notices_query).options(
@@ -214,20 +209,17 @@ def get_cves(**kwargs):
         )
     )
 
-    pagination = db.paginate(
-        cves_query, page=page, per_page=limit, error_out=False
-    )
+    cves = cves_query.limit(limit).offset(offset).all()
 
-    result = CVEsAPISchema().dump(
+    result = CVEsAPISchema().dumps(
         {
-            "cves": pagination.items,
+            "cves": cves,
             "offset": offset,
             "limit": limit,
-            "total_results": pagination.total,
+            "total_results": total_results,
         }
     )
-
-    response = jsonify(result)
+    response = Response(result, mimetype="application/json")
     response.cache_control.max_age = TEN_MINUTES_IN_SECONDS
     return response
 
@@ -797,6 +789,48 @@ def get_flat_notices(**kwargs):
         "limit": limit,
         "total_results": notices_query.count(),
     }
+
+
+@marshal_with(SitemapNoticesAPISchema, code=200)
+@marshal_with(MessageWithErrorsSchema, code=422)
+@use_kwargs(NoticeSitemapParameters, location="query")
+def get_sitemap_notices(**kwargs):
+    limit: int = kwargs.get("limit", 20)
+    offset: int = kwargs.get("offset", 0)
+
+    # Filter out hidden notices by default
+    base_filter = Notice.is_hidden.is_(False)
+
+    total_results = (
+        db.session.query(func.count())
+        .select_from(Notice)
+        .filter(base_filter)
+        .scalar()
+    )
+
+    notices = (
+        db.session.query(Notice)
+        .options(load_only(Notice.id, Notice.published))
+        .filter(base_filter)
+        .order_by(Notice.published.desc().nullslast(), Notice.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    result = SitemapNoticesAPISchema().dump(
+        {
+            "notices": notices,
+            "offset": offset,
+            "limit": limit,
+            "total_results": total_results,
+        }
+    )
+
+    response = jsonify(result)
+    response.cache_control.public = True
+    response.cache_control.max_age = 43200
+    return response
 
 
 @marshal_with(SitemapCVEsAPISchema, code=200)

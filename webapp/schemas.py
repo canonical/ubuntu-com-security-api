@@ -400,6 +400,18 @@ FlatNoticesParameters = {
     ),
 }
 
+NoticeSitemapParameters = {
+    "limit": Int(
+        validate=Range(min=1, max=100),
+        description="Number of Notices per response. Defaults to 10. Max 100.",
+        allow_none=True,
+    ),
+    "offset": Int(
+        description="Number of Notices to omit from response. Defaults to 0.",
+        allow_none=True,
+    ),
+}
+
 
 # Release
 # --
@@ -669,6 +681,24 @@ class SitemapsCVESchema(Schema):
 
 class SitemapCVEsAPISchema(Schema):
     cves = List(Nested(SitemapsCVESchema))
+    offset = Int(allow_none=True)
+    limit = Int(allow_none=True)
+    total_results = Int()
+
+    class Meta:
+        render_module = orjson
+
+
+class SitemapsNoticeSchema(Schema):
+    id = String(required=True)
+    published = ParsedDateTime(allow_none=True)
+
+    class Meta:
+        render_module = orjson
+
+
+class SitemapNoticesAPISchema(Schema):
+    notices = List(Nested(SitemapsNoticeSchema))
     offset = Int(allow_none=True)
     limit = Int(allow_none=True)
     total_results = Int()
