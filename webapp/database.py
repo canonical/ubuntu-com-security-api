@@ -31,7 +31,7 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy  # noqa: E402
 from sqlalchemy import exc
 
-db = SQLAlchemy(session_options={"autoflush": False}, engine_options={"pool_pre_ping": True})
+db = SQLAlchemy(session_options={"autoflush": False}, engine_options={"pool_pre_ping": True, "pool_recycle": 3600})
 
 
 def init_db(app):
