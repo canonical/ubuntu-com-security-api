@@ -1,5 +1,4 @@
-"""
-Why keep the database object here?
+"""Why keep the database object here?
 ===
 
 The basic implementation of flask-sqlalchemy illustrates creating the
@@ -28,10 +27,13 @@ To add the application context
 """
 
 from flask_migrate import Migrate
-from flask_sqlalchemy import SQLAlchemy  # noqa: E402
+from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import exc
 
-db = SQLAlchemy(session_options={"autoflush": False})
+db = SQLAlchemy(
+    session_options={"autoflush": False},
+    engine_options={"pool_pre_ping": True, "pool_recycle": 3600},
+)
 
 
 def init_db(app):
