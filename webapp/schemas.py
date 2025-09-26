@@ -508,8 +508,35 @@ class CveBaseMetric(Schema):
         render_module = orjson
 
 
+class CvssV4(Schema):
+    version = String(allow_none=True)
+    vectorString = String(allow_none=True)
+    attackVector = String(allow_none=True)
+    attackComplexity = String(allow_none=True)
+    attackRequirements = String(allow_none=True)
+    privilegesRequired = String(allow_none=True)
+    userInteraction = String(allow_none=True)
+    vulnerableSystemConfidentialityImpact = String(allow_none=True)
+    vulnerableSystemIntegrityImpact = String(allow_none=True)
+    vulnerableSystemAvailabilityImpact = String(allow_none=True)
+    subsequentSystemConfidentialityImpact = String(allow_none=True)
+    subsequentSystemIntegrityImpact = String(allow_none=True)
+    subsequentSystemAvailabilityImpact = String(allow_none=True)
+    baseScore = Float(allow_none=True)
+    baseSeverity = String(allow_none=True)
+
+    class Meta:
+        render_module = orjson
+
+class CveBaseMetricV4(Schema):
+    cvssV4 = Nested(CvssV4)
+
+    class Meta:
+        render_module = orjson
+
 class CveImpact(Schema):
     baseMetricV3 = Nested(CveBaseMetric)
+    baseMetricV4 = Nested(CveBaseMetricV4)
 
     class Meta:
         render_module = orjson
