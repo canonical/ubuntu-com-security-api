@@ -24,7 +24,9 @@ jobs:
         run: sudo snap install charmcraft --classic --channel=latest/edge
 
       - name: Pack charm
-        run: charmcraft pack -v --project-dir ./charm
+        run: |
+          cd charm
+          charmcraft pack -v --project-dir ./
 
       - name: Upload charm
         uses: actions/upload-artifact@v4
@@ -38,27 +40,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Use Node.js
-        uses: actions/setup-node@v3
-
-      - name: Build Assets
-        run: |
-          yarn install
-          yarn run build
-
       - name: Setup LXD
         uses: canonical/setup-lxd@main
-
-      - name: Create repositories directory
-        run: |
-            mkdir -m 777 repositories
-            mkdir -m 777 tree-cache
 
       - name: Setup Rockcraft
         run: sudo snap install rockcraft --classic --channel=latest/edge
 
       - name: Pack Rock
-        run: rockcraft pack
+        run: rockcraft pack -v
 
       - name: Upload Rock
         uses: actions/upload-artifact@v4
@@ -87,10 +76,10 @@ jobs:
   deploy-staging:
     runs-on: [self-hosted, self-hosted-linux-amd64-jammy-private-endpoint-medium]
     needs: [pack-charm, publish-image]
+    environment:
+      name: staging
+      url: https://staging.ubuntu.com/security/api
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
       - name: Install Dependencies
         run: |
           sudo snap install juju --channel=3.4/stable --classic
@@ -102,33 +91,40 @@ jobs:
           name: ubuntu-security-api-charm
 
       - name: Configure Vault and Juju
+        env:
+          VAULT_ADDR: "https://vault.admin.canonical.com:8200"
+          VAULT_ROLE_ID: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
+          VAULT_SECRET_ID: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
+          
         run: |
-          export VAULT_ADDR=https://vault.admin.canonical.com:8200
-          export TF_VAR_login_approle_role_id=${{ secrets.VAULT_APPROLE_ROLE_ID }}
-          export TF_VAR_login_approle_secret_id=${{ secrets.VAULT_APPROLE_SECRET_ID }}
-          export VAULT_SECRET_PATH_ROLE=secret/prodstack6/roles/stg-staging-ubuntu-com-security-api
+          set -e
+          export CONTROLLER_NAME=${{ vars.JUJU_CONTROLLER_NAME }}
+          export MODEL_NAME=${{ vars.JUJU_MODEL_NAME }}
+          export VAULT_SECRET_PATH_ROLE=secret/prodstack6/roles/${MODEL_NAME}
           export VAULT_SECRET_PATH_COMMON=secret/prodstack6/juju/common
-          VAULT_TOKEN=$(vault write -f -field=token auth/approle/login role_id=${TF_VAR_login_approle_role_id} secret_id=${TF_VAR_login_approle_secret_id}) 
-          export VAULT_TOKEN
+
+
+          export VAULT_TOKEN=$(vault write -f -field=token auth/approle/login role_id="$VAULT_ROLE_ID" secret_id="$VAULT_SECRET_ID") 
+
           mkdir -p ~/.local/share/juju
-          vault read -field=controller_config "${VAULT_SECRET_PATH_COMMON}/controllers/juju-controller-36-staging-ps6" | base64 -d > ~/.local/share/juju/controllers.yaml
+          vault read -field=controller_config "${VAULT_SECRET_PATH_COMMON}/controllers/${CONTROLLER_NAME}" | base64 -d > ~/.local/share/juju/controllers.yaml
           USERNAME=$(vault read -field=username "${VAULT_SECRET_PATH_ROLE}/juju")
           PASSWORD=$(vault read -field=password "${VAULT_SECRET_PATH_ROLE}/juju")
-          printf "controllers:\n  juju-controller-36-staging-ps6:\n    user: %s\n    password: %s\n" "$USERNAME" "$PASSWORD" > ~/.local/share/juju/accounts.yaml
+          printf "controllers:\n  %s:\n    user: %s\n    password: %s\n" "$CONTROLLER_NAME" "$USERNAME" "$PASSWORD" > ~/.local/share/juju/accounts.yaml
 
       - name: Deploy Application to staging
         run: |
-          export JUJU_MODEL=admin//stg-staging-ubuntu-com-security-api
+          export JUJU_MODEL=admin/${{ vars.JUJU_MODEL_NAME }}
           juju refresh ubuntu-security-api --path ./ubuntu-security-api_ubuntu-22.04-amd64.charm --resource flask-app-image=${{ needs.publish-image.outputs.image_url }}
           juju wait-for application ubuntu-security-api --query='name=="ubuntu-security-api" && (status=="active" || status=="idle")'
 
   deploy-production:
     runs-on: [self-hosted, self-hosted-linux-amd64-jammy-private-endpoint-medium]
     needs: [pack-charm, publish-image]
+    environment:
+      name: production
+      url: https://ubuntu.com/security/api
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
       - name: Install Dependencies
         run: |
           sudo snap install juju --channel=3.6/stable --classic
@@ -140,22 +136,28 @@ jobs:
           name: ubuntu-security-api-charm
 
       - name: Configure Vault and Juju
+        env:
+          VAULT_ADDR: "https://vault.admin.canonical.com:8200"
+          VAULT_ROLE_ID: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
+          VAULT_SECRET_ID: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
         run: |
-          export VAULT_ADDR=https://vault.admin.canonical.com:8200
-          export TF_VAR_login_approle_role_id=${{ secrets.PROD_VAULT_APPROLE_ROLE_ID }}
-          export TF_VAR_login_approle_secret_id=${{ secrets.PROD_VAULT_APPROLE_SECRET_ID }}
-          export VAULT_SECRET_PATH_ROLE=secret/prodstack6/roles/prod-ubuntu-security-api
+          set -e
+          export CONTROLLER_NAME=${{ vars.JUJU_CONTROLLER_NAME }}
+          export MODEL_NAME=${{ vars.JUJU_MODEL_NAME }}
+          export VAULT_SECRET_PATH_ROLE=secret/prodstack6/roles/${MODEL_NAME}
           export VAULT_SECRET_PATH_COMMON=secret/prodstack6/juju/common
-          VAULT_TOKEN=$(vault write -f -field=token auth/approle/login role_id=${TF_VAR_login_approle_role_id} secret_id=${TF_VAR_login_approle_secret_id}) 
-          export VAULT_TOKEN
+
+
+          export VAULT_TOKEN=$(vault write -f -field=token auth/approle/login role_id="$VAULT_ROLE_ID" secret_id="$VAULT_SECRET_ID") 
+
           mkdir -p ~/.local/share/juju
-          vault read -field=controller_config "${VAULT_SECRET_PATH_COMMON}/controllers/juju-controller-36-production-ps6" | base64 -d > ~/.local/share/juju/controllers.yaml
+          vault read -field=controller_config "${VAULT_SECRET_PATH_COMMON}/controllers/${CONTROLLER_NAME}" | base64 -d > ~/.local/share/juju/controllers.yaml
           USERNAME=$(vault read -field=username "${VAULT_SECRET_PATH_ROLE}/juju")
           PASSWORD=$(vault read -field=password "${VAULT_SECRET_PATH_ROLE}/juju")
-          printf "controllers:\n  juju-controller-36-production-ps6:\n    user: %s\n    password: %s\n" "$USERNAME" "$PASSWORD" > ~/.local/share/juju/accounts.yaml
+          printf "controllers:\n  %s:\n    user: %s\n    password: %s\n" "$CONTROLLER_NAME" "$USERNAME" "$PASSWORD" > ~/.local/share/juju/accounts.yaml
 
       - name: Deploy Application to production
         run: |
-          export JUJU_MODEL=admin/prod-ubuntu-security-api
+          export JUJU_MODEL=admin/${{ vars.JUJU_MODEL_NAME }}
           juju refresh ubuntu-security-api --path ./ubuntu-security-api_ubuntu-22.04-amd64.charm --resource flask-app-image=${{ needs.publish-image.outputs.image_url }}
           juju wait-for application ubuntu-security-api --query='name=="ubuntu-security-api" && (status=="active" || status=="idle")'
