@@ -11,7 +11,7 @@ from flask import (
     stream_with_context,
 )
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import asc, case, desc, distinct, func, or_, exists
+from sqlalchemy import asc, case, desc, distinct, func, or_, exists, tuple_
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Query, aliased, load_only, selectinload
 
@@ -1100,11 +1100,14 @@ def _update_notice_object(notice, data):
 def _update_statuses(cve, data, packages):
     statuses = cve.packages
 
-    statuses_to_check = Status.query.filter(Status.cve_id == cve.id).all()
-
-    statuses_to_delete = {
-        f"{v.package_name}||{v.release_codename}": v for v in statuses_to_check
+    existing_status_keys = {
+        f"{row.package_name}||{row.release_codename}"
+        for row in db.session.query(
+            Status.package_name, Status.release_codename
+        ).filter(Status.cve_id == cve.id)
     }
+
+    statuses_to_delete = {key: None for key in existing_status_keys}
 
     for package_data in data.get("packages", []):
         name = package_data["name"]
@@ -1151,5 +1154,14 @@ def _update_statuses(cve, data, packages):
                 statuses[name][codename] = status
                 db.session.add(status)
 
-    for key in statuses_to_delete:
-        db.session.delete(statuses_to_delete[key])
+    if statuses_to_delete:
+        keys_to_delete = [
+            tuple(key_string.split("||", 1))
+            for key_string in statuses_to_delete.keys()
+        ]
+        db.session.query(Status).filter(
+            Status.cve_id == cve.id,
+            tuple_(Status.package_name, Status.release_codename).in_(
+                keys_to_delete
+            ),
+        ).delete(synchronize_session=False)
