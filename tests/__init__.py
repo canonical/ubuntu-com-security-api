@@ -15,7 +15,7 @@ from sqlalchemy_utils import create_database, database_exists
 os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
 os.environ["TEST_MODE"] = "True"
 
-from tests.fixtures.models import make_models
+from tests.fixtures.models import make_models  # noqa: E402
 
 """
 Monkey-patching before importing the main application
@@ -31,8 +31,8 @@ This is not ideal, as it means we're not testing the actual authorization
 functionality, but I don't know of a good way to do that right now.
 """
 
-from tests.helpers import transparent_decorator
-from webapp import auth
+from tests.helpers import transparent_decorator  # noqa: E402
+from webapp import auth  # noqa: E402
 
 auth.authorization_required = transparent_decorator
 
