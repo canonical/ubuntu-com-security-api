@@ -11,6 +11,10 @@ import flask_migrate
 from sqlalchemy_utils import create_database, database_exists
 
 # Local
+# We set these early, before the database loads
+os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
+os.environ["TEST_MODE"] = "True"
+
 from tests.fixtures.models import make_models
 
 """
@@ -31,7 +35,6 @@ from tests.helpers import transparent_decorator
 from webapp import auth
 
 auth.authorization_required = transparent_decorator
-os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
 
 from webapp.app import app  # noqa: E402
 from webapp.database import db  # noqa: E402

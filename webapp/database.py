@@ -28,11 +28,79 @@ To add the application context
 
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
+from flask_sqlalchemy.session import Session
+from sqlalchemy import create_engine
 from sqlalchemy import exc
+from sqlalchemy.sql import Update, Delete, Insert
+import os
+
+
+PRIMARY_DATABASE_URL = os.environ.get("DATABASE_URL")
+# Use the primary as the default
+REPLICA_ONE_DATABASE_URL = os.getenv(
+    "REPLICA_ONE_DATABASE_URL",
+    PRIMARY_DATABASE_URL,
+)
+REPLICA_TWO_DATABASE_URL = os.getenv(
+    "REPLICA_TWO_DATABASE_URL",
+    PRIMARY_DATABASE_URL,
+)
+
+SQLALCHEMY_ENGINE_OPTIONS = {
+    "pool_recycle": 3600,
+    "pool_pre_ping": True,
+}
+
+# Bind names
+REPLICA_ONE = "replicaone"
+REPLICA_TWO = "replicatwo"
+
+engines = {
+    REPLICA_ONE: create_engine(
+        url=REPLICA_ONE_DATABASE_URL,
+        **SQLALCHEMY_ENGINE_OPTIONS,
+    ),
+    REPLICA_TWO: create_engine(
+        url=REPLICA_TWO_DATABASE_URL,
+        **SQLALCHEMY_ENGINE_OPTIONS,
+    ),
+}
+
+primary_engine = create_engine(
+    url=PRIMARY_DATABASE_URL,
+    **SQLALCHEMY_ENGINE_OPTIONS,
+)
+
+
+class RoutedSession(Session):
+    """A session to selectively return replica binds"""
+
+    def get_bind(  # pyright: ignore
+        self, mapper=None, clause=None, bind=None, **kwargs
+    ):
+        """Return a replica engine depending on available connections"""
+        # For destructive operations, return the primary bind
+        if self._flushing or isinstance(clause, (Insert, Delete, Update)):
+            return primary_engine
+        # Return the primary always for single threaded tests.
+        # We need this to prevent deadlocks when multiple
+        # sessions are created by test cases
+        if os.getenv("TEST_MODE"):
+            return primary_engine
+        # Otherwise, choose a replica with the fewest
+        # available connections
+        current_engine = engines[REPLICA_ONE]
+        for name, engine in engines.items():
+            if engine.pool.checkedout() < current_engine.pool.checkedout():
+                current_engine = engines[name]
+        return current_engine
+
 
 db = SQLAlchemy(
-    session_options={"autoflush": False},
-    engine_options={"pool_pre_ping": True, "pool_recycle": 3600},
+    session_options={
+        "autoflush": False,
+        "class_": RoutedSession,
+    },
 )
 
 
