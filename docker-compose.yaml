@@ -1,16 +1,29 @@
-version: "3.3"
 services:
   security_db:
     container_name: security_db
     ports: ["5432:5432"]
-    environment: 
-      - POSTGRES_HOST_AUTH_METHOD=trust
-      - POSTGRES_DB=postgres
+    environment:
+      - POSTGRES_PASSWORD=postgres
     image: postgres
     volumes:
       - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
       - pgdata:/var/lib/postgresql/data
+  security_db_replica_one:
+    container_name: security_db_replica_one
+    ports: ["5433:5432"]
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    image: postgres
+    volumes:
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+  security_db_replica_two:
+    container_name: security_db_replica_two
+    ports: ["5434:5432"]
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    image: postgres
+    volumes:
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
 
 volumes:
   pgdata:
-
