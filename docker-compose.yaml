@@ -24,6 +24,34 @@ services:
     image: postgres
     volumes:
       - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+  migrate_replica_one:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@0.0.0.0:5433/postgres
+      SECRET_KEY: somesecret
+    network_mode: host
+    depends_on:
+      - security_db_replica_one
+    entrypoint: |
+      bash -c "
+        sleep 5
+        pip install -r requirements.txt 
+        FLASK_APP=webapp.app flask db upgrade
+      "
+  migrate_replica_two:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@0.0.0.0:5434/postgres
+      SECRET_KEY: somesecret
+    network_mode: host
+    depends_on:
+      - security_db_replica_two
+    entrypoint: |
+      bash -c "
+        sleep 5
+        pip install -r requirements.txt 
+        FLASK_APP=webapp.app flask db upgrade
+      "
 
 volumes:
   pgdata:
