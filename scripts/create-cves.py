@@ -63,7 +63,11 @@ else:
         client.cookies.load(ignore_discard=True)
     # Make a first call to make sure we are logged in
     response = client.request("PUT", url=notice_endpoint)
-    client.cookies.save(ignore_discard=True)
+    # Ignore failures to save the cookie
+    try:
+        client.cookies.save(ignore_discard=True)
+    except TypeError:
+        pass
 
     # Post the stuff
     with open(args.file_path) as json_file:

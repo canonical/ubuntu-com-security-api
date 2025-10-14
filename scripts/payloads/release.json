@@ -1,0 +1,10 @@
+{
+  "codename": "jammy",
+  "version": "24.04",
+  "name": "Jammy Jellyfish",
+  "development": false,
+  "lts": true,
+  "release_date": "2004-10-20 00:00:00",
+  "esm_expires": "2004-10-20 00:00:00",
+  "support_expires": "2004-10-20 00:00:00"
+}

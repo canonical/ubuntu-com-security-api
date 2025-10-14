@@ -11,7 +11,11 @@ import flask_migrate
 from sqlalchemy_utils import create_database, database_exists
 
 # Local
-from tests.fixtures.models import make_models
+# We set these early, before the database loads
+os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
+os.environ["TEST_MODE"] = "True"
+
+from tests.fixtures.models import make_models  # noqa: E402
 
 """
 Monkey-patching before importing the main application
@@ -27,11 +31,10 @@ This is not ideal, as it means we're not testing the actual authorization
 functionality, but I don't know of a good way to do that right now.
 """
 
-from tests.helpers import transparent_decorator
-from webapp import auth
+from tests.helpers import transparent_decorator  # noqa: E402
+from webapp import auth  # noqa: E402
 
 auth.authorization_required = transparent_decorator
-os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
 
 from webapp.app import app  # noqa: E402
 from webapp.database import db  # noqa: E402
