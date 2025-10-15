@@ -45,25 +45,77 @@ cve1 = {
             "exploitabilityScore": 0.8,
             "impactScore": 3.6,
         },
-        "baseMetricV3": {
-            "cvssV3": {
-                "attackComplexity": "LOW",
-                "attackVector": "Local",
-                "availabilityImpact": "NONE",
-                "baseScore": 4.4,
-                "baseSeverity": "MEDIUM",
-                "confidentialityImpact": "HIGH",
-                "integrityImpact": "NONE",
-                "privilegesRequired": "HIGH",
-                "scope": "UNCHANGED",
-                "userInteraction": "NONE",
-                "vectorString": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:H/I:N/A:N",
-                "version": "3.1",
-            },
-            "exploitabilityScore": 0.8,
-            "impactScore": 3.6,
-        }
-
+        "baseMetricV4": {
+            "cvssV4": {
+                "version": "4.0",
+                "vectorString": (
+                    "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/"
+                    + "VC:N/VI:N/VA:N/SC:N/SI:N/SA:N"
+                ),
+                "baseMetrics": {
+                    "exploitabilityMetrics": {
+                        "attackVector": "NETWORK",
+                        "attackComplexity": "LOW",
+                        "attackRequirements": "NONE",
+                        "privilegesRequired": "NONE",
+                        "userInteraction": "NONE",
+                    },
+                    "vulnerableSystemImpactMetrics": {
+                        "confidentialityImpact": "NONE",
+                        "integrityImpact": "NONE",
+                        "availabilityImpact": "NONE",
+                    },
+                    "subsequentSystemImpactMetrics": {
+                        "confidentialityImpact": "NONE",
+                        "integrityImpact": "NONE",
+                        "availabilityImpact": "NONE",
+                    },
+                },
+                "supplementalMetrics": {
+                    "safety": "NOT DEFINED",
+                    "automatable": "NOT DEFINED",
+                    "recovery": "NOT DEFINED",
+                    "valueDensity": "NOT DEFINED",
+                    "vulnerabilityResponseEffort": "NOT DEFINED",
+                    "providerUrgency": "NOT DEFINED",
+                },
+                "environmentalMetrics": {
+                    "modifiedBaseMetrics": {
+                        "exploitabilityMetrics": {
+                            "attackVector": "NOT DEFINED",
+                            "attackComplexity": "NOT DEFINED",
+                            "attackRequirements": "NOT DEFINED",
+                            "privilegesRequired": "NOT DEFINED",
+                            "userInteraction": "NOT DEFINED",
+                        },
+                        "vulnerableSystemImpactMetrics": {
+                            "confidentialityImpact": "NOT DEFINED",
+                            "integrityImpact": "NOT DEFINED",
+                            "availabilityImpact": "NOT DEFINED",
+                        },
+                        "subsequentSystemImpactMetrics": {
+                            "confidentialityImpact": "NOT DEFINED",
+                            "integrityImpact": "NOT DEFINED",
+                            "availabilityImpact": "NOT DEFINED",
+                        },
+                    },
+                    "securityRequirements": {
+                        "confidentialityRequirements": "NOT DEFINED",
+                        "integrityRequirements": "NOT DEFINED",
+                        "availabilityRequirements": "NOT DEFINED",
+                    },
+                },
+                "threatMetrics": {"exploitMaturity": "NOT DEFINED"},
+                "baseScore": 0.0,
+                "baseSeverity": "NONE",
+                "baseEnvironmentalScore": 0.0,
+                "baseEnvironmentalSeverity": "NONE",
+                "baseThreatScore": 0.0,
+                "baseThreatSeverity": "NONE",
+                "baseThreatEnvironmentalScore": 0.0,
+                "baseThreatEnvironmentalSeverity": "NONE",
+            }
+        },
     },
     "priority": "critical",
     "published": "2020-08-01 12:42:54",
