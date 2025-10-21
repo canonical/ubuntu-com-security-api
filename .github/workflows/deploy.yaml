@@ -32,7 +32,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ubuntu-security-api-charm
-          path: ./*.charm
+          path: ./charm/*.charm
 
   pack-rock:
     runs-on: ubuntu-latest
@@ -82,7 +82,7 @@ jobs:
     steps:
       - name: Install Dependencies
         run: |
-          sudo snap install juju --channel=3.4/stable --classic
+          sudo snap install juju --classic
           sudo snap install vault --classic
 
       - name: Download Charm Artifact
@@ -115,7 +115,7 @@ jobs:
       - name: Deploy Application to staging
         run: |
           export JUJU_MODEL=admin/${{ vars.JUJU_MODEL_NAME }}
-          juju refresh ubuntu-security-api --path ./ubuntu-security-api_ubuntu-22.04-amd64.charm --resource flask-app-image=${{ needs.publish-image.outputs.image_url }}
+          juju refresh ubuntu-security-api --path ./*.charm --resource flask-app-image=${{ needs.publish-image.outputs.image_url }}
           juju wait-for application ubuntu-security-api --query='name=="ubuntu-security-api" && (status=="active" || status=="idle")'
 
   deploy-production:
@@ -127,7 +127,7 @@ jobs:
     steps:
       - name: Install Dependencies
         run: |
-          sudo snap install juju --channel=3.6/stable --classic
+          sudo snap install juju --classic
           sudo snap install vault --classic
 
       - name: Download Charm Artifact
@@ -159,5 +159,5 @@ jobs:
       - name: Deploy Application to production
         run: |
           export JUJU_MODEL=admin/${{ vars.JUJU_MODEL_NAME }}
-          juju refresh ubuntu-security-api --path ./ubuntu-security-api_ubuntu-22.04-amd64.charm --resource flask-app-image=${{ needs.publish-image.outputs.image_url }}
+          juju refresh ubuntu-security-api --path ./*.charm --resource flask-app-image=${{ needs.publish-image.outputs.image_url }}
           juju wait-for application ubuntu-security-api --query='name=="ubuntu-security-api" && (status=="active" || status=="idle")'
