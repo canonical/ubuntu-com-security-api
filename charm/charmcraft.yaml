@@ -28,3 +28,12 @@ requires:
     interface: postgresql_client
     optional: false
     limit: 1
+
+config:
+  options:
+    replica-one:
+      type: secret
+      description: "First read-replica connection string"
+    replica-two:
+      type: secret
+      description: "Second read-replica connection string"
