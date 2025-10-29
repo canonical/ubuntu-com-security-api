@@ -37,7 +37,7 @@ import os
 
 
 PRIMARY_DATABASE_URL = get_flask_env(
-    "DATABASE_URL", "POSTGRESQL_DB_CONNECT_STRING", error=True
+    "DATABASE_URL", os.getenv("POSTGRESQL_DB_CONNECT_STRING"), error=True
 )
 # Use the primary as the default
 REPLICA_ONE_DATABASE_URL = get_flask_env(
