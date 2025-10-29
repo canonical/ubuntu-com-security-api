@@ -31,9 +31,9 @@ requires:
 
 config:
   options:
-    replica-one-database-url:
+    replica-one:
       type: secret
       description: "First read-replica connection string"
-    replica-two-database-url:
+    replica-two:
       type: secret
       description: "Second read-replica connection string"
