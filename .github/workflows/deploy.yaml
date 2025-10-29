@@ -3,7 +3,7 @@ name: Deploy
 on:
   push:
     branches:
-      - charming-with-replicas
+      - charming
       - main
 
 env:
@@ -96,7 +96,6 @@ jobs:
           VAULT_ADDR: "https://vault.admin.canonical.com:8200"
           VAULT_ROLE_ID: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
           VAULT_SECRET_ID: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
-
         run: |
           set -e
           export CONTROLLER_NAME=${{ vars.JUJU_CONTROLLER_NAME }}
