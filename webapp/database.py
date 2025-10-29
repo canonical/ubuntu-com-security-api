@@ -27,6 +27,7 @@ To add the application context
 """
 
 from flask_migrate import Migrate
+from canonicalwebteam.flask_base.env import get_flask_env
 from flask_sqlalchemy import SQLAlchemy
 from flask_sqlalchemy.session import Session
 from sqlalchemy import create_engine
@@ -35,13 +36,13 @@ from sqlalchemy.sql import Update, Delete, Insert
 import os
 
 
-PRIMARY_DATABASE_URL = os.environ.get("DATABASE_URL")
+PRIMARY_DATABASE_URL = get_flask_env("DATABASE_URL", error=True)
 # Use the primary as the default
-REPLICA_ONE_DATABASE_URL = os.getenv(
+REPLICA_ONE_DATABASE_URL = get_flask_env(
     "REPLICA_ONE_DATABASE_URL",
     PRIMARY_DATABASE_URL,
 )
-REPLICA_TWO_DATABASE_URL = os.getenv(
+REPLICA_TWO_DATABASE_URL = get_flask_env(
     "REPLICA_TWO_DATABASE_URL",
     PRIMARY_DATABASE_URL,
 )

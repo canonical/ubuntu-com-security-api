@@ -508,8 +508,136 @@ class CveBaseMetric(Schema):
         render_module = orjson
 
 
+class CvssV4ExploitabilityMetrics(Schema):
+    attackVector = String(allow_none=True)
+    attackComplexity = String(allow_none=True)
+    attackRequirements = String(allow_none=True)
+    privilegesRequired = String(allow_none=True)
+    userInteraction = String(allow_none=True)
+
+    class Meta:
+        render_module = orjson
+
+
+class CvssV4VulnerableSystemImpactMetrics(Schema):
+    confidentialityImpact = String(allow_none=True)
+    integrityImpact = String(allow_none=True)
+    availabilityImpact = String(allow_none=True)
+
+    class Meta:
+        render_module = orjson
+
+
+class CvssV4SubsequentSystemImpactMetrics(Schema):
+    confidentialityImpact = String(allow_none=True)
+    integrityImpact = String(allow_none=True)
+    availabilityImpact = String(allow_none=True)
+
+    class Meta:
+        render_module = orjson
+
+
+class CvssV4BaseMetrics(Schema):
+    exploitabilityMetrics = Nested(
+        CvssV4ExploitabilityMetrics, allow_none=True
+    )
+    vulnerableSystemImpactMetrics = Nested(
+        CvssV4VulnerableSystemImpactMetrics, allow_none=True
+    )
+    subsequentSystemImpactMetrics = Nested(
+        CvssV4SubsequentSystemImpactMetrics, allow_none=True
+    )
+
+    class Meta:
+        render_module = orjson
+
+
+class CvssV4SupplementalMetrics(Schema):
+    safety = String(allow_none=True)
+    automatable = String(allow_none=True)
+    recovery = String(allow_none=True)
+    valueDensity = String(allow_none=True)
+    vulnerabilityResponseEffort = String(allow_none=True)
+    providerUrgency = String(allow_none=True)
+
+    class Meta:
+        render_module = orjson
+
+
+class CvssV4ModifiedBaseMetrics(Schema):
+    exploitabilityMetrics = Nested(
+        CvssV4ExploitabilityMetrics, allow_none=True
+    )
+    vulnerableSystemImpactMetrics = Nested(
+        CvssV4VulnerableSystemImpactMetrics, allow_none=True
+    )
+    subsequentSystemImpactMetrics = Nested(
+        CvssV4SubsequentSystemImpactMetrics, allow_none=True
+    )
+
+    class Meta:
+        render_module = orjson
+
+
+class CvssV4SecurityRequirements(Schema):
+    confidentialityRequirements = String(allow_none=True)
+    integrityRequirements = String(allow_none=True)
+    availabilityRequirements = String(allow_none=True)
+
+    class Meta:
+        render_module = orjson
+
+
+class CvssV4EnvironmentalMetrics(Schema):
+    modifiedBaseMetrics = Nested(CvssV4ModifiedBaseMetrics, allow_none=True)
+    securityRequirements = Nested(CvssV4SecurityRequirements, allow_none=True)
+
+    class Meta:
+        render_module = orjson
+
+
+class CvssV4ThreatMetrics(Schema):
+    exploitMaturity = String(allow_none=True)
+
+    class Meta:
+        render_module = orjson
+
+
+class CvssV4(Schema):
+    version = String(allow_none=True)
+    vectorString = String(allow_none=True)
+
+    baseMetrics = Nested(CvssV4BaseMetrics, allow_none=True)
+    supplementalMetrics = Nested(CvssV4SupplementalMetrics, allow_none=True)
+    environmentalMetrics = Nested(CvssV4EnvironmentalMetrics, allow_none=True)
+    threatMetrics = Nested(CvssV4ThreatMetrics, allow_none=True)
+
+    baseScore = Float(allow_none=True)
+    baseSeverity = String(allow_none=True)
+
+    baseEnvironmentalScore = Float(allow_none=True)
+    baseEnvironmentalSeverity = String(allow_none=True)
+
+    baseThreatScore = Float(allow_none=True)
+    baseThreatSeverity = String(allow_none=True)
+
+    baseThreatEnvironmentalScore = Float(allow_none=True)
+    baseThreatEnvironmentalSeverity = String(allow_none=True)
+
+    class Meta:
+        render_module = orjson
+
+
+class CveBaseMetricV4(Schema):
+    cvssV4 = Nested(CvssV4, allow_none=True)
+
+    class Meta:
+        render_module = orjson
+
+
 class CveImpact(Schema):
     baseMetricV3 = Nested(CveBaseMetric)
+    baseMetricV4 = Nested(CveBaseMetricV4)
 
     class Meta:
         render_module = orjson
