@@ -31,6 +31,9 @@ requires:
 
 config:
   options:
+    database:
+      type: secret
+      description: "Primary connection string"
     replica-one:
       type: secret
       description: "First read-replica connection string"
