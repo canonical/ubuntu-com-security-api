@@ -15,7 +15,7 @@ from sqlalchemy import asc, case, desc, distinct, func, or_, exists, tuple_
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Query, aliased, load_only, selectinload
 
-from webapp.auth import authorization_required
+from webapp.auth import authorization_required, oauth_authorization_required
 from webapp.database import db
 from webapp.models import (
     CVE,
@@ -1051,6 +1051,14 @@ def delete_release(release_codename):
     return make_response(
         jsonify({"message": f"Release {release_codename} deleted"}), 200
     )
+
+
+# Remove after PR review
+@oauth_authorization_required
+def test_authorization_required():
+    """Test method for auth."""
+    print("Authorization test function called.")
+    return "This is a test function for authorization_required decorator.", 200
 
 
 def _sort_by_priority(cves_query):

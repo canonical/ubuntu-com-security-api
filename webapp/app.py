@@ -28,9 +28,39 @@ from webapp.views import (
     get_page_notices,
     get_release,
     get_releases,
+    test_authorization_required,
     update_notice,
     update_release,
 )
+
+# Flask compress options
+COMPRESS_MIMETYPES = [
+    "text/html",
+    "text/css",
+    "text/plain",
+    "text/xml",
+    "text/x-component",
+    "text/javascript",
+    "application/x-javascript",
+    "application/javascript",
+    "application/manifest+json",
+    "application/vnd.api+json",
+    "application/xml",
+    "application/xhtml+xml",
+    "application/rss+xml",
+    "application/atom+xml",
+    "application/vnd.ms-fontobject",
+    "application/x-font-ttf",
+    "application/x-font-opentype",
+    "application/x-font-truetype",
+    "image/svg+xml",
+    "image/x-icon",
+    "image/vnd.microsoft.icon",
+    "font/ttf",
+    "font/eot",
+    "font/otf",
+    "font/opentype",
+]
 
 # Flask compress options
 COMPRESS_MIMETYPES = [
@@ -75,7 +105,10 @@ app.config.update(
         ),
         "APISPEC_SWAGGER_URL": "/security/api/spec.json",
         "APISPEC_SWAGGER_UI_URL": "/security/api/docs",
-        "SQLALCHEMY_DATABASE_URI": os.environ["DATABASE_URL"],
+        "SQLALCHEMY_DATABASE_URI": os.environ.get(
+            "POSTGRESQL_DB_CONNECT_STRING",
+            os.environ.get("DATABASE_URL", "sqlite:///security.db"),
+        ),
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
     },
 )
@@ -219,6 +252,13 @@ app.add_url_rule(
     "/security/updates/releases/<release_codename>.json",
     view_func=delete_release,
     methods=["DELETE"],
+    provide_automatic_options=False,
+)
+# Remove after PR
+app.add_url_rule(
+    "/security/updates/authtest.json",
+    view_func=test_authorization_required,
+    methods=["PUT"],
     provide_automatic_options=False,
 )
 
