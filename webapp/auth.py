@@ -292,7 +292,8 @@ def oauth_authorization_required(func: Callable) -> Callable:
         thread.start()
 
         auth_url = (
-            f"https://launchpad.net/+authorize-token?oauth_token={data['oauth_token']}"
+            "https://launchpad.net/+authorize-token?"
+            f"oauth_token={data['oauth_token']}"
         )
         response = flask.make_response(auth_url, 302)
         response.headers["Auth-Token"] = token

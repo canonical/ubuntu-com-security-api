@@ -53,7 +53,11 @@ if args.auth == "oauth":
                 print("\n✅ CVE data successfully submitted.")
                 exit(0)
             else:
-                os.remove("./authtoken") if os.path.exists("./authtoken") else None
+                (
+                    os.remove("./authtoken")
+                    if os.path.exists("./authtoken")
+                    else None
+                )
 
             print(f"Response: {response}")
             auth_token = response.headers.get("Auth-Token")
@@ -64,7 +68,9 @@ if args.auth == "oauth":
                 print("\n✅ Auth token saved to ./authtoken")
 
             if response.status_code == 302:
-                print("\n🔗 Please visit this URL to authorize the application:")
+                print(
+                    "\n🔗 Please visit this URL to authorize the application:"
+                )
                 print(f"   {response.text}")
                 print(
                     "\nAfter authorization, the script will continue automatically.",
