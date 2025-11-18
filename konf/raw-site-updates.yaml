@@ -73,6 +73,12 @@ spec:
                   key: prod-database-url
                   name: usndbreplica
 
+            - name: OAUTH_TOKEN_SALT
+              valueFrom:
+                secretKeyRef:
+                  key: oauth-token-salt
+                  name: secret-keys
+                  
             - name: SENTRY_DSN
               value: "https://1e974d641a14437e9573e8fe9958a252@sentry.is.canonical.com//48"
 
