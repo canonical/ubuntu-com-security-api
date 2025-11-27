@@ -35,6 +35,7 @@ if args.auth == "oauth":
     # Add the headers for OAuth
     headers = {"Auth-Type": "oauth"}
     if os.path.exists("./authtoken"):
+        print("\n🔑 Using existing auth token from ./authtoken")
         with open("./authtoken") as token_file:
             token = token_file.read().strip()
             headers["Authorization"] = f"Bearer {token}"
@@ -49,34 +50,29 @@ if args.auth == "oauth":
                 json=json.load(json_file),
                 headers=headers,
             )
+
             if response.status_code == 200:
                 print("\n✅ CVE data successfully submitted.")
-                exit(0)
-            else:
-                (
-                    os.remove("./authtoken")
-                    if os.path.exists("./authtoken")
-                    else None
-                )
-
-            print(f"Response: {response}")
-            auth_token = response.headers.get("Auth-Token")
-            print(f"Auth Token from header: {auth_token}")
-            if auth_token:
-                with open("./authtoken", "w") as token_file:
-                    token_file.write(auth_token)
-                print("\n✅ Auth token saved to ./authtoken")
-
-            if response.status_code == 302:
-                print(
-                    "\n🔗 Please visit this URL to authorize the application:"
-                )
+            elif response.status_code == 302:
+                # OAuth authorization required
+                (os.remove("./authtoken") if os.path.exists("./authtoken") else None)
+                print("\n🔗 Please visit this URL to authorize the application:")
                 print(f"   {response.text}")
                 print(
                     "\nAfter authorization, the script will continue automatically.",
                 )
+                if auth_token := response.headers.get("Auth-Token"):
+                    with open("./authtoken", "w") as token_file:
+                        token_file.write(auth_token)
+                    print("\n✅ Auth token saved to ./authtoken")
             else:
-                print(f"Unexpected response code: {response.status_code}")
+                print(
+                    f"\n❌ CVE data submission failed. {response.status_code} "
+                    f"{response.text}"
+                )
+                # Clean up any existing token on failure
+                (os.remove("./authtoken") if os.path.exists("./authtoken") else None)
+            exit(0)
 
     except Exception as e:
         print(f"OAuth flow error: {e}")

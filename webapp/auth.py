@@ -321,7 +321,7 @@ def async_process_request(
         The result of the request function.
 
     """
-    for retry in range(3, 6):
+    for retry in range(20):
         if verify_access_token(
             "ubuntu.com/security",
             oauth_token,
@@ -332,12 +332,11 @@ def async_process_request(
             )
             return request(*args, **kwargs)
         else:
-            delay = 2**retry
             logger.info(
                 "[AUTHWORKER] Waiting for access token."
-                " Trying again din %d seconds...",
-                delay,
+                " Trying again in 3 seconds...",
             )
+            # In total, wait for 1 minute (20 * 3s)
             time.sleep(3)
 
     return "Authorization failed after multiple attempts", 401
