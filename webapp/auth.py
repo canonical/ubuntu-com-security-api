@@ -1,9 +1,11 @@
 # Standard library
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timedelta
 from functools import wraps
+import os
 import threading
 import time
 from typing import Any, Callable
@@ -38,6 +40,12 @@ IDENTITY_CAVEATS = [
         ["username"],
     ),
 ]
+
+CONSUMER_KEY = "ubuntu.com/security"
+
+REQUEST_TOKENS_FILE = os.getenv("REQUEST_TOKENS_FILE", "/tmp/request_tokens")
+
+TOKEN_DELIMITER = "␜"
 
 
 def is_authorized_user(
@@ -154,9 +162,6 @@ def authorization_required(func):
     return is_authorized
 
 
-TOKEN_DELIMITER = "␜"
-
-
 def create_time_based_token(
     raw_token: str,
 ) -> str:
@@ -188,22 +193,34 @@ def validate_time_based_token(token: str) -> bool:
     try:
         salt = get_flask_env("OAUTH_TOKEN_SALT", error=True)
         fernet = Fernet(salt)
+        # First, decrypt the token
         decrypted = fernet.decrypt(token.encode()).decode()
         raw_token, timestamp = decrypted.rsplit(TOKEN_DELIMITER, 1)
+        # Check if the token has expired
         token_time = datetime.fromtimestamp(int(timestamp))
         if datetime.now() - token_time < timedelta(minutes=10):
-            data = get_auth_params(raw_token)
-            return verify_access_token(
-                "ubuntu.com/security",
-                data["oauth_token"],
-                data["oauth_token_secret"],
+            access_token = get_access_token(token)
+            if not access_token:
+                logger.error("No access token found for validation.")
+                return False
+            data = get_auth_params(access_token)
+            oauth_token = data["oauth_token"]
+            oauth_token_secret = data["oauth_token_secret"]
+            # Finally, verify the access token on lp
+            lp = OAuth1Session(
+                CONSUMER_KEY,
+                resource_owner_key=oauth_token,
+                resource_owner_secret=oauth_token_secret,
+                signature_method="PLAINTEXT",
             )
+            res = lp.get("https://api.launchpad.net/beta/~sam-olwe")
+            if res.status_code == 200:
+                return True
         else:
             logger.error("Token has expired.")
             return False
     except InvalidToken:
-        pass
-    logger.error(f"Invalid token provided for validation.{token}")
+        logger.error(f"Invalid token provided for validation.{token}")
     return False
 
 
@@ -220,11 +237,11 @@ def get_auth_params(text: str) -> dict[str, str]:
     return data
 
 
-def verify_access_token(
+def verify_request_token(
     consumer_key: str,
     oauth_token: str,
     oauth_token_secret: str,
-) -> bool:
+) -> str | None:
     """Verify if an access token is valid.
 
     Args:
@@ -232,16 +249,19 @@ def verify_access_token(
         oauth_token: The OAuth token to verify.
         oauth_token_secret: The OAuth token secret to verify.
     """
-    lp = OAuth1Session(
-        consumer_key,
-        resource_owner_key=oauth_token,
-        resource_owner_secret=oauth_token_secret,
-        signature_method="PLAINTEXT",
+    res = requests.post(
+        "https://launchpad.net/+access-token",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        data={
+            "oauth_token": oauth_token,
+            "oauth_consumer_key": consumer_key,
+            "oauth_signature_method": "PLAINTEXT",
+            "oauth_signature": f"&{oauth_token_secret}",
+        },
     )
-    res = lp.get("https://api.launchpad.net/beta/~sam-olwe")
     if res.status_code == 200:
-        return True
-    return False
+        return res.text
+    return None
 
 
 def oauth_authorization_required(func: Callable) -> Callable:
@@ -258,6 +278,51 @@ def oauth_authorization_required(func: Callable) -> Callable:
     @wraps(func)
     def is_authorized(*args: tuple, **kwargs: dict) -> flask.Response:
         """Validate authentication token or return 302."""
+
+        # The request context copy is only possible within a view function
+        @flask.copy_current_request_context
+        def async_process_request(
+            oauth_token: str,
+            oauth_token_secret: str,
+            token: str,
+            request: Callable,
+            *args: tuple,
+            **kwargs: dict,
+        ) -> Any:
+            """Process the request asynchronously.
+
+            Args:
+                oauth_token: The OAuth token.
+                oauth_token_secret: The OAuth token secret.
+                token: The time-based token.
+                request: The request function.
+
+            Returns:
+                The result of the request function.
+
+            """
+            for _ in range(20):
+                if access_token := verify_request_token(
+                    CONSUMER_KEY,
+                    oauth_token,
+                    oauth_token_secret,
+                ):
+                    logger.info(
+                        "[AUTHWORKER] User is authorized, proceeding with request",
+                    )
+                    # Save the access token for future use
+                    save_access_token(token, access_token)
+
+                    return request(*args, **kwargs)
+                else:
+                    logger.info(
+                        "[AUTHWORKER] Waiting for access token."
+                        " Trying again in 3 seconds...",
+                    )
+                    # In total, wait for 1 minute (20 * 3s)
+                    time.sleep(3)
+
+            return "Authorization failed after multiple attempts", 401
 
         # Check if the Authorization header is present, and valid
         if auth_header := flask.request.headers.get("Authorization"):
@@ -276,18 +341,23 @@ def oauth_authorization_required(func: Callable) -> Callable:
             },
         )
         data = get_auth_params(res.text)
+        request_token = data["oauth_token"]
+        request_token_secret = data["oauth_token_secret"]
+
         token = create_time_based_token(res.text)
 
         # Wait for authorization in a separate thread
         thread = threading.Thread(
             target=async_process_request,
             args=(
-                data["oauth_token"],
-                data["oauth_token_secret"],
+                request_token,
+                request_token_secret,
+                token,
                 func,
                 *args,
             ),
             kwargs=kwargs,
+            daemon=True,
         )
         thread.start()
 
@@ -302,41 +372,55 @@ def oauth_authorization_required(func: Callable) -> Callable:
     return is_authorized
 
 
-def async_process_request(
-    oauth_token: str,
-    oauth_token_secret: str,
-    request: Callable,
-    *args: tuple,
-    **kwargs: dict,
-) -> Any:
-    """Process the request asynchronously.
+def save_access_token(
+    request_token: str, oauth_token_string: str, location=REQUEST_TOKENS_FILE
+) -> None:
+    """Save the access token to a file as an entry
+    in a json object.
 
     Args:
-        credentials: The credentials object.
-        request: The request function.
-        args: The positional arguments.
-        kwargs: The keyword arguments.
-
-    Returns:
-        The result of the request function.
-
+        text: The access token text.
     """
-    for retry in range(20):
-        if verify_access_token(
-            "ubuntu.com/security",
-            oauth_token,
-            oauth_token_secret,
-        ):
-            logger.info(
-                "[AUTHWORKER] User is authorized, proceeding with request",
-            )
-            return request(*args, **kwargs)
-        else:
-            logger.info(
-                "[AUTHWORKER] Waiting for access token."
-                " Trying again in 3 seconds...",
-            )
-            # In total, wait for 1 minute (20 * 3s)
-            time.sleep(3)
 
-    return "Authorization failed after multiple attempts", 401
+    if not os.path.exists(location):
+        with open(location, "w") as f:
+            json.dump({request_token: oauth_token_string}, f)
+    else:
+        with open(location, "r") as f:
+            tokens = json.load(f)
+            tokens[request_token] = oauth_token_string
+            with open(location, "w") as f:
+                json.dump(tokens, f)
+
+
+def get_access_token(request_token: str, location=REQUEST_TOKENS_FILE) -> str | None:
+    """Get the access token from the file.
+
+    Args:
+        request_token: The OAuth token.
+    Returns:
+        The access token secret if found, None otherwise.
+    """
+    if not os.path.exists(location):
+        return None
+    else:
+        with open(location, "r") as f:
+            tokens = json.load(f)
+            return tokens.get(request_token, None)
+
+
+def remove_access_token(request_token: str, location=REQUEST_TOKENS_FILE) -> None:
+    """Remove the access token from the file.
+
+    Args:
+        request_token: The OAuth token.
+    """
+    if not os.path.exists(location):
+        return
+    else:
+        with open(location, "r") as f:
+            tokens = json.load(f)
+            if request_token in tokens:
+                del tokens[request_token]
+                with open(location, "w") as f:
+                    json.dump(tokens, f)

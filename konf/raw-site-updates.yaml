@@ -76,9 +76,12 @@ spec:
             - name: OAUTH_TOKEN_SALT
               valueFrom:
                 secretKeyRef:
-                  key: oauth-token-salt
-                  name: secret-keys
+                  key: ubuntu-com-security-api
+                  name: token-salts
                   
+            - name: REQUEST_TOKENS_FILE
+              value: "/etc/ubuntu-com-security-api/request-tokens"
+
             - name: SENTRY_DSN
               value: "https://1e974d641a14437e9573e8fe9958a252@sentry.is.canonical.com//48"
 
@@ -92,3 +95,11 @@ spec:
           resources:
             limits:
               memory: 1G
+
+          volumeMounts:
+          - mountPath: /etc/ubuntu-com-security-api/
+            name: volume
+      volumes:
+      - name: volume
+        persistentVolumeClaim:
+          claimName: www-ubuntu-com-security-api-updates-0
