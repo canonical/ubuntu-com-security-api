@@ -308,7 +308,8 @@ def oauth_authorization_required(func: Callable) -> Callable:
                     oauth_token_secret,
                 ):
                     logger.info(
-                        "[AUTHWORKER] User is authorized, proceeding with request",
+                        """[AUTHWORKER] User is authorized,
+                          proceeding with request"""
                     )
                     # Save the access token for future use
                     save_access_token(token, access_token)
@@ -394,7 +395,8 @@ def save_access_token(
 
 
 def get_access_token(
-    request_token: str, location=REQUEST_TOKENS_FILE
+    request_token: str,
+    location=REQUEST_TOKENS_FILE,
 ) -> str | None:
     """Get the access token from the file.
 
@@ -412,7 +414,8 @@ def get_access_token(
 
 
 def remove_access_token(
-    request_token: str, location=REQUEST_TOKENS_FILE
+    request_token: str,
+    location=REQUEST_TOKENS_FILE,
 ) -> None:
     """Remove the access token from the file.
 
