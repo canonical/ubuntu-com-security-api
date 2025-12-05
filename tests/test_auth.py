@@ -51,7 +51,7 @@ class TestAuth(unittest.TestCase):
     def test_get_auth_params_valid_input(self, mock_get_flask_env):
         """Test that get_auth_params returns correct dictionary for
         valid input."""
-        mock_get_flask_env.return_value = "dummy_env"
+        mock_get_flask_env.return_value = "some_env"
         text = "oauth_token=abc123&oauth_token_secret=xyz456"
         expected_output = {
             "oauth_token": "abc123",
