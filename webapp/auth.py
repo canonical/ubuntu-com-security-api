@@ -393,7 +393,9 @@ def save_access_token(
                 json.dump(tokens, f)
 
 
-def get_access_token(request_token: str, location=REQUEST_TOKENS_FILE) -> str | None:
+def get_access_token(
+    request_token: str, location=REQUEST_TOKENS_FILE
+) -> str | None:
     """Get the access token from the file.
 
     Args:
@@ -409,7 +411,9 @@ def get_access_token(request_token: str, location=REQUEST_TOKENS_FILE) -> str | 
             return tokens.get(request_token, None)
 
 
-def remove_access_token(request_token: str, location=REQUEST_TOKENS_FILE) -> None:
+def remove_access_token(
+    request_token: str, location=REQUEST_TOKENS_FILE
+) -> None:
     """Remove the access token from the file.
 
     Args:

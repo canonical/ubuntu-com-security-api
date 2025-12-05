@@ -13,7 +13,9 @@ from webapp.auth import get_access_token
 
 class TestAuth(unittest.TestCase):
     @patch("webapp.auth.get_flask_env")
-    def test_create_time_based_token_contains_timestamp(self, mock_get_flask_env):
+    def test_create_time_based_token_contains_timestamp(
+        self, mock_get_flask_env
+    ):
         """Test that created token contains encrypted timestamp."""
         salt = Fernet.generate_key()
         mock_get_flask_env.return_value = salt
@@ -48,7 +50,10 @@ class TestAuth(unittest.TestCase):
         """Test that get_auth_params returns correct dictionary for valid input."""
         mock_get_flask_env.return_value = "dummy_env"
         text = "oauth_token=abc123&oauth_token_secret=xyz456"
-        expected_output = {"oauth_token": "abc123", "oauth_token_secret": "xyz456"}
+        expected_output = {
+            "oauth_token": "abc123",
+            "oauth_token_secret": "xyz456",
+        }
 
         result = get_auth_params(text)
         self.assertEqual(result, expected_output)
@@ -75,7 +80,9 @@ class TestAuth(unittest.TestCase):
             os.remove(location)
 
         # First save
-        save_access_token("new_token", "access_oauth&secret", location=location)
+        save_access_token(
+            "new_token", "access_oauth&secret", location=location
+        )
         self.assertTrue(os.path.exists(location))
 
         #  Check content
