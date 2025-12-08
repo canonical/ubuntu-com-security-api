@@ -40,7 +40,7 @@ spec:
               topologyKey: "kubernetes.io/hostname"
       containers:
         - name: ubuntu-com-security-api-updates
-          image: prod-comms.ps5.docker-registry.canonical.com/ubuntu-com-security-api:1761815003-384d4b6
+          image: prod-comms.ps5.docker-registry.canonical.com/ubuntu-com-security-api:${TAG_TO_DEPLOY}
 
           ports:
             - name: http
