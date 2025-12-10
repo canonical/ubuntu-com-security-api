@@ -122,6 +122,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install --yes python3-setuptools
           sudo pip3 install -r requirements.txt
+          sudo pip3 install cryptography==37.0.4
 
       - name: Install dependencies
         run: sudo pip3 install coverage

@@ -13,11 +13,12 @@ spec:
       targetPort: http
 
 ---
-kind: Deployment
+kind: StatefulSet
 apiVersion: apps/v1
 metadata:
   name: ubuntu-com-security-api-updates
 spec:
+  serviceName: ubuntu-com-security-api-updates
   replicas: 2
   selector:
     matchLabels:
@@ -73,6 +74,15 @@ spec:
                   key: prod-database-url
                   name: usndbreplica
 
+            - name: OAUTH_TOKEN_SALT
+              valueFrom:
+                secretKeyRef:
+                  key: ubuntu-com-security-api
+                  name: token-salts
+                  
+            - name: REQUEST_TOKENS_FILE
+              value: "/etc/ubuntu-com-security-api/request-tokens"
+
             - name: SENTRY_DSN
               value: "https://1e974d641a14437e9573e8fe9958a252@sentry.is.canonical.com//48"
 
@@ -86,3 +96,16 @@ spec:
           resources:
             limits:
               memory: 1G
+
+          volumeMounts:
+          - mountPath: /etc/ubuntu-com-security-api/
+            name: www
+            
+  volumeClaimTemplates:
+  - metadata:
+      name: www
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi

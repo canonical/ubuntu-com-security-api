@@ -40,3 +40,6 @@ config:
     replica-two:
       type: secret
       description: "Second read-replica connection string"
+    oauth-token-salt:
+      type: secret
+      description: "Salt used to encode and decode OAuth tokens"

@@ -75,3 +75,6 @@ database.json
 database.json.1
 static/js/build/
 *.swp
+
+# Tokens and credentials
+authtoken
