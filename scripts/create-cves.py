@@ -52,7 +52,7 @@ if args.auth == "oauth":
             )
 
             if response.status_code == 200:
-                print("\n✅ CVE data successfully submitted.")
+                print("\nCVE data successfully submitted.")
             elif response.status_code == 302:
                 # OAuth authorization required
                 (
