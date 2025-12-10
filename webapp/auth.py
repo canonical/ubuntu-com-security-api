@@ -213,7 +213,7 @@ def validate_time_based_token(token: str) -> bool:
                 resource_owner_secret=oauth_token_secret,
                 signature_method="PLAINTEXT",
             )
-            res = lp.get("https://api.launchpad.net/beta/~sam-olwe")
+            res = lp.get("https://api.launchpad.net/beta/people/+me")
             if res.status_code == 200:
                 return True
         else:
