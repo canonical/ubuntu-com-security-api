@@ -78,10 +78,16 @@ flask insert_numerical_cve_ids # For each cve in the database, update the numeri
 ## Uploading CVES
 
 You can use the convenience script provided in `scripts/create-cves.py` to upload cves to the local instance, using either macaroons or oauth2.
-To use oauth, run the following commands
+To use macaroons, run the following commands
 
 ```bash
 python scripts/create-cves.py --host http://0.0.0.0:8030 scripts/payloads/cves.json 
+```
+
+To use oauth2, run the following commands
+
+```bash
+python scripts/create-cves.py --auth oauth --host http://0.0.0.0:8030 scripts/payloads/cves.json 
 ```
 
 ## Uploading via HTTP
