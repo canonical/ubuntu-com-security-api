@@ -198,7 +198,7 @@ def validate_time_based_token(token: str) -> bool:
         raw_token, timestamp = decrypted.rsplit(TOKEN_DELIMITER, 1)
         # Check if the token has expired
         token_time = datetime.fromtimestamp(int(timestamp))
-        if datetime.now() - token_time < timedelta(minutes=10):
+        if datetime.now() - token_time < timedelta(days=30):
             access_token = get_access_token(token)
             if not access_token:
                 logger.error("No access token found for validation.")
