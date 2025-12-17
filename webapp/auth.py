@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timedelta
 from functools import wraps
 import os
+import re
 import threading
 import time
 from typing import Any, Callable
@@ -215,7 +216,16 @@ def validate_time_based_token(token: str) -> bool:
             )
             res = lp.get("https://api.launchpad.net/beta/people/+me")
             if res.status_code == 200:
-                return True
+                # Check if user is in AUTHORIZED_TEAMS
+                data = res.json()
+                res = lp.get(data.get("memberships_details_collection_link"))
+                if res.status_code == 200:
+                    group_data = res.json()
+                    for entry in group_data.get("entries", []):
+                        team_link = entry.get("team_link", "")
+                        for team in AUTHORIZED_TEAMS:
+                            if re.match(f".*{team}.*", team_link):
+                                return True
         else:
             logger.error("Token has expired.")
             return False
