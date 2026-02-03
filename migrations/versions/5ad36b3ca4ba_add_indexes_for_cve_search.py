@@ -17,7 +17,10 @@ depends_on = None
 
 
 def upgrade():
-    # Create GIN indexes with pg_trgm ops on cve table (assumes extension already exists)
+    # Ensure the extension exists BEFORE creating indexes
+    op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+
+    # Create GIN indexes with pg_trgm ops
     op.execute("CREATE INDEX idx_cve_description_trgm ON cve USING gin (description gin_trgm_ops)")
     op.execute("CREATE INDEX idx_cve_ubuntu_description_trgm ON cve USING gin (ubuntu_description gin_trgm_ops)")
     op.execute("CREATE INDEX idx_cve_codename_trgm ON cve USING gin (codename gin_trgm_ops)")
