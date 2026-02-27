@@ -5,7 +5,6 @@
 """Charm the application."""
 
 import logging
-import os
 
 import ops
 import pydantic
@@ -47,20 +46,20 @@ class MachineCharmCharm(ops.CharmBase):
         self.database = DatabaseRequires(
             self, relation_name="postgresql", database_name="postgresql"
         )
-        self.framework.observe(self.database.on.database_created, self._on_database_created)
+        framework.observe(self.database.on.database_created, self._on_database_created)
 
     def _on_database_created(self, event: DatabaseCreatedEvent) -> None:
         """Handle database created event."""
         logger.info("Database created with connection string: %s", event.connection_string)
-
-        # Add env variable for flask-base
-        os.environ["DATABASE_URL"] = event.connection_string
+        self.unit.status = ops.MaintenanceStatus("running migrations")
+        # Run migrations before starting the workload to ensure the database is ready.
+        workload.migrate(self.charm_dir.absolute().as_posix(), event.connection_string)
         # Start workload when database is ready.
         self._start()
 
     def _on_install(self, event: ops.InstallEvent):
         """Install the workload on the machine."""
-        workload.install(self.charm_dir.absolute().as_posix(), os.environ["DATABASE_URL"])
+        workload.install(self.charm_dir.absolute().as_posix())
 
     def _start(self) -> None:
         """Start the workload."""
@@ -78,6 +77,7 @@ class MachineCharmCharm(ops.CharmBase):
 
     def _stop(self) -> None:
         """Stop the workload."""
+        self.unit.status = ops.MaintenanceStatus("stopping workload")
         workload.stop()
 
 

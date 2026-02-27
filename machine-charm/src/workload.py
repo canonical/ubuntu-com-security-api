@@ -57,7 +57,7 @@ def run_migrations() -> None:
         )
 
 
-def install(charm_dir: str, database_url: str) -> None:
+def install(charm_dir: str) -> None:
     """Install the workload (by installing a snap, for example)."""
     # Install apt packages
     apt.update()
@@ -77,6 +77,10 @@ def install(charm_dir: str, database_url: str) -> None:
         "-r",
         f"{charm_dir}/src/flask/app/requirements.txt",
     )
+
+
+def migrate(charm_dir: str, database_url: str) -> None:
+    """Run database migrations."""
     # Install the pg_trgm extension
     run_command("psql", "-c", "CREATE EXTENSION IF NOT EXISTS pg_trgm;", database_url)
     # Then run migrations
