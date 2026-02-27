@@ -42,6 +42,7 @@ class MachineCharmCharm(ops.CharmBase):
         super().__init__(framework)
         framework.observe(self.on.install, self._on_install)
         framework.observe(self.on.config_changed, self._on_config_changed)
+        self.unit.status = ops.MaintenanceStatus("waiting for database relation")
         # Charm events defined in the database requires charm library.
         self.database = DatabaseRequires(
             self, relation_name="postgresql", database_name="postgresql"
