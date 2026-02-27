@@ -62,14 +62,16 @@ def install(charm_dir: str) -> None:
     # Install apt packages
     apt.update()
     apt.add_package("libsodium-dev", "1.0.18-1ubuntu0.24.04.1")
-    apt.add_package("python3-virtualenv", "20.25.0+ds-2")
+    apt.add_package("python3-venv", "3.12.3-0ubuntu2.1")
     apt.add_package("postgresql-16", "16.11-0ubuntu0.24.04.1")
 
     # Create a virtual environment
-    run_command("virtualenv", "/venv")
+    run_command("python3", "-m", "venv", "/venv")
+
+    # Install setuptools to support pkg_resources
+    run_command("/venv/bin/python", "-m", "pip", "install", "setuptools==80.10.2")
 
     # Install workload python packages
-    run_command("/venv/bin/python", "-m", "pip", "install", "setuptools")
     run_command(
         "/venv/bin/python",
         "-m",
@@ -96,7 +98,7 @@ def migrate(charm_dir: str, database_url: str) -> None:
     )
 
 
-def start(address: str, workers: str, timeout: str) -> None:
+def start(charm_dir: str, address: str, workers: str, timeout: str) -> None:
     """Start the webapp."""
     run_command(
         "/venv/bin/python",

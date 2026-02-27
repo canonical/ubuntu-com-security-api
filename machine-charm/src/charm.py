@@ -66,7 +66,12 @@ class MachineCharmCharm(ops.CharmBase):
         """Start the workload."""
         self.unit.status = ops.MaintenanceStatus("starting workload")
         config = self.load_config(WorkloadConfig)
-        workload.start(config.bind_address, config.workers, config.timeout)
+        workload.start(
+            self.charm_dir.absolute().as_posix(),
+            config.bind_address,
+            config.workers,
+            config.timeout,
+        )
         self.unit.status = ops.ActiveStatus()
 
     def _on_config_changed(self, event: ops.ConfigChangedEvent):
