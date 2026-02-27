@@ -1,0 +1,64 @@
+# This file configures Charmcraft.
+# See https://documentation.ubuntu.com/charmcraft/stable/reference/files/charmcraft-yaml-file/
+type: charm
+name: ubuntu-security-api-vm
+title: Ubuntu Security API Machine Charm
+summary: An air-gap ready machine charm for the Ubuntu Security API.
+description: |
+  This charm provides an API for accessing Ubuntu security data. 
+
+  It is designed to be deployed in an air-gapped environment, and can be used to provide access to Ubuntu security data without requiring an internet connection.
+
+base: ubuntu@24.04
+platforms:
+  amd64:
+
+parts:
+  local-app:
+    plugin: dump
+    source: ../
+    source-type: local
+    override-pull: |
+      craftctl default
+      rm -rf .git .venv .env *.charm .mypy_cache .ruff_cache machine-charm k8s-charm konf node_modules yarn.lock __pycache__ docker-entrypoint-initdb.d .github .gitignore docker-compose.yaml Dockerfile entrypoint migrate.sh package.json rockcraft.yaml run
+    organize:
+      "*": ./src/flask/app
+    prime:
+      - src/flask/app/app.py
+      - src/flask/app/migrations/*
+      - src/flask/app/requirements.txt
+      - src/flask/app/scripts/*
+      - src/flask/app/templates/*
+      - src/flask/app/tests/*
+      - src/flask/app/webapp/*
+  charm:
+    plugin: uv
+    after: [local-app]
+    source: .
+    build-snaps:
+      - astral-uv
+
+charm-libs:
+  - lib: postgresql.postgres_client
+    version: "1"
+
+requires:
+  postgresql:
+    interface: postgresql_client
+    optional: false
+    limit: 1
+
+config:
+  options:
+    database_url:
+      type: secret
+      description: "Primary connection string"
+    replica-one:
+      type: secret
+      description: "First read-replica connection string"
+    replica-two:
+      type: secret
+      description: "Second read-replica connection string"
+    oauth-token-salt:
+      type: secret
+      description: "Salt used to encode and decode OAuth tokens"

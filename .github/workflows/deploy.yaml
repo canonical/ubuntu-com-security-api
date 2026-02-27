@@ -11,7 +11,7 @@ env:
   ROCKCRAFT_ENABLE_EXPERIMENTAL_EXTENSIONS: true
 
 jobs:
-  pack-charm:
+  pack-k8s-charm:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -25,15 +25,37 @@ jobs:
 
       - name: Pack charm
         run: |
-          cd charm
+          cd k8s-charm
           charmcraft pack -v --project-dir ./
 
       - name: Upload charm
         uses: actions/upload-artifact@v4
         with:
           name: ubuntu-security-api-charm
-          path: ./charm/*.charm
+          path: ./k8s-charm/*.charm
 
+  pack-machine-charm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup LXD
+        uses: canonical/setup-lxd@main
+
+      - name: Setup Charmcraft
+        run: sudo snap install charmcraft --classic --channel=latest/edge
+
+      - name: Pack charm
+        run: |
+          cd machine-charm
+          charmcraft pack -v --project-dir ./
+
+      - name: Upload charm
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-security-api-charm
+          path: ./machine-charm/*.charm
   pack-rock:
     runs-on: ubuntu-latest
     steps:

@@ -1,0 +1,14 @@
+venv/
+build/
+*.charm
+.tox/
+.coverage
+__pycache__/
+*.py[cod]
+.idea
+.vscode/
+.craft
+parts/
+prime/
+overlay/
+stage/
