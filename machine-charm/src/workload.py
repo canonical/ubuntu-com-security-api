@@ -69,6 +69,7 @@ def install(charm_dir: str) -> None:
     run_command("virtualenv", "/venv")
 
     # Install workload python packages
+    run_command("/venv/bin/python", "-m", "pip", "install", "setuptools")
     run_command(
         "/venv/bin/python",
         "-m",
@@ -113,17 +114,18 @@ def start(address: str, workers: str, timeout: str) -> None:
 
 def stop() -> None:
     """Stop the webapp."""
-    run_command("pkill", "-f", "gunicorn")
+    run_command("pkill", "-9", "gunicorn")
+
+
+def is_running() -> bool:
+    """Return whether the webapp is running."""
+    result = subprocess.run(["pgrep", "-f", "gunicorn"], capture_output=True, text=True)
+    return result.returncode == 0
 
 
 # def is_installed() -> bool:
 #     """Return whether the tinyproxy executable is available."""
 #     return shutil.which("tinyproxy") is not None
-
-
-# def is_running() -> bool:
-#     """Return whether tinyproxy is running."""
-#     return bool(_get_pid())
 
 
 # def reload_config() -> None:
@@ -134,13 +136,6 @@ def stop() -> None:
 #     # Sending signal SIGUSR1 doesn't terminate the process. It asks the process to reload config.
 #     # See https://manpages.ubuntu.com/manpages/jammy/en/man8/tinyproxy.8.html#signals
 #     os.kill(pid, signal.SIGUSR1)
-
-
-# def stop() -> None:
-#     """Stop tinyproxy."""
-#     pid = _get_pid()
-#     if pid:
-#         os.kill(pid, signal.SIGTERM)
 
 
 # def uninstall() -> None:

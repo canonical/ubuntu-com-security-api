@@ -15,6 +15,7 @@ dependencies = [
     "ops>=3,<4",
     "pydantic>=2.12.5",
     "psycopg[binary]==3.3.3",
+    "setuptools>=82.0.0",
 ]
 
 [dependency-groups]

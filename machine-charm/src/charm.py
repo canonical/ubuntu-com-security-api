@@ -42,7 +42,6 @@ class MachineCharmCharm(ops.CharmBase):
         super().__init__(framework)
         framework.observe(self.on.install, self._on_install)
         framework.observe(self.on.config_changed, self._on_config_changed)
-        self.unit.status = ops.MaintenanceStatus("waiting for database relation")
         # Charm events defined in the database requires charm library.
         self.database = DatabaseRequires(
             self, relation_name="postgresql", database_name="postgresql"
@@ -61,6 +60,7 @@ class MachineCharmCharm(ops.CharmBase):
     def _on_install(self, event: ops.InstallEvent):
         """Install the workload on the machine."""
         workload.install(self.charm_dir.absolute().as_posix())
+        self.unit.status = ops.MaintenanceStatus("waiting for database relation")
 
     def _start(self) -> None:
         """Start the workload."""
@@ -73,7 +73,8 @@ class MachineCharmCharm(ops.CharmBase):
         """Handle config changes."""
         # For simplicity, we will just restart the workload on any config change.
         self.unit.status = ops.MaintenanceStatus("config changed, restarting workload")
-        self._stop()
+        if workload.is_running():
+            self._stop()
         self._start()
 
     def _stop(self) -> None:
