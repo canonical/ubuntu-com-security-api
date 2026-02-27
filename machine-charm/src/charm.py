@@ -11,7 +11,6 @@ import ops
 import pydantic
 from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseCreatedEvent,
-    DatabaseEntityCreatedEvent,
     DatabaseRequires,
 )
 
@@ -43,16 +42,12 @@ class MachineCharmCharm(ops.CharmBase):
     def __init__(self, framework: ops.Framework):
         super().__init__(framework)
         framework.observe(self.on.install, self._on_install)
-        # framework.observe(self.on.start, self._on_start)
         framework.observe(self.on.config_changed, self._on_config_changed)
         # Charm events defined in the database requires charm library.
         self.database = DatabaseRequires(
             self, relation_name="postgresql", database_name="postgresql"
         )
         self.framework.observe(self.database.on.database_created, self._on_database_created)
-        self.framework.observe(
-            self.database.on.database_entity_created, self._on_database_entity_created
-        )
 
     def _on_database_created(self, event: DatabaseCreatedEvent) -> None:
         """Handle database created event."""
@@ -63,36 +58,27 @@ class MachineCharmCharm(ops.CharmBase):
         # Start workload when database is ready.
         self._start()
 
-    def _on_database_entity_created(self, event: DatabaseEntityCreatedEvent) -> None:
-        """Handle database entity created event."""
-        logger.info("Database entity created with connection string: %s", event.connection_string)
-
     def _on_install(self, event: ops.InstallEvent):
         """Install the workload on the machine."""
-        workload.install(self.charm_dir.absolute().as_posix())
+        workload.install(self.charm_dir.absolute().as_posix(), os.environ["DATABASE_URL"])
 
-    def _start(self):
+    def _start(self) -> None:
         """Start the workload."""
         self.unit.status = ops.MaintenanceStatus("starting workload")
         config = self.load_config(WorkloadConfig)
         workload.start(config.bind_address, config.workers, config.timeout)
         self.unit.status = ops.ActiveStatus()
 
-    def _on_start(self, event: ops.StartEvent):
-        """Handle start event."""
+    def _on_config_changed(self, event: ops.ConfigChangedEvent):
+        """Handle config changes."""
+        # For simplicity, we will just restart the workload on any config change.
+        self.unit.status = ops.MaintenanceStatus("config changed, restarting workload")
+        self._stop()
         self._start()
 
-    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:
-        """Handle config-changed event."""
-        self.configure_and_run()
-
-    def configure_and_run(self) -> None:
-        """Ensure that the workload is running with the correct config."""
-        try:
-            config = self.load_config(WorkloadConfig)
-        except pydantic.ValidationError:
-            # The collect-status handler will run next and will set status for the user to see.
-            return
+    def _stop(self) -> None:
+        """Stop the workload."""
+        workload.stop()
 
 
 if __name__ == "__main__":  # pragma: nocover

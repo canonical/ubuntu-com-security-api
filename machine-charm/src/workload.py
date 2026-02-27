@@ -57,7 +57,7 @@ def run_migrations() -> None:
         )
 
 
-def install(charm_dir: str) -> None:
+def install(charm_dir: str, database_url: str) -> None:
     """Install the workload (by installing a snap, for example)."""
     # Install apt packages
     apt.update()
@@ -78,7 +78,7 @@ def install(charm_dir: str) -> None:
         f"{charm_dir}/src/flask/app/requirements.txt",
     )
     # Install the pg_trgm extension
-    run_command("psql", "-c", "CREATE EXTENSION IF NOT EXISTS pg_trgm;")
+    run_command("psql", "-c", "CREATE EXTENSION IF NOT EXISTS pg_trgm;", database_url)
     # Then run migrations
     run_command(
         "/venv/bin/python",
@@ -105,6 +105,11 @@ def start(address: str, workers: str, timeout: str) -> None:
         "--timeout",
         timeout,
     )
+
+
+def stop() -> None:
+    """Stop the webapp."""
+    run_command("pkill", "-f", "gunicorn")
 
 
 # def is_installed() -> bool:
