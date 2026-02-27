@@ -8,19 +8,35 @@ Avoid using this README file for information that is maintained or published els
 Use links instead.
 -->
 
-# machine-charm
+# ubuntu-security-api-vm
 
-Charmhub package name: machine-charm
-More information: https://charmhub.io/machine-charm
+Charmhub package name: ubuntu-security-api-vm
+More information: https://charmhub.io/ubuntu-security-api-vm
 
-Describe your charm in one or two sentences.
+This is a machine charm to run the ubuntu-security-api on virtual machines.
+
+## Development
+
+This charm requires postgres, which can be added using
+
+```bash
+juju deploy postgresql --channel 16/stable
+```
+
+In order to add the files included in the repo, we have to pack the charm using destructive mode, i.e.
+
+```bash
+charmcraft pack --destructive-mode
+```
+
+Then deploy the charm, and integrate with the postgresql charm.
+
+```bash
+juju deploy ./ubuntu-security-api-vm_amd64.charm
+
+juju relate ubuntu-security-api-vm postgresql
+```
 
 ## Other resources
-
-<!-- If your charm is documented somewhere else other than Charmhub, provide a link separately. -->
-
-- [Read more](https://example.com)
-
-- [Contributing](CONTRIBUTING.md) <!-- or link to other contribution documentation -->
 
 - See the [Juju documentation](https://documentation.ubuntu.com/juju/3.6/howto/manage-charms/) for more information about developing and improving charms.
