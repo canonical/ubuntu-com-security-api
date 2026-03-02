@@ -31,21 +31,30 @@ def use_path(path: str) -> Generator:
         os.chdir(cwd)
 
 
-def run_command(*args, cwd=None, log_file=None) -> None:
+def run_command(*args, cwd=None, log_file=None, detached=False) -> None:
     """Run a subprocess and raise a RuntimeError if the subprocess result indicates an error.
 
     We do this to bubble up the error message from the subprocess to the debug-log.
     """
     try:
-        subprocess.run(
-            args,
-            check=True,
-            text=True,
-            cwd=cwd,
-            stdout=log_file or subprocess.PIPE,
-            stderr=log_file or subprocess.PIPE,
-        )
-    except subprocess.CalledProcessError as e:
+        if detached:
+            subprocess.Popen(
+                args,
+                text=True,
+                cwd=cwd,
+                stdout=log_file or subprocess.PIPE,
+                stderr=log_file or subprocess.PIPE,
+            )
+        else:
+            subprocess.run(
+                args,
+                check=True,
+                text=True,
+                cwd=cwd,
+                stdout=log_file or subprocess.PIPE,
+                stderr=log_file or subprocess.PIPE,
+            )
+    except Exception as e:
         raise RuntimeError(str(e)) from e
 
 
@@ -137,11 +146,15 @@ def start(
             f"{charm_dir}/src/flask/app/",
             "--bind",
             "0.0.0.0:8000",
+            "--daemon",
             "--workers",
             workers,
             "--timeout",
             timeout,
+            "--log-file",
+            GUNICORN_LOG_FILE,
             log_file=log_file,
+            detached=True,
         )
 
 
