@@ -50,15 +50,30 @@ requires:
 
 config:
   options:
-    database_url:
+    secret-key:
       type: secret
-      description: "Primary connection string"
-    replica-one:
-      type: secret
-      description: "First read-replica connection string"
-    replica-two:
-      type: secret
-      description: "Second read-replica connection string"
+      description: "Secret key used to encode and decode JWT tokens"
     oauth-token-salt:
       type: secret
       description: "Salt used to encode and decode OAuth tokens"
+
+actions:
+  upload-database:
+    description: Upload a postgresql database snapshot.
+    params:
+      filename:
+        type: string
+        description: The name of the database.sql file, stored in /tmp/<database-name>.sql.
+    required:
+    - filename
+    additionalProperties: false
+  show-install-logs:
+    description: Show logs from the install process.
+    params: {}
+    required: []
+    additionalProperties: false
+  show-gunicorn-logs:
+    description: Show the gunicorn logs.
+    params: {}
+    required: []
+    additionalProperties: false
