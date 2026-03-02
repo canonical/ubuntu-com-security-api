@@ -86,27 +86,6 @@ class MachineCharmCharm(ops.CharmBase):
             return writeable_uris.pop()
         return event.uris
 
-    def _on_upload_database_action(self, event: ops.ActionEvent) -> None:
-        """Handle the upload-database action."""
-        params = event.load_params(UploadDatabaseAction, errors="fail")
-        event.log(f"Uploading database file: {params.filename}")
-
-        if not self.database.is_resource_created():
-            event.fail("Database relation is not ready")
-            return
-
-        # Dump new database from the uploaded file
-        self.database.relation_data
-
-        workload.restore_database_from_file(params.filename, self.database)
-        try:
-            # Run migrations to verify the database is in a good state after the restore.
-            workload.migrate(self.charm_dir.absolute().as_posix(), self._get_database_uri())
-            event.set_results({"message": "Database migrated successfully"})
-        except Exception as e:
-            logger.error("Failed to migrate database: %s", e)
-            event.fail(f"Failed to migrate database: {e}")
-
     def _on_install(self, event: ops.InstallEvent):
         """Install the workload on the machine."""
         workload.install(self.charm_dir.absolute().as_posix())
@@ -201,15 +180,36 @@ class MachineCharmCharm(ops.CharmBase):
         """Handle the stop event."""
         self._stop()
 
+    def _on_upload_database_action(self, event: ops.ActionEvent) -> None:
+        """Handle the upload-database action."""
+        params = event.load_params(UploadDatabaseAction, errors="fail")
+        event.log(f"Uploading database file: {params.filename}")
+
+        if not self.database.is_resource_created():
+            event.fail("Database relation is not ready")
+            return
+
+        # Dump new database from the uploaded file
+        database_uri = self._get_database_uri()
+
+        workload.restore_database_from_file(params.filename, database_uri)
+        try:
+            # Run migrations to verify the database is in a good state after the restore.
+            workload.migrate(self.charm_dir.absolute().as_posix(), database_uri)
+            event.set_results({"message": "Database migrated successfully"})
+        except Exception as e:
+            logger.error("Failed to migrate database: %s", e)
+            event.fail(f"Failed to migrate database: {e}")
+
     def _show_install_logs(self, event: ops.ActionEvent) -> None:
         """Show logs from the install process."""
         with open(workload.INSTALL_LOG_FILE, "r") as log_file:
-            event.set_results({"install_logs": log_file.read()})
+            event.set_results({"install-logs": log_file.read()})
 
     def _show_gunicorn_logs(self, event: ops.ActionEvent) -> None:
         """Show the gunicorn logs."""
         with open(workload.GUNICORN_LOG_FILE, "r") as log_file:
-            event.set_results({"gunicorn_logs": log_file.read()})
+            event.set_results({"gunicorn-logs": log_file.read()})
 
 
 class UploadDatabaseAction(pydantic.BaseModel):

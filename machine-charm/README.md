@@ -34,27 +34,75 @@ Then deploy the charm, and integrate with the postgresql charm.
 ```bash
 juju deploy ./ubuntu-security-api-vm_amd64.charm
 
-juju relate ubuntu-security-api-vm postgresql
+juju integrate ubuntu-security-api-vm postgresql
 ```
 
 ### Configuring the charm
 
-You'll also need to set the secret is required in the config file before the application can run. e.g.
+You'll also need to set the secrets required in the config before the application can run.
 
-To create
+Create the secrets:
 
 ```bash
 juju add-secret secret-key secret-key=<somesecret>
-juju add-secret oauth-token-salt secret-key=<somesecret>
+juju add-secret oauth-token-salt oauth-token-salt=<somesecret>
 ```
 
-Then grant permissions, and set the config
+Then grant permissions and set the config:
 
 ```bash
 juju grant-secret secret-key ubuntu-security-api-vm
 juju grant-secret oauth-token-salt ubuntu-security-api-vm
-juju config ubuntu-security-api-vm oauth-token-salt=secret:d6id5jn91c5s41im2dtg
-juju config ubuntu-security-api-vm secret-key=secret:d6idfa791c5s41im2dug
+juju config ubuntu-security-api-vm secret-key=secret:<secret-id>
+juju config ubuntu-security-api-vm oauth-token-salt=secret:<secret-id>
+```
+
+## Using charm actions
+
+This charm exposes three actions:
+
+- `upload-database`
+- `show-install-logs`
+- `show-gunicorn-logs`
+
+You can list available actions with:
+
+```bash
+juju actions ubuntu-security-api-vm
+```
+
+### `upload-database`
+
+Use this action to restore a PostgreSQL snapshot from a file already present on the unit in `/tmp`.
+
+1. Copy the database file to the unit:
+
+```bash
+juju scp ./database.sql ubuntu-security-api-vm/0:/tmp/database.sql
+```
+
+2. Run the action:
+
+```bash
+juju run ubuntu-security-api-vm/0 upload-database filename=database.sql --wait
+```
+
+The action restores the database, runs migrations, and returns a success or failure message.
+
+### `show-install-logs`
+
+Use this action to retrieve installation logs from `/var/log/install.log`:
+
+```bash
+juju run ubuntu-security-api-vm/0 show-install-logs --wait
+```
+
+### `show-gunicorn-logs`
+
+Use this action to retrieve application logs from `/var/log/gunicorn.log`:
+
+```bash
+juju run ubuntu-security-api-vm/0 show-gunicorn-logs --wait
 ```
 
 ## Other resources

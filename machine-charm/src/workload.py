@@ -9,6 +9,7 @@ The intention is that this module could be used outside the context of a charm.
 import logging
 import os
 import subprocess
+import time
 from contextlib import contextmanager
 from typing import Generator
 
@@ -101,8 +102,21 @@ def migrate(charm_dir: str, database_url: str) -> None:
         # Then run migrations
         os.environ["DATABASE_URL"] = database_url
         os.environ["SECRET_KEY"] = (
-            "placeholder"  # SECRET_KEY must be set, the actual value is not relevant for migrations
+            "placeholder"  # SECRET_KEY must be set, the actual value is not relevant for migration
         )
+        # Check whether the database is consistent before running migrations
+        run_command(
+            "/venv/bin/python",
+            "-m",
+            "flask",
+            "--app",
+            f"{charm_dir}/src/flask/app/webapp.app",
+            "db",
+            "current",
+            cwd=f"{charm_dir}/src/flask/app/",
+            log_file=log_file,
+        )
+        time.sleep(5)
         run_command(
             "/venv/bin/python",
             "-m",
@@ -114,6 +128,8 @@ def migrate(charm_dir: str, database_url: str) -> None:
             cwd=f"{charm_dir}/src/flask/app/",
             log_file=log_file,
         )
+        # Give the database a moment to settle after migrations
+        time.sleep(5)
 
 
 def start(
@@ -137,25 +153,37 @@ def start(
 
     # Add logging for gunicorn
     with open(GUNICORN_LOG_FILE, "a") as log_file:
-        run_command(
-            "/venv/bin/python",
-            "-m",
-            "talisker.gunicorn",
-            "webapp.app:app",
-            "--chdir",
-            f"{charm_dir}/src/flask/app/",
-            "--bind",
-            "0.0.0.0:8000",
-            "--daemon",
-            "--workers",
-            workers,
-            "--timeout",
-            timeout,
-            "--log-file",
-            GUNICORN_LOG_FILE,
-            log_file=log_file,
-            detached=True,
-        )
+        # Restart if the start fails
+        limit = 5
+        for attempt in range(1, limit + 1):
+            try:
+                run_command(
+                    "/venv/bin/python",
+                    "-m",
+                    "talisker.gunicorn",
+                    "webapp.app:app",
+                    "--chdir",
+                    f"{charm_dir}/src/flask/app/",
+                    "--bind",
+                    "0.0.0.0:8000",
+                    "--daemon",
+                    "--workers",
+                    workers,
+                    "--timeout",
+                    timeout,
+                    "--log-file",
+                    GUNICORN_LOG_FILE,
+                    log_file=log_file,
+                    detached=True,
+                )
+                # Give gunicorn a moment to start
+                time.sleep(5)
+                if is_running():
+                    break
+            except Exception as e:
+                logger.error("Failed to start workload (attempt %d/%d): %s", attempt, limit, e)
+                if attempt == limit:
+                    raise RuntimeError("Exceeded maximum start attempts") from e
 
 
 def stop() -> None:
