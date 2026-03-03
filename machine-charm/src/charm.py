@@ -18,12 +18,15 @@ import workload
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_WORKERS = 3
+DEFAULT_TIMEOUT = 500
+
 
 class WorkloadConfig(pydantic.BaseModel):
     """Pydantic model for charm configuration."""
 
-    workers: str = pydantic.Field("3", description="Number of workers for the webapp")
-    timeout: str = pydantic.Field("30", description="Worker timeout for the webapp")
+    workers: int = pydantic.Field(DEFAULT_WORKERS, description="Number of workers for the webapp")
+    timeout: int = pydantic.Field(DEFAULT_TIMEOUT, description="Worker timeout for the webapp")
 
 
 class MachineCharmCharm(ops.CharmBase):
@@ -121,6 +124,14 @@ class MachineCharmCharm(ops.CharmBase):
             oauth_token_salt_id: str = self.config.get("oauth-token-salt")  # type: ignore
             secret_key_id: str = self.config.get("secret-key")  # type: ignore
 
+            if not secret_key_id:
+                self.unit.status = ops.BlockedStatus("missing secret config: set secret-key")
+                return
+
+            if not oauth_token_salt_id:
+                self.unit.status = ops.BlockedStatus("missing secret config: set oauth-token-salt")
+                return
+
             oauth_token_salt = (
                 self.model.get_secret(id=oauth_token_salt_id)
                 .get_content(refresh=True)
@@ -138,12 +149,13 @@ class MachineCharmCharm(ops.CharmBase):
 
         workload.start(
             self.charm_dir.absolute().as_posix(),
-            self.config.get("workers", "3"),  # type: ignore
-            self.config.get("timeout", "60"),  # type: ignore
+            str(self.config.get("workers", DEFAULT_WORKERS)),
+            str(self.config.get("timeout", DEFAULT_TIMEOUT)),
             secret_key,
             oauth_token_salt,
             database_uri,
         )
+
         # Expose the webapp port.
         self.unit.set_ports(8000)
 
@@ -163,7 +175,7 @@ class MachineCharmCharm(ops.CharmBase):
     def _stop(self) -> None:
         """Stop the workload."""
         self.unit.status = ops.MaintenanceStatus("stopping workload")
-        workload.stop()
+        workload.stop_gunicorn()
 
     def _restart(self) -> None:
         """Restart the workload."""
@@ -172,11 +184,11 @@ class MachineCharmCharm(ops.CharmBase):
             self._stop()
         self._start()
 
-    def _on_start(self, event: ops.StartEvent):
+    def _on_start(self, event: ops.StartEvent) -> None:
         """Handle the start event."""
         self._start()
 
-    def _on_stop(self, event: ops.StopEvent):
+    def _on_stop(self, event: ops.StopEvent) -> None:
         """Handle the stop event."""
         self._stop()
 
@@ -192,6 +204,7 @@ class MachineCharmCharm(ops.CharmBase):
         # Dump new database from the uploaded file
         database_uri = self._get_database_uri()
 
+        self._stop()
         workload.restore_database_from_file(params.filename, database_uri)
         try:
             # Run migrations to verify the database is in a good state after the restore.
@@ -200,16 +213,24 @@ class MachineCharmCharm(ops.CharmBase):
         except Exception as e:
             logger.error("Failed to migrate database: %s", e)
             event.fail(f"Failed to migrate database: {e}")
+        finally:
+            self._restart()
 
     def _show_install_logs(self, event: ops.ActionEvent) -> None:
         """Show logs from the install process."""
-        with open(workload.INSTALL_LOG_FILE, "r") as log_file:
-            event.set_results({"install-logs": log_file.read()})
+        try:
+            with open(workload.INSTALL_LOG_FILE, "r") as log_file:
+                event.set_results({"install-logs": log_file.read()})
+        except FileNotFoundError:
+            event.fail(f"Log file {workload.INSTALL_LOG_FILE} not found")
 
     def _show_gunicorn_logs(self, event: ops.ActionEvent) -> None:
         """Show the gunicorn logs."""
-        with open(workload.GUNICORN_LOG_FILE, "r") as log_file:
-            event.set_results({"gunicorn-logs": log_file.read()})
+        try:
+            with open(workload.GUNICORN_LOG_FILE, "r") as log_file:
+                event.set_results({"gunicorn-logs": log_file.read()})
+        except FileNotFoundError:
+            event.fail(f"Log file {workload.GUNICORN_LOG_FILE} not found")
 
 
 class UploadDatabaseAction(pydantic.BaseModel):

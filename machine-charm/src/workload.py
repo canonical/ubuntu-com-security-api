@@ -10,8 +10,6 @@ import logging
 import os
 import subprocess
 import time
-from contextlib import contextmanager
-from typing import Generator
 
 from charmlibs import apt
 
@@ -21,40 +19,20 @@ GUNICORN_LOG_FILE = "/var/log/gunicorn.log"
 INSTALL_LOG_FILE = "/var/log/install.log"
 
 
-@contextmanager
-def use_path(path: str) -> Generator:
-    """Execute a function within the specified directory."""
-    cwd = os.getcwd()
-    os.chdir(path)
-    try:
-        yield
-    finally:
-        os.chdir(cwd)
-
-
-def run_command(*args, cwd=None, log_file=None, detached=False) -> None:
+def run_command(*args, cwd=None, log_file=None) -> None:
     """Run a subprocess and raise a RuntimeError if the subprocess result indicates an error.
 
     We do this to bubble up the error message from the subprocess to the debug-log.
     """
     try:
-        if detached:
-            subprocess.Popen(
-                args,
-                text=True,
-                cwd=cwd,
-                stdout=log_file or subprocess.PIPE,
-                stderr=log_file or subprocess.PIPE,
-            )
-        else:
-            subprocess.run(
-                args,
-                check=True,
-                text=True,
-                cwd=cwd,
-                stdout=log_file or subprocess.PIPE,
-                stderr=log_file or subprocess.PIPE,
-            )
+        subprocess.run(
+            args,
+            check=True,
+            text=True,
+            cwd=cwd,
+            stdout=log_file or subprocess.PIPE,
+            stderr=log_file or subprocess.STDOUT,
+        )
     except Exception as e:
         raise RuntimeError(str(e)) from e
 
@@ -100,36 +78,95 @@ def migrate(charm_dir: str, database_url: str) -> None:
             log_file=log_file,
         )
         # Then run migrations
-        os.environ["DATABASE_URL"] = database_url
-        os.environ["SECRET_KEY"] = (
-            "placeholder"  # SECRET_KEY must be set, the actual value is not relevant for migration
+        try:
+            os.environ["DATABASE_URL"] = database_url
+            os.environ["SECRET_KEY"] = (
+                "placeholder"  # SECRET_KEY must be set, the actual value is not relevant for migration
+            )
+            # Check whether the database is consistent before running migrations
+            run_command(
+                "/venv/bin/python",
+                "-m",
+                "flask",
+                "--app",
+                f"{charm_dir}/src/flask/app/webapp.app",
+                "db",
+                "current",
+                cwd=f"{charm_dir}/src/flask/app/",
+                log_file=log_file,
+            )
+            run_command(
+                "/venv/bin/python",
+                "-m",
+                "flask",
+                "--app",
+                f"{charm_dir}/src/flask/app/webapp.app",
+                "db",
+                "upgrade",
+                cwd=f"{charm_dir}/src/flask/app/",
+                log_file=log_file,
+            )
+        finally:
+            # Clean up environment variables
+            del os.environ["DATABASE_URL"]
+            del os.environ["SECRET_KEY"]
+
+
+def is_running():
+    """Return whether the webapp is running."""
+    result = subprocess.run(["systemctl", "is-active", "gunicorn"], capture_output=True, text=True)
+    return result.stdout.strip() == "active"
+
+
+SYSTEMD_UNIT = """[Unit]
+Description=Gunicorn Python Application
+After=network.target postgresql.service
+
+[Service]
+User=root
+Group=root
+WorkingDirectory={charm_dir}/src/flask/app
+Environment="DATABASE_URL={database_url}"
+Environment="SECRET_KEY={secret_key}"
+Environment="OAUTH_TOKEN_SALT={oauth_token_salt}"
+ExecStart=/venv/bin/python -m gunicorn webapp.app:app --bind 0.0.0.0:8000 --workers {workers} --timeout {timeout} --access-logfile {gunicorn_log} --error-logfile {gunicorn_log}
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+
+def install_systemd_service(
+    charm_dir, workers, timeout, secret_key, oauth_token_salt, database_url
+):
+    """Install the systemd service for the workload."""
+    # delete existing service if it exists
+    if os.path.exists("/etc/systemd/system/gunicorn.service"):
+        os.remove("/etc/systemd/system/gunicorn.service")
+
+    with open(GUNICORN_LOG_FILE, "a") as log_file:
+        unit_content = SYSTEMD_UNIT.format(
+            charm_dir=charm_dir,
+            database_url=database_url,
+            secret_key=secret_key,
+            oauth_token_salt=oauth_token_salt,
+            workers=workers,
+            timeout=timeout,
+            gunicorn_log=GUNICORN_LOG_FILE,
         )
-        # Check whether the database is consistent before running migrations
-        run_command(
-            "/venv/bin/python",
-            "-m",
-            "flask",
-            "--app",
-            f"{charm_dir}/src/flask/app/webapp.app",
-            "db",
-            "current",
-            cwd=f"{charm_dir}/src/flask/app/",
-            log_file=log_file,
-        )
-        time.sleep(5)
-        run_command(
-            "/venv/bin/python",
-            "-m",
-            "flask",
-            "--app",
-            f"{charm_dir}/src/flask/app/webapp.app",
-            "db",
-            "upgrade",
-            cwd=f"{charm_dir}/src/flask/app/",
-            log_file=log_file,
-        )
-        # Give the database a moment to settle after migrations
-        time.sleep(5)
+        with open("/etc/systemd/system/gunicorn.service", "w") as f:
+            f.write(unit_content)
+
+        run_command("systemctl", "daemon-reload", log_file=log_file)
+
+
+def start_gunicorn():
+    """Start the gunicorn service."""
+    with open(GUNICORN_LOG_FILE, "a") as log_file:
+        run_command("systemctl", "start", "gunicorn", log_file=log_file)
 
 
 def start(
@@ -147,65 +184,25 @@ def start(
         raise RuntimeError("SECRET_KEY must be provided to start the workload")
     if not oauth_token_salt:
         raise RuntimeError("OAUTH_TOKEN_SALT must be provided to start the workload")
-    os.environ["SECRET_KEY"] = secret_key
-    os.environ["DATABASE_URL"] = database_url
-    os.environ["OAUTH_TOKEN_SALT"] = oauth_token_salt
 
-    # Add logging for gunicorn
-    with open(GUNICORN_LOG_FILE, "a") as log_file:
-        # Restart if the start fails
-        limit = 5
-        for attempt in range(1, limit + 1):
-            try:
-                run_command(
-                    "/venv/bin/python",
-                    "-m",
-                    "talisker.gunicorn",
-                    "webapp.app:app",
-                    "--chdir",
-                    f"{charm_dir}/src/flask/app/",
-                    "--bind",
-                    "0.0.0.0:8000",
-                    "--daemon",
-                    "--workers",
-                    workers,
-                    "--timeout",
-                    timeout,
-                    "--log-file",
-                    GUNICORN_LOG_FILE,
-                    log_file=log_file,
-                    detached=True,
-                )
-                # Give gunicorn a moment to start
-                time.sleep(5)
-                if is_running():
-                    break
-            except Exception as e:
-                logger.error("Failed to start workload (attempt %d/%d): %s", attempt, limit, e)
-                if attempt == limit:
-                    raise RuntimeError("Exceeded maximum start attempts") from e
+    install_systemd_service(
+        charm_dir, workers, timeout, secret_key, oauth_token_salt, database_url
+    )
+    stop_gunicorn()
+    start_gunicorn()
+    time.sleep(5)  # Give the service a moment to start
+    if not is_running():
+        raise RuntimeError("Failed to start the workload, check gunicorn logs for details")
 
 
-def stop() -> None:
+def stop_gunicorn() -> None:
     """Stop the webapp."""
-    run_command("pkill", "-9", "gunicorn")
-
-
-def is_running() -> bool:
-    """Return whether the webapp is running."""
-    try:
-        run_command("pgrep", "-f", "gunicorn")
-    except RuntimeError:
-        return False
-
-    return True
+    if is_running():
+        run_command("systemctl", "stop", "gunicorn")
 
 
 def restore_database_from_file(file_name: str, database_url: str) -> None:
     """Restore the database from a file."""
-    if is_running():
-        stop()
-
     file_path = f"/tmp/{file_name}"
     if not os.path.exists(file_path):
         raise RuntimeError(f"Database file {file_path} does not exist")
@@ -242,6 +239,7 @@ def restore_database_from_file(file_name: str, database_url: str) -> None:
         # If restore fails, restore the original database from the backup file.
         run_command(
             "pg_restore",
+            "--dbname",
             database_url,
             "-Fc",
             backup_file_path,
@@ -250,3 +248,6 @@ def restore_database_from_file(file_name: str, database_url: str) -> None:
     finally:
         # Clean up the backup file.
         os.remove(backup_file_path)
+
+    # Start the service again after restoring the database.
+    start_gunicorn()

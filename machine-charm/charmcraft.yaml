@@ -56,6 +56,14 @@ config:
     oauth-token-salt:
       type: secret
       description: "Salt used to encode and decode OAuth tokens"
+    workers:
+      type: int
+      default: 3
+      description: "The number of worker processes for handling requests. Adjust based on your server's CPU cores and expected load."
+    timeout:
+      type: int
+      default: 500
+      description: "The number of seconds to wait for a worker to respond before restarting it."
 
 actions:
   upload-database:

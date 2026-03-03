@@ -15,6 +15,12 @@ More information: https://charmhub.io/ubuntu-security-api-vm
 
 This is a machine charm to run the ubuntu-security-api on virtual machines.
 
+## Prerequisites
+
+- **Juju 3.x** (see [Juju installation docs](https://documentation.ubuntu.com/juju/3.6/howto/manage-juju/))
+- **Ubuntu 24.04** host (required for `--destructive-mode` packing)
+- A Juju model bootstrapped and ready for deployment
+
 ## Running locally
 
 This charm requires postgres, which can be added using
@@ -23,7 +29,7 @@ This charm requires postgres, which can be added using
 juju deploy postgresql --channel 16/stable
 ```
 
-In order to add the files included in the repo, we have to pack the charm using destructive mode, i.e.
+In order to add the files included in the repo, we have to pack the charm using destructive mode on an Ubuntu 24.04 host:
 
 ```bash
 charmcraft pack --destructive-mode
@@ -57,6 +63,31 @@ juju config ubuntu-security-api-vm secret-key=secret:<secret-id>
 juju config ubuntu-security-api-vm oauth-token-salt=secret:<secret-id>
 ```
 
+Once the deployment settles, the application status will change to `application has started`. You can now make http requests to the charm application, using its ip address e.g.
+
+```bash
+juju status
+. . .
+ubuntu-security-api-vm/2*  active    idle       3        10.191.230.150  8000/tcp  application has started
+. . .
+curl -v 10.191.230.150:8000/security/cves.json
+```
+
+### Optional configuration
+
+You can also tune the Gunicorn worker settings:
+
+```bash
+juju config ubuntu-security-api-vm workers=4
+juju config ubuntu-security-api-vm timeout=300
+```
+
+| Option    | Type    | Default | Description                                      |
+| --------- | ------- | ------- | ------------------------------------------------ |
+| `workers` | integer | 3       | Number of Gunicorn worker processes              |
+| `timeout` | integer | 500     | Seconds before a non-responsive worker is killed |
+
+
 ## Using charm actions
 
 This charm exposes three actions:
@@ -74,6 +105,8 @@ juju actions ubuntu-security-api-vm
 ### `upload-database`
 
 Use this action to restore a PostgreSQL snapshot from a file already present on the unit in `/tmp`.
+
+> **Note:** The gunicorn service is stopped during the database restore and migration process. Expect brief downtime while the action runs. The service is restarted automatically once the restore completes.
 
 1. Copy the database file to the unit:
 
