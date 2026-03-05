@@ -41,9 +41,9 @@ def install(charm_dir: str) -> None:
     """Install the workload (by installing a snap, for example)."""
     # Install apt packages
     apt.update()
-    apt.add_package("libsodium-dev", "1.0.18-1ubuntu0.24.04.1")
-    apt.add_package("python3-venv", "3.12.3-0ubuntu2.1")
-    apt.add_package("postgresql-16", "16.11-0ubuntu0.24.04.1")
+    apt.add_package("libsodium-dev", update_cache=False)
+    apt.add_package("python3-venv", update_cache=False)
+    apt.add_package("postgresql-16", update_cache=False)
 
     with open(INSTALL_LOG_FILE, "a") as log_file:
         # Create a virtual environment
