@@ -117,7 +117,7 @@ juju scp ./database.sql ubuntu-security-api-vm/0:/tmp/database.sql
 2. Run the action:
 
 ```bash
-juju run ubuntu-security-api-vm/0 upload-database filename=database.sql --wait
+juju run ubuntu-security-api-vm/0 upload-database filename=database.sql --wait=10m
 ```
 
 The action restores the database, runs migrations, and returns a success or failure message.
@@ -127,7 +127,7 @@ The action restores the database, runs migrations, and returns a success or fail
 Use this action to retrieve installation logs from `/var/log/install.log`:
 
 ```bash
-juju run ubuntu-security-api-vm/0 show-install-logs --wait
+juju run ubuntu-security-api-vm/0 show-install-logs
 ```
 
 ### `show-gunicorn-logs`
@@ -135,7 +135,7 @@ juju run ubuntu-security-api-vm/0 show-install-logs --wait
 Use this action to retrieve application logs from `/var/log/gunicorn.log`:
 
 ```bash
-juju run ubuntu-security-api-vm/0 show-gunicorn-logs --wait
+juju run ubuntu-security-api-vm/0 show-gunicorn-logs
 ```
 
 ## Other resources
