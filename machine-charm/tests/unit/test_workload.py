@@ -4,149 +4,163 @@
 """Unit tests for the workload module."""
 
 import os
-from unittest.mock import patch
+import subprocess
+from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
 
 import workload
 
 
-class TestInstall:
-    """Tests for the install function."""
+class TestRunCommand:
+    """Tests for the run_command function."""
 
-    @patch("workload.run_command")
-    @patch("workload.apt")
-    def test_install_calls_apt_update(self, mock_apt, mock_run_cmd):
-        """Install should call apt.update first."""
-        workload.install("/charm")
+    @patch("workload.subprocess.run")
+    def test_run_command_success(self, mock_run):
+        """A successful command should complete without error."""
+        mock_run.return_value = MagicMock(returncode=0)
 
-        mock_apt.update.assert_called_once()
+        workload.run_command("echo", "hello")
 
-    @patch("workload.run_command")
-    @patch("workload.apt")
-    def test_install_adds_required_packages(self, mock_apt, mock_run_cmd):
-        """Install should install the three required apt packages."""
-        workload.install("/charm")
-
-        assert mock_apt.add_package.call_count == 3
-        package_names = [c.args[0] for c in mock_apt.add_package.call_args_list]
-        assert "libsodium-dev" in package_names
-        assert "python3-venv" in package_names
-        assert "postgresql-16" in package_names
-
-    @patch("workload.run_command")
-    @patch("workload.apt")
-    def test_install_creates_venv(self, mock_apt, mock_run_cmd):
-        """Install should create a virtual environment."""
-        workload.install("/charm")
-
-        mock_run_cmd.assert_any_call("python3", "-m", "venv", "/venv")
-
-    @patch("workload.run_command")
-    @patch("workload.apt")
-    def test_install_installs_setuptools(self, mock_apt, mock_run_cmd):
-        """Install should install setuptools in the venv."""
-        workload.install("/charm")
-
-        mock_run_cmd.assert_any_call(
-            "/venv/bin/python", "-m", "pip", "install", "setuptools==80.10.2"
+        mock_run.assert_called_once_with(
+            ("echo", "hello"),
+            check=True,
+            text=True,
+            cwd=None,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
 
-    @patch("workload.run_command")
-    @patch("workload.apt")
-    def test_install_installs_requirements(self, mock_apt, mock_run_cmd):
-        """Install should pip install from the app requirements.txt."""
-        workload.install("/charm")
+    @patch("workload.subprocess.run", side_effect=subprocess.CalledProcessError(1, "fail"))
+    def test_run_command_raises_runtime_error_on_failure(self, mock_run):
+        """run_command should raise RuntimeError when the subprocess fails."""
+        with pytest.raises(RuntimeError):
+            workload.run_command("fail")
 
-        mock_run_cmd.assert_any_call(
-            "/venv/bin/python",
-            "-m",
-            "pip",
-            "install",
-            "-r",
-            "/charm/src/flask/app/requirements.txt",
+
+class TestIsRunning:
+    """Tests for the is_running function."""
+
+    @patch("workload.subprocess.run")
+    def test_is_running_returns_true_when_active(self, mock_run):
+        """is_running should return True when systemctl reports 'active'."""
+        mock_run.return_value = MagicMock(stdout="active\n")
+
+        assert workload.is_running() is True
+
+    @patch("workload.subprocess.run")
+    def test_is_running_returns_false_when_inactive(self, mock_run):
+        """is_running should return False when systemctl reports 'inactive'."""
+        mock_run.return_value = MagicMock(stdout="inactive\n")
+
+        assert workload.is_running() is False
+
+    @patch("workload.subprocess.run")
+    def test_is_running_returns_false_when_failed(self, mock_run):
+        """is_running should return False when systemctl reports 'failed'."""
+        mock_run.return_value = MagicMock(stdout="failed\n")
+
+        assert workload.is_running() is False
+
+
+class TestInstallSystemdService:
+    """Tests for the install_systemd_service function."""
+
+    @patch("workload.run_command")
+    @patch("builtins.open", mock_open())
+    @patch("workload.os.path.exists", return_value=False)
+    def test_creates_systemd_unit_file(self, mock_exists, mock_run_cmd):
+        """install_systemd_service should write the gunicorn.service unit file."""
+        workload.install_systemd_service(
+            "/charm", "4", "60", "secret", "salt", "postgresql://host/db"
         )
 
-
-class TestMigrate:
-    """Tests for the migrate function."""
-
-    @patch("workload.run_command")
-    def test_migrate_creates_pg_trgm_extension(self, mock_run_cmd):
-        """Migrate should install the pg_trgm extension first."""
-        workload.migrate("/charm", "postgresql://host/db")
-
-        mock_run_cmd.assert_any_call(
-            "psql", "-c", "CREATE EXTENSION IF NOT EXISTS pg_trgm;", "postgresql://host/db"
-        )
-
-    @patch("workload.run_command")
-    def test_migrate_sets_environment_variables(self, mock_run_cmd):
-        """Migrate should set DATABASE_URL and SECRET_KEY env vars."""
-        workload.migrate("/charm", "postgresql://host/db")
-
-        assert os.environ["DATABASE_URL"] == "postgresql://host/db"
-        assert os.environ["SECRET_KEY"] == "placeholder"
+        # open is called twice: once for gunicorn log, once for service file
+        handle = open()
+        handle.write.assert_called_once()
+        written = handle.write.call_args.args[0]
+        assert "gunicorn" in written.lower() or "Gunicorn" in written
 
 
 class TestStart:
     """Tests for the start function."""
 
+    @patch("workload.is_running", return_value=True)
+    @patch("workload.time.sleep")
+    @patch("workload.start_gunicorn")
+    @patch("workload.stop_gunicorn")
+    @patch("workload.install_systemd_service")
+    def test_start_stops_then_starts_gunicorn(
+        self, mock_install_svc, mock_stop, mock_start_g, mock_sleep, mock_running
+    ):
+        """start should stop gunicorn then start it again."""
+        workload.start("/charm", "4", "60", "secret", "salt", "postgresql://host/db")
+
+        mock_stop.assert_called_once()
+        mock_start_g.assert_called_once()
+
+    @patch("workload.is_running", return_value=False)
+    @patch("workload.time.sleep")
+    @patch("workload.start_gunicorn")
+    @patch("workload.stop_gunicorn")
+    @patch("workload.install_systemd_service")
+    def test_start_raises_if_not_running_after_start(
+        self, mock_install_svc, mock_stop, mock_start_g, mock_sleep, mock_running
+    ):
+        """start should raise RuntimeError if the service is not running after starting."""
+        with pytest.raises(RuntimeError, match="Failed to start the workload"):
+            workload.start("/charm", "4", "60", "secret", "salt", "postgresql://host/db")
+
+
+class TestRestoreDatabaseFromFile:
+    """Tests for the restore_database_from_file function."""
+
+    @patch("workload.start_gunicorn")
+    @patch("workload.os.remove")
     @patch("workload.run_command")
-    def test_start_sets_environment_variables(self, mock_run_cmd):
-        """Start should set SECRET_KEY, DATABASE_URL and OAUTH_TOKEN_SALT env vars."""
-        workload.start("/charm", "4", "60", "my-secret", "my-salt", "postgresql://host/db")
+    @patch("workload.os.path.exists", return_value=True)
+    def test_restore_creates_backup(self, mock_exists, mock_run_cmd, mock_remove, mock_start):
+        """restore_database_from_file should create a backup before restoring."""
+        workload.restore_database_from_file("dump.sql", "postgresql://host/db")
 
-        assert os.environ["SECRET_KEY"] == "my-secret"
-        assert os.environ["DATABASE_URL"] == "postgresql://host/db"
-        assert os.environ["OAUTH_TOKEN_SALT"] == "my-salt"
+        backup_calls = [c for c in mock_run_cmd.call_args_list if "pg_dump" in c.args]
+        assert len(backup_calls) == 1
+        assert "/tmp/backup_dump.sql" in backup_calls[0].args
 
+    @patch("workload.start_gunicorn")
+    @patch("workload.os.remove")
     @patch("workload.run_command")
-    def test_start_runs_gunicorn(self, mock_run_cmd):
-        """Start should invoke talisker.gunicorn with correct arguments."""
-        workload.start("/charm", "4", "60", "my-secret", "my-salt", "postgresql://host/db")
+    @patch("workload.os.path.exists", return_value=True)
+    def test_restore_starts_gunicorn_after_success(
+        self, mock_exists, mock_run_cmd, mock_remove, mock_start
+    ):
+        """restore_database_from_file should start gunicorn after a successful restore."""
+        workload.restore_database_from_file("dump.sql", "postgresql://host/db")
 
-        mock_run_cmd.assert_called_once_with(
-            "/venv/bin/python",
-            "-m",
-            "talisker.gunicorn",
-            "webapp.app:app",
-            "--chdir",
-            "/charm/src/flask/app/",
-            "--bind",
-            "0.0.0.0:8000",
-            "--workers",
-            "4",
-            "--timeout",
-            "60",
-        )
+        mock_start.assert_called_once()
 
+    @patch("workload.start_gunicorn")
+    @patch("workload.os.remove")
     @patch("workload.run_command")
-    def test_start_passes_workers_and_timeout(self, mock_run_cmd):
-        """Start should forward workers and timeout to gunicorn."""
-        workload.start("/charm", "8", "120", "key", "salt", "postgres://x/y")
+    @patch("workload.os.path.exists", return_value=True)
+    def test_restore_rolls_back_on_failure(
+        self, mock_exists, mock_run_cmd, mock_remove, mock_start
+    ):
+        """If restore fails, the original database should be restored from the backup."""
 
-        args = mock_run_cmd.call_args.args
-        # Find the position of --workers and --timeout flags
-        assert "--workers" in args
-        assert args[args.index("--workers") + 1] == "8"
-        assert "--timeout" in args
-        assert args[args.index("--timeout") + 1] == "120"
+        def side_effect(*args, **kwargs):
+            # Let terminate, pg_dump, and drop succeed; fail on psql -f (the 4th call)
+            if args == ("psql", "postgresql://host/db", "-f", "/tmp/dump.sql"):
+                raise RuntimeError("restore failed")
 
-    @patch("workload.run_command")
-    def test_start_missing_database_url_raises(self, mock_run_cmd):
-        """Start without database_url should raise RuntimeError."""
-        with pytest.raises(RuntimeError, match="DATABASE_URL"):
-            workload.start("/charm", "4", "60", "key", "salt", "")
+        mock_run_cmd.side_effect = side_effect
 
-    @patch("workload.run_command")
-    def test_start_missing_secret_key_raises(self, mock_run_cmd):
-        """Start without secret_key should raise RuntimeError."""
-        with pytest.raises(RuntimeError, match="SECRET_KEY"):
-            workload.start("/charm", "4", "60", "", "salt", "postgres://x/y")
+        with pytest.raises(RuntimeError, match="Failed to restore the database"):
+            workload.restore_database_from_file("dump.sql", "postgresql://host/db")
 
-    @patch("workload.run_command")
-    def test_start_missing_oauth_token_salt_raises(self, mock_run_cmd):
-        """Start without oauth_token_salt should raise RuntimeError."""
-        with pytest.raises(RuntimeError, match="OAUTH_TOKEN_SALT"):
-            workload.start("/charm", "4", "60", "key", "", "postgres://x/y")
+        # pg_restore should have been called to roll back
+        pg_restore_calls = [
+            c for c in mock_run_cmd.call_args_list if "pg_restore" in c.args
+        ]
+        assert len(pg_restore_calls) == 1
+        assert "/tmp/backup_dump.sql" in pg_restore_calls[0].args

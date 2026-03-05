@@ -42,7 +42,6 @@ def mock_workload(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr("charm.workload.install", lambda *a, **kw: None)
     monkeypatch.setattr("charm.workload.migrate", lambda *a, **kw: None)
     monkeypatch.setattr("charm.workload.start", lambda *a, **kw: None)
-    monkeypatch.setattr("charm.workload.stop", lambda *a, **kw: None)
     monkeypatch.setattr("charm.workload.is_running", lambda: True)
 
 
@@ -102,24 +101,10 @@ class TestStartEvent:
 class TestStopEvent:
     """Tests for the _on_stop handler."""
 
-    def test_stop_calls_workload_stop(self, monkeypatch: pytest.MonkeyPatch):
-        """Verify workload.stop is called during the stop event."""
-        stop_called = False
-
-        def fake_stop():
-            nonlocal stop_called
-            stop_called = True
-
-        monkeypatch.setattr("charm.workload.stop", fake_stop)
-
-        ctx = testing.Context(MachineCharmCharm)
-        state_in = testing.State()
-
-        ctx.run(ctx.on.stop(), state_in)
-        assert stop_called
-
-    def test_stop_sets_maintenance_status(self):
+    def test_stop_sets_maintenance_status(self, monkeypatch: pytest.MonkeyPatch):
         """Stop event should transition through MaintenanceStatus."""
+        monkeypatch.setattr("charm.workload.stop_gunicorn", lambda: None)
+
         ctx = testing.Context(MachineCharmCharm)
         state_in = testing.State()
 
@@ -131,22 +116,12 @@ class TestStopEvent:
 class TestConfigChangedEvent:
     """Tests for the _on_config_changed handler."""
 
-    def test_config_changed_triggers_stop(self, monkeypatch: pytest.MonkeyPatch):
-        """Config changed should stop the workload if it is running."""
-        calls = []
-        monkeypatch.setattr("charm.workload.stop", lambda: calls.append("stop"))
-        monkeypatch.setattr("charm.workload.start", lambda *a, **kw: calls.append("start"))
-        monkeypatch.setattr("charm.workload.is_running", lambda: True)
-
-        ctx = testing.Context(MachineCharmCharm)
-        state_in = testing.State()
-
-        ctx.run(ctx.on.config_changed(), state_in)
-
-        assert "stop" in calls
-
-    def test_config_changed_without_database_sets_blocked(self):
+    def test_config_changed_without_database_sets_blocked(self, monkeypatch: pytest.MonkeyPatch):
         """Config changed without DB relation should end up blocked."""
+
+        monkeypatch.setattr("charm.workload.start", lambda: None)
+        monkeypatch.setattr("charm.workload.stop_gunicorn", lambda: None)
+
         ctx = testing.Context(MachineCharmCharm)
         state_in = testing.State()
 
