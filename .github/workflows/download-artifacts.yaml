@@ -54,6 +54,7 @@ jobs:
           sudo apt-get update && sudo apt-get install --no-install-recommends -y postgresql-client
           echo "Creating database dump..."
           if [ -z "$DATABASE_URI" ]; then echo "DATABASE_URI not set"; exit 1; fi
+          pg_dump "$DATABASE_URI" -Fc | gzip > database_dump.sql.gz
           echo "Database dump created."
 
       - name: Upload database dump
