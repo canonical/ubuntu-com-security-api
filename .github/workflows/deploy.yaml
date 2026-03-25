@@ -29,7 +29,7 @@ jobs:
           cd charm
           charmcraft pack -v --project-dir ./
 
-      - name: Upload charm to artifact
+      - name: Upload charm
         uses: actions/upload-artifact@v4
         with:
           name: ubuntu-security-api-charm
@@ -78,12 +78,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: pack-charm
     environment:
-      name: production
-      url: https://ubuntu.com/security/api/docs
+      name: staging
+      url: https://staging.ubuntu.com/security/api/docs
     outputs:
       charm_url: ${{ steps.publish.outputs.charm_url }}
       charm_revision: ${{ steps.publish.outputs.charm_revision }}
+    env:
+      CHARMCRAFT_AUTH: ${{ secrets.CHARMCRAFT_AUTH_TOKEN }}
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
       - name: Setup Charmcraft
         run: sudo snap install charmcraft --classic --channel=latest/beta
 
@@ -95,18 +100,23 @@ jobs:
           # github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish charm to CharmHub
-        id: publish
-        env:
-          CHARMCRAFT_AUTH: ${{ secrets.CHARMCRAFT_AUTH_TOKEN }}
+        id: publish        
+        working-directory: charm/
         run: |
           set -e
+          cp ../*.charm .
           CHARM_FILE=$(ls *.charm)
-          OUTPUT=$(charmcraft upload "$CHARM_FILE" --release beta )
+          OUTPUT=$(charmcraft upload "$CHARM_FILE" -v)
           CHARM_URL=$(echo "$OUTPUT" | jq -r '.charm_url')
           CHARM_REVISION=$(echo "$OUTPUT" | jq -r '.revision')
           echo "charm_url=$CHARM_URL" >> $GITHUB_OUTPUT
           echo "charm_revision=$CHARM_REVISION" >> $GITHUB_OUTPUT
           echo "Published charm: $CHARM_URL (revision: $CHARM_REVISION)"
+      
+      - name: Release charm to latest/beta
+        run: |
+          charmcraft release ubuntu-security-api --revision=${{ steps.publish.outputs.charm_revision }} --channel=beta
+          echo "Released ubuntu-security-api, revision ${{ steps.publish.outputs.charm_revision }} to beta channel"
 
   # deploy-staging:
   #   runs-on:
