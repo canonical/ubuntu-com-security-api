@@ -43,3 +43,11 @@ config:
     oauth-token-salt:
       type: secret
       description: "Salt used to encode and decode OAuth tokens"
+
+# XXX: Workaround for pypa/setuptools-scm#1302 (cyclic build dependency via cosl -> hatchling).
+# Remove once charmcraft snap includes the fix from canonical/charmcraft#2602.
+parts:
+  charm:
+    plugin: charm
+    charm-binary-python-packages:
+      - cosl
