@@ -24,6 +24,7 @@ POCKET_OPTIONS = Enum(
     "esm-infra",
     "esm-infra-legacy",
     "esm-apps",
+    "esm-apps-legacy",
     "soss",
     "fips",
     "fips-updates",
