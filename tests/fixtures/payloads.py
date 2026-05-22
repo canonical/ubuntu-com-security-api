@@ -301,6 +301,33 @@ cve8 = {
     "status": "active",
 }
 
+cve9 = {
+    "id": "CVE-9999-0009",
+    "codename": "testcodename9",
+    "packages": [
+        {
+            "debian": "https://tracker.debian.org/pkg/legacy-package",
+            "name": "legacy-package",
+            "source": "https://ubuntu.com/security/cve?package=legacy-package",
+            "statuses": [
+                {
+                    "description": "",
+                    "release_codename": "testrelease",
+                    "status": "released",
+                    "pocket": "esm-apps-legacy",
+                }
+            ],
+            "ubuntu": (
+                "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+                "=any&searchon=sourcenames&keywords=legacy-package"
+            ),
+        }
+    ],
+    "published": "2020-12-01 12:42:54",
+    "priority": "negligible",
+    "status": "active",
+}
+
 notice = {
     "cves": ["CVE-9999-0003", "CVE-9999-0004"],
     "id": "USN-9999-01",

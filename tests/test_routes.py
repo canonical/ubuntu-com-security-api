@@ -1073,6 +1073,7 @@ class TestRoutes(BaseTestCase):
                 payloads.cve1,
                 payloads.cve2,
                 payloads.cve3,
+                payloads.cve9,
             ],
         )
         assert response_3.status_code == 200
@@ -1089,6 +1090,11 @@ class TestRoutes(BaseTestCase):
 
         response = self.client.get(
             f"/security/cves/{payloads.cve3['id']}.json"
+        )
+        assert response.status_code == 200
+
+        response = self.client.get(
+            f"/security/cves/{payloads.cve9['id']}.json"
         )
         assert response.status_code == 200
 
