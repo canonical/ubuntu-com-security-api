@@ -1,0 +1,70 @@
+name: Download Artifacts
+
+on:
+  push:
+    branches:
+      - airgapped-charm
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  generate-and-upload-artifacts:
+    runs-on:
+      [self-hosted, self-hosted-linux-amd64-jammy-private-endpoint-medium]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install beautifulsoup4 requests
+
+      - name: Run artifact generation script
+        run: python3 scripts/download-artifacts.py --dest "$PWD"
+
+      - name: Upload apt news
+        uses: actions/upload-artifact@v4
+        with:
+          name: apt-news
+          path: apt_news.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+      
+      - name: Upload CVE data
+        uses: actions/upload-artifact@v4
+        with:
+          name: oval-notices-data
+          path: oval_notices.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Create database dump
+        env:
+          DATABASE_URI: ${{ secrets.DATABASE_URI }}
+        run: |
+          # Install PostgreSQL client
+          sudo apt-get update && sudo apt-get install --no-install-recommends -y postgresql-client
+          echo "Creating database dump..."
+          if [ -z "$DATABASE_URI" ]; then echo "DATABASE_URI not set"; exit 1; fi
+          pg_dump "$DATABASE_URI" -Fc | gzip > database_dump.sql.gz
+          echo "Database dump created."
+
+      - name: Upload database dump
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-dump
+          path: database_dump.sql.gz
+          retention-days: 1
+          if-no-files-found: error
+
+concurrency:
+  group: download-artifacts
+  cancel-in-progress: true

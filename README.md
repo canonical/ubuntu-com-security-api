@@ -4,6 +4,8 @@ API functions under ubuntu.com for querying CVEs and security notices.
 
 <!-- To check the API documentation go to https://ubuntu.com/security/api/docs. -->
 
+For deploying this API as a Juju machine charm, see the [machine-charm README](machine-charm/README.md).
+
 ## Local development
 
 The simplest way to run the API locally is using [the dotrun snap](https://github.com/canonical-web-and-design/dotrun):
@@ -121,3 +123,33 @@ To use the token, pass the following header:
 ```bash
 curl -v -H "Auth-Type: oauth" -H "Authorization: Bearer <Auth-Token>" -X PUT --data @<file_path> http://0.0.0.0:8030/security/updates/cves.json
 ```
+
+## Downloading artifacts
+
+The `scripts/download-artifacts.py` script downloads the latest apt news and OVAL notices from their respective sources and packages them as `.tar.gz` files.
+
+### Dependencies
+
+This script requires the `beautifulsoup4` package:
+
+```bash
+pip install beautifulsoup4
+```
+
+### Usage
+
+```bash
+python scripts/download-artifacts.py --dest /path/to/destination
+```
+
+By default, files are downloaded to `/tmp/`. The script will:
+
+1. Download the latest apt news from the [Ubuntu MOTD API](https://motd.ubuntu.com/aptnews.json) and save it as `apt_news.tar.gz`
+2. Download all OVAL notices from the [Canonical security metadata service](https://security-metadata.canonical.com/oval/) and package them into `oval_notices.tar.gz`
+
+### Environment variables
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `APT_MOTD_URL` | `https://motd.ubuntu.com/aptnews.json` | URL for the apt news JSON endpoint |
+| `OVAL_NEWS_URL` | `https://security-metadata.canonical.com` | Base URL for the OVAL notices XML endpoint |
