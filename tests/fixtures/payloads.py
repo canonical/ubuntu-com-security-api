@@ -407,3 +407,39 @@ release3 = {
     "esm_expires": "2022-01-31",
     "support_expires": "2022-01-31",
 }
+
+
+def _kernel_package(name):
+    return {
+        "name": name,
+        "source": f"https://ubuntu.com/security/cve?package={name}",
+        "ubuntu": (
+            "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+            f"=any&searchon=sourcenames&keywords={name}"
+        ),
+        "debian": f"https://tracker.debian.org/pkg/{name}",
+        "statuses": [
+            {
+                "description": "",
+                "release_codename": "testrelease",
+                "status": "released",
+                "pocket": "security",
+            }
+        ],
+    }
+
+
+# Kernel packages listed in their "order of interest" rather than
+# alphabetically (alphabetical would be linux, linux-aws, linux-hwe).
+cve_package_order = {
+    "id": "CVE-9999-1000",
+    "codename": "testcodename_order",
+    "priority": "critical",
+    "published": "2020-08-01 12:42:54",
+    "status": "active",
+    "packages": [
+        _kernel_package("linux"),
+        _kernel_package("linux-hwe"),
+        _kernel_package("linux-aws"),
+    ],
+}
