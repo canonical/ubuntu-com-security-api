@@ -17,4 +17,4 @@ Flask-SQLAlchemy==3.0.0
 Flask-Migrate==3.1.0
 SQLAlchemy-Utils==0.41.1
 orjson==3.11.0
-gunicorn==21.2.0
+gunicorn==22.0.0
