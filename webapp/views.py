@@ -1121,7 +1121,7 @@ def _update_statuses(cve, data, packages):
 
     statuses_to_delete = {key: None for key in existing_status_keys}
 
-    for package_data in data.get("packages", []):
+    for package_order, package_data in enumerate(data.get("packages", [])):
         name = package_data["name"]
 
         if packages.get(name) is None:
@@ -1161,6 +1161,10 @@ def _update_statuses(cve, data, packages):
             if status.pocket != status_data.get("pocket"):
                 update_status = True
                 status.pocket = status_data.get("pocket")
+
+            if status.package_order != package_order:
+                update_status = True
+                status.package_order = package_order
 
             if update_status:
                 statuses[name][codename] = status

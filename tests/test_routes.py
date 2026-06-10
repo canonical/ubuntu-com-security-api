@@ -45,6 +45,28 @@ class TestRoutes(BaseTestCase):
         )
         assert response.json["notices_ids"] == self.models["cve"].notices_ids
 
+    def test_cve_packages_preserve_source_order(self):
+        """
+        Packages should be returned in the same order they were supplied in
+        the source JSON (the "order of interest"), not alphabetically.
+        """
+        upsert_response = self.client.put(
+            "/security/updates/cves.json",
+            json=[payloads.cve_package_order],
+        )
+        assert upsert_response.status_code == 200
+
+        response = self.client.get(
+            f"/security/cves/{payloads.cve_package_order['id']}.json"
+        )
+        assert response.status_code == 200
+
+        returned_names = [pkg["name"] for pkg in response.json["packages"]]
+        expected_names = [
+            pkg["name"] for pkg in payloads.cve_package_order["packages"]
+        ]
+        assert returned_names == expected_names
+
     def test_cves_query_no_500(self):
         response = self.client.get("/security/cves.json?q=firefox")
 
