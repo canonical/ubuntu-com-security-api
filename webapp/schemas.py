@@ -538,15 +538,9 @@ class CvssV4SubsequentSystemImpactMetrics(Schema):
 
 
 class CvssV4BaseMetrics(Schema):
-    exploitabilityMetrics = Nested(
-        CvssV4ExploitabilityMetrics
-    )
-    vulnerableSystemImpactMetrics = Nested(
-        CvssV4VulnerableSystemImpactMetrics
-    )
-    subsequentSystemImpactMetrics = Nested(
-        CvssV4SubsequentSystemImpactMetrics
-    )
+    exploitabilityMetrics = Nested(CvssV4ExploitabilityMetrics)
+    vulnerableSystemImpactMetrics = Nested(CvssV4VulnerableSystemImpactMetrics)
+    subsequentSystemImpactMetrics = Nested(CvssV4SubsequentSystemImpactMetrics)
 
     class Meta:
         render_module = orjson
@@ -565,15 +559,9 @@ class CvssV4SupplementalMetrics(Schema):
 
 
 class CvssV4ModifiedBaseMetrics(Schema):
-    exploitabilityMetrics = Nested(
-        CvssV4ExploitabilityMetrics
-    )
-    vulnerableSystemImpactMetrics = Nested(
-        CvssV4VulnerableSystemImpactMetrics
-    )
-    subsequentSystemImpactMetrics = Nested(
-        CvssV4SubsequentSystemImpactMetrics
-    )
+    exploitabilityMetrics = Nested(CvssV4ExploitabilityMetrics)
+    vulnerableSystemImpactMetrics = Nested(CvssV4VulnerableSystemImpactMetrics)
+    subsequentSystemImpactMetrics = Nested(CvssV4SubsequentSystemImpactMetrics)
 
     class Meta:
         render_module = orjson
