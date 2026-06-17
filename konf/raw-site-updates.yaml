@@ -106,6 +106,7 @@ spec:
       name: www
     spec:
       accessModes: ["ReadWriteOnce"]
+      storageClassName: cdk-cinder
       resources:
         requests:
           storage: 1Gi
