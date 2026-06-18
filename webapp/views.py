@@ -1162,7 +1162,11 @@ def _update_statuses(cve, data, packages):
                 update_status = True
                 status.pocket = status_data.get("pocket")
 
-            if update_status or (status.package_order or 0) != package_order:
+            order_changed = (
+                status.package_order is not None
+                and status.package_order != package_order
+            )
+            if update_status or order_changed:
                 update_status = True
                 status.package_order = package_order
 
