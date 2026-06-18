@@ -83,9 +83,6 @@ spec:
             - name: REQUEST_TOKENS_FILE
               value: "/etc/ubuntu-com-security-api/request-tokens"
 
-            - name: SENTRY_DSN
-              value: "https://1e974d641a14437e9573e8fe9958a252@sentry.is.canonical.com//48"
-
           readinessProbe:
             httpGet:
               path: /_status/check
