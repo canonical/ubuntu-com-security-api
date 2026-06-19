@@ -79,7 +79,7 @@ jobs:
     needs: [pack-charm, publish-image]
     environment:
       name: staging
-      url: https://staging.ubuntu.com/security/api
+      url: https://staging.ubuntu.com/security/api/docs
     steps:
       - name: Install Dependencies
         run: |
@@ -131,7 +131,7 @@ jobs:
     needs: [pack-charm, publish-image]
     environment:
       name: production
-      url: https://ubuntu.com/security/api
+      url: https://ubuntu.com/security/api/docs
     steps:
       - name: Install Dependencies
         run: |

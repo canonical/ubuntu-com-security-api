@@ -301,6 +301,33 @@ cve8 = {
     "status": "active",
 }
 
+cve9 = {
+    "id": "CVE-9999-0009",
+    "codename": "testcodename9",
+    "packages": [
+        {
+            "debian": "https://tracker.debian.org/pkg/legacy-package",
+            "name": "legacy-package",
+            "source": "https://ubuntu.com/security/cve?package=legacy-package",
+            "statuses": [
+                {
+                    "description": "",
+                    "release_codename": "testrelease",
+                    "status": "released",
+                    "pocket": "esm-apps-legacy",
+                }
+            ],
+            "ubuntu": (
+                "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+                "=any&searchon=sourcenames&keywords=legacy-package"
+            ),
+        }
+    ],
+    "published": "2020-12-01 12:42:54",
+    "priority": "negligible",
+    "status": "active",
+}
+
 notice = {
     "cves": ["CVE-9999-0003", "CVE-9999-0004"],
     "id": "USN-9999-01",
@@ -379,4 +406,40 @@ release3 = {
     "release_date": "2021-04-22",
     "esm_expires": "2022-01-31",
     "support_expires": "2022-01-31",
+}
+
+
+def _kernel_package(name):
+    return {
+        "name": name,
+        "source": f"https://ubuntu.com/security/cve?package={name}",
+        "ubuntu": (
+            "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+            f"=any&searchon=sourcenames&keywords={name}"
+        ),
+        "debian": f"https://tracker.debian.org/pkg/{name}",
+        "statuses": [
+            {
+                "description": "",
+                "release_codename": "testrelease",
+                "status": "released",
+                "pocket": "security",
+            }
+        ],
+    }
+
+
+# Kernel packages listed in their "order of interest" rather than
+# alphabetically (alphabetical would be linux, linux-aws, linux-hwe).
+cve_package_order = {
+    "id": "CVE-9999-1000",
+    "codename": "testcodename_order",
+    "priority": "critical",
+    "published": "2020-08-01 12:42:54",
+    "status": "active",
+    "packages": [
+        _kernel_package("linux"),
+        _kernel_package("linux-hwe"),
+        _kernel_package("linux-aws"),
+    ],
 }

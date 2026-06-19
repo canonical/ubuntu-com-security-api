@@ -9,6 +9,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Integer,
     JSON,
     Numeric,
     String,
@@ -93,7 +94,15 @@ class CVE(db.Model):
     @hybrid_property
     def package_statuses(self):
         package_statuses = {}
-        for status in self.statuses:
+        ordered_statuses = sorted(
+            self.statuses,
+            key=lambda status: (
+                status.package_order is None,
+                status.package_order or 0,
+                status.package_name,
+            ),
+        )
+        for status in ordered_statuses:
             if not package_statuses.get(status.package_name):
                 package_statuses[status.package_name] = {
                     "name": status.package_name,
@@ -266,6 +275,7 @@ class Status(db.Model):
     description = Column(String)
     component = Column(COMPONENT_OPTIONS)
     pocket = Column(POCKET_OPTIONS)
+    package_order = Column(Integer)
 
     cve = relationship("CVE", back_populates="statuses")
     package = relationship("Package", back_populates="statuses")

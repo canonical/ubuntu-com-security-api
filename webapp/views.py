@@ -204,9 +204,10 @@ def get_cves(**kwargs):
     total_results = cves_query.order_by(None).count()
 
     cves_query = cves_query.options(
+        selectinload(CVE.statuses),
         selectinload(cve_notices_query).options(
             selectinload(Notice.cves).options(load_only(CVE.id))
-        )
+        ),
     )
 
     cves = cves_query.limit(limit).offset(offset).all()
@@ -589,7 +590,10 @@ def get_notice_v2(notice_id, **kwargs):
 
     notice: Notice = (
         notice_query.filter(Notice.id == notice_id.upper())
-        .options(selectinload(Notice.cves), selectinload(Notice.releases))
+        .options(
+            selectinload(Notice.cves).selectinload(CVE.notices),
+            selectinload(Notice.releases),
+        )
         .one_or_none()
     )
 
@@ -1117,7 +1121,7 @@ def _update_statuses(cve, data, packages):
 
     statuses_to_delete = {key: None for key in existing_status_keys}
 
-    for package_data in data.get("packages", []):
+    for package_order, package_data in enumerate(data.get("packages", [])):
         name = package_data["name"]
 
         if packages.get(name) is None:
@@ -1157,6 +1161,14 @@ def _update_statuses(cve, data, packages):
             if status.pocket != status_data.get("pocket"):
                 update_status = True
                 status.pocket = status_data.get("pocket")
+
+            order_changed = (
+                status.package_order is not None
+                and status.package_order != package_order
+            )
+            if update_status or order_changed:
+                update_status = True
+                status.package_order = package_order
 
             if update_status:
                 statuses[name][codename] = status
