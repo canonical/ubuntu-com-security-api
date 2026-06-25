@@ -77,8 +77,9 @@ spec:
             httpGet:
               path: /_status/check
               port: 80
-            periodSeconds: 5
-            timeoutSeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
 
           resources:
             requests:
