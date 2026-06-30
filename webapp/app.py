@@ -122,7 +122,7 @@ environment = get_flask_env("FLASK_ENV", "production")
 if sentry_dsn:
     sentry_sdk.init(
         dsn=sentry_dsn,
-        send_default_pii=True,
+        send_default_pii=False,
         environment=environment,
         integrations=[FlaskIntegration()],
     )
@@ -311,7 +311,7 @@ def handle_error(error):
     )
 
 
-if environment != "production":
+if sentry_dsn and environment != "production":
 
     @app.route("/sentry-debug")
     def trigger_error():
