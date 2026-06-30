@@ -4,6 +4,9 @@ from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from canonicalwebteam.flask_base.app import FlaskBase
 from flask import jsonify, make_response
+from canonicalwebteam.flask_base.env import get_flask_env
+from sentry_sdk.integrations.flask import FlaskIntegration
+import sentry_sdk
 
 from webapp.api_spec import WebappFlaskApiSpec
 from webapp.commands import register_commands
@@ -112,6 +115,17 @@ app.config.update(
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
     },
 )
+
+sentry_dsn = get_flask_env("SENTRY_DSN")
+environment = get_flask_env("FLASK_ENV", "production")
+
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        send_default_pii=True,
+        environment=environment,
+        integrations=[FlaskIntegration()],
+    )
 
 init_db(app)
 
@@ -295,3 +309,11 @@ def handle_error(error):
         jsonify({"message": "Invalid payload", "errors": str(messages)}),
         422,
     )
+
+
+if environment != "production":
+
+    @app.route("/sentry-debug")
+    def trigger_error():
+        """Endpoint to trigger a Sentry error for testing purposes."""
+        1 / 0
