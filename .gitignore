@@ -48,6 +48,7 @@ _site/
 *.*.map
 *.charm
 *.rock
+*.tar.gz
 
 # [env] Local environment settings
 .docker-project

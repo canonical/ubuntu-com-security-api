@@ -1,0 +1,88 @@
+# This file configures Charmcraft.
+# See https://documentation.ubuntu.com/charmcraft/stable/reference/files/charmcraft-yaml-file/
+type: charm
+name: ubuntu-security-api-vm
+title: Ubuntu Security API Machine Charm
+summary: An air-gap ready machine charm for the Ubuntu Security API.
+description: |
+  This charm provides an API for accessing Ubuntu security data. 
+
+  It is designed to be deployed in an air-gapped environment, and can be used to provide access to Ubuntu security data without requiring an internet connection.
+
+base: ubuntu@24.04
+platforms:
+  amd64:
+
+parts:
+  local-app:
+    plugin: dump
+    source: ../
+    source-type: local
+    override-pull: |
+      rm -rf overlay parts prime stage
+      craftctl default
+      rm -rf .git .venv .env *.charm .mypy_cache .ruff_cache machine-charm k8s-charm konf node_modules yarn.lock __pycache__ docker-entrypoint-initdb.d .github .gitignore docker-compose.yaml Dockerfile entrypoint migrate.sh package.json rockcraft.yaml run
+    organize:
+      "*": ./src/flask/app/
+    prime:
+      - src/flask/app/app.py
+      - src/flask/app/migrations/*
+      - src/flask/app/requirements.txt
+      - src/flask/app/scripts/*
+      - src/flask/app/templates/*
+      - src/flask/app/tests/*
+      - src/flask/app/webapp/*
+  charm:
+    plugin: uv
+    after: [local-app]
+    source: .
+    build-snaps:
+      - astral-uv
+
+charm-libs:
+  - lib: postgresql.postgres_client
+    version: "1"
+
+requires:
+  postgresql:
+    interface: postgresql_client
+    optional: false
+    limit: 1
+
+config:
+  options:
+    secret-key:
+      type: secret
+      description: "Secret key used to encode and decode JWT tokens"
+    oauth-token-salt:
+      type: secret
+      description: "Salt used to encode and decode OAuth tokens"
+    workers:
+      type: int
+      default: 3
+      description: "The number of worker processes for handling requests. Adjust based on your server's CPU cores and expected load."
+    timeout:
+      type: int
+      default: 500
+      description: "The number of seconds to wait for a worker to respond before restarting it."
+
+actions:
+  upload-database:
+    description: Upload a postgresql database snapshot.
+    params:
+      filename:
+        type: string
+        description: The name of the database.sql file, stored in /tmp/<database-name>.sql.
+    required:
+    - filename
+    additionalProperties: false
+  show-install-logs:
+    description: Show logs from the install process.
+    params: {}
+    required: []
+    additionalProperties: false
+  show-gunicorn-logs:
+    description: Show the gunicorn logs.
+    params: {}
+    required: []
+    additionalProperties: false
