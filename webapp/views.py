@@ -13,7 +13,13 @@ from flask import (
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import asc, case, desc, distinct, func, or_, exists, tuple_
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import Query, aliased, load_only, selectinload
+from sqlalchemy.orm import (
+    Query,
+    aliased,
+    load_only,
+    selectinload,
+    undefer,
+)
 
 from webapp.auth import authorization_required, oauth_authorization_required
 from webapp.database import db
@@ -206,7 +212,8 @@ def get_cves(**kwargs):
     cves_query = cves_query.options(
         selectinload(CVE.statuses),
         selectinload(cve_notices_query).options(
-            selectinload(Notice.cves).options(load_only(CVE.id))
+            undefer(Notice.release_packages),
+            selectinload(Notice.cves).options(load_only(CVE.id)),
         ),
     )
 
