@@ -598,6 +598,7 @@ def get_notice_v2(notice_id, **kwargs):
     notice: Notice = (
         notice_query.filter(Notice.id == notice_id.upper())
         .options(
+            undefer(Notice.release_packages),
             selectinload(Notice.cves).options(
                 load_only(CVE.id),
                 selectinload(CVE.notices).load_only(
@@ -670,18 +671,13 @@ def get_notices_v2(**kwargs):
     total_results = notices_query.count()
 
     # Optimize the query:
-    # - Only select necessary scalar fields
+    # - Eager load release_packages (deferred) so serialization does not
+    #   trigger a per-notice lazy load
     # - Eager load related CVEs (and their notices for related_notices)
     # - Eager load related releases
     # - Apply final sort order
     notices_query = notices_query.options(
-        load_only(
-            Notice.id,
-            Notice.title,
-            Notice.details,
-            Notice.published,
-            Notice.is_hidden,
-        ),
+        undefer(Notice.release_packages),
         selectinload(Notice.cves).options(
             load_only(CVE.id),
             selectinload(CVE.notices).load_only(Notice.id, Notice.is_hidden),
