@@ -119,7 +119,7 @@ app.config.update(
 sentry_dsn = get_flask_env("SENTRY_DSN")
 environment = get_flask_env("FLASK_ENV", "production")
 
-if sentry_dsn:
+if sentry_dsn and environment == "production":
     sentry_sdk.init(
         dsn=sentry_dsn,
         send_default_pii=False,
@@ -309,11 +309,3 @@ def handle_error(error):
         jsonify({"message": "Invalid payload", "errors": str(messages)}),
         422,
     )
-
-
-if sentry_dsn and environment != "production":
-
-    @app.route("/sentry-debug")
-    def trigger_error():
-        """Endpoint to trigger a Sentry error for testing purposes."""
-        1 / 0
