@@ -684,9 +684,7 @@ def get_notices_v2(**kwargs):
         ),
         selectinload(Notice.cves).options(
             load_only(CVE.id),
-            selectinload(CVE.notices).load_only(
-                Notice.id, Notice.is_hidden
-            ),
+            selectinload(CVE.notices).load_only(Notice.id, Notice.is_hidden),
         ),
         selectinload(Notice.releases),
     ).order_by(sort_order_by(Notice.published), sort_order_by(Notice.id))
