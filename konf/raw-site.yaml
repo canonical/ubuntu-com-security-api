@@ -49,6 +49,9 @@ spec:
             - name: TALISKER_NETWORKS
               value: 10.0.0.0/8
 
+            - name: SENTRY_DSN
+              value: "https://88233b54cb8e9f8d8df4ace2349e0b8b@o4510662863749120.ingest.de.sentry.io/4511652407345232"
+
             - name: GUNICORN_TIMEOUT
               value: "30"
 
