@@ -601,12 +601,8 @@ def get_notice_v2(notice_id, **kwargs):
     if not show_hidden:
         notice_query = notice_query.filter_by(is_hidden=False)
 
-    # Exclude hidden notices from the CVE.notices load unless requested, so
-    # hidden notice ids don't leak via cves[*].notices_ids. v2 serialises
-    # related notices as ids only, so only id + is_hidden are needed here.
-    cve_notices = CVE.notices
-    if not show_hidden:
-        cve_notices = cve_notices.and_(Notice.is_hidden.is_(False))
+    # v2 serialises related notices as ids only, so load just id + is_hidden.
+    cve_notices = _visible_cve_notices(show_hidden)
 
     notice: Notice = (
         notice_query.filter(Notice.id == notice_id.upper())
@@ -683,12 +679,8 @@ def get_notices_v2(**kwargs):
     # Count total matching results before pagination
     total_results = notices_query.count()
 
-    # Exclude hidden notices from the CVE.notices load unless requested, so
-    # hidden notice ids don't leak via cves[*].notices_ids. v2 serialises
-    # related notices as ids only, so only id + is_hidden are needed here.
-    cve_notices = CVE.notices
-    if not show_hidden:
-        cve_notices = cve_notices.and_(Notice.is_hidden.is_(False))
+    # v2 serialises related notices as ids only, so load just id + is_hidden.
+    cve_notices = _visible_cve_notices(show_hidden)
 
     # Optimize the query:
     # - Eager load release_packages (deferred) so serialization does not
@@ -1096,6 +1088,17 @@ def test_authorization_required():
     """Test method for auth."""
     print("Authorization test function called.")
     return "This is a test function for authorization_required decorator.", 200
+
+
+def _visible_cve_notices(show_hidden):
+    """CVE.notices relationship, excluding hidden notices unless show_hidden.
+
+    Centralises the security-sensitive filtering so the v2 notice endpoints
+    can't leak hidden notice ids via serialised ``notices_ids``.
+    """
+    if show_hidden:
+        return CVE.notices
+    return CVE.notices.and_(Notice.is_hidden.is_(False))
 
 
 def _sort_by_priority(cves_query):
