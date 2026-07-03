@@ -1208,6 +1208,35 @@ class TestRoutes(BaseTestCase):
             in response.json["notices"][0]["cves"][0]["notices_ids"]
         )
 
+    def test_v2_notices_exclude_hidden_notice_ids(self):
+        # A CVE linked to both a visible and a hidden notice
+        shared_cve = make_cve("CVE-9999-1000")
+        visible_notice = make_notice("USN-9999-1000", cves=[shared_cve])
+        hidden_notice = make_notice(
+            "USN-9999-1001", is_hidden=True, cves=[shared_cve]
+        )
+        self.db.session.add_all([shared_cve, visible_notice, hidden_notice])
+        self.db.session.commit()
+
+        def notices_ids(path):
+            # Expire cached objects so each request re-reads from the DB,
+            # as independent requests would in production.
+            self.db.session.expire_all()
+            payload = self.client.get(path).get_json()
+            cves = payload.get("cves") or payload["notices"][0]["cves"]
+            return {nid for cve in cves for nid in cve["notices_ids"]}
+
+        base = "/security/notices/USN-9999-1000.json"
+        # get_notice_v2: hidden id excluded by default, shown when requested
+        assert "USN-9999-1000" in notices_ids(base)
+        assert "USN-9999-1001" not in notices_ids(base)
+        assert "USN-9999-1001" in notices_ids(base + "?show_hidden=true")
+
+        # get_notices_v2: same behaviour via the list endpoint
+        listing = "/security/notices.json?cves=CVE-9999-1000"
+        assert "USN-9999-1001" not in notices_ids(listing)
+        assert "USN-9999-1001" in notices_ids(listing + "&show_hidden=true")
+
     def test_page_notice(self):
         response = self.client.get("/security/page/notices.json")
 
