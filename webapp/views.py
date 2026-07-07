@@ -13,7 +13,7 @@ from flask import (
 from flask_apispec import marshal_with, use_kwargs
 from sqlalchemy import asc, case, desc, distinct, func, or_, exists, tuple_
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import Query, aliased, load_only, selectinload
+from sqlalchemy.orm import Query, aliased, load_only, selectinload, undefer
 
 from webapp.auth import authorization_required, oauth_authorization_required
 from webapp.database import db
@@ -206,7 +206,18 @@ def get_cves(**kwargs):
     cves_query = cves_query.options(
         selectinload(CVE.statuses),
         selectinload(cve_notices_query).options(
-            selectinload(Notice.cves).options(load_only(CVE.id))
+            load_only(
+                Notice.id,
+                Notice.title,
+                Notice.published,
+                Notice.summary,
+                Notice.details,
+                Notice.instructions,
+                Notice.references,
+                Notice.is_hidden,
+                Notice.release_packages,
+            ),
+            selectinload(Notice.cves).options(load_only(CVE.id)),
         ),
     )
 
@@ -585,13 +596,24 @@ def get_notices(**kwargs):
 def get_notice_v2(notice_id, **kwargs):
     notice_query: Query = db.session.query(Notice)
 
-    if not kwargs.get("show_hidden", False):
+    show_hidden = kwargs.get("show_hidden", False)
+
+    if not show_hidden:
         notice_query = notice_query.filter_by(is_hidden=False)
+
+    # v2 serialises related notices as ids only, so load just id + is_hidden.
+    cve_notices = _visible_cve_notices(show_hidden)
 
     notice: Notice = (
         notice_query.filter(Notice.id == notice_id.upper())
         .options(
-            selectinload(Notice.cves).selectinload(CVE.notices),
+            undefer(Notice.release_packages),
+            selectinload(Notice.cves).options(
+                load_only(CVE.id),
+                selectinload(cve_notices).options(
+                    load_only(Notice.id, Notice.is_hidden)
+                ),
+            ),
             selectinload(Notice.releases),
         )
         .one_or_none()
@@ -657,20 +679,23 @@ def get_notices_v2(**kwargs):
     # Count total matching results before pagination
     total_results = notices_query.count()
 
+    # v2 serialises related notices as ids only, so load just id + is_hidden.
+    cve_notices = _visible_cve_notices(show_hidden)
+
     # Optimize the query:
-    # - Only select necessary scalar fields
+    # - Eager load release_packages (deferred) so serialization does not
+    #   trigger a per-notice lazy load
     # - Eager load related CVEs (and their notices for related_notices)
     # - Eager load related releases
     # - Apply final sort order
     notices_query = notices_query.options(
-        load_only(
-            Notice.id,
-            Notice.title,
-            Notice.details,
-            Notice.published,
-            Notice.is_hidden,
+        undefer(Notice.release_packages),
+        selectinload(Notice.cves).options(
+            load_only(CVE.id),
+            selectinload(cve_notices).options(
+                load_only(Notice.id, Notice.is_hidden)
+            ),
         ),
-        selectinload(Notice.cves).selectinload(CVE.notices),
         selectinload(Notice.releases),
     ).order_by(sort_order_by(Notice.published), sort_order_by(Notice.id))
 
@@ -1063,6 +1088,17 @@ def test_authorization_required():
     """Test method for auth."""
     print("Authorization test function called.")
     return "This is a test function for authorization_required decorator.", 200
+
+
+def _visible_cve_notices(show_hidden):
+    """CVE.notices relationship, excluding hidden notices unless show_hidden.
+
+    Centralises the security-sensitive filtering so the v2 notice endpoints
+    can't leak hidden notice ids via serialised ``notices_ids``.
+    """
+    if show_hidden:
+        return CVE.notices
+    return CVE.notices.and_(Notice.is_hidden.is_(False))
 
 
 def _sort_by_priority(cves_query):
