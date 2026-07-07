@@ -538,15 +538,9 @@ class CvssV4SubsequentSystemImpactMetrics(Schema):
 
 
 class CvssV4BaseMetrics(Schema):
-    exploitabilityMetrics = Nested(
-        CvssV4ExploitabilityMetrics, allow_none=True
-    )
-    vulnerableSystemImpactMetrics = Nested(
-        CvssV4VulnerableSystemImpactMetrics, allow_none=True
-    )
-    subsequentSystemImpactMetrics = Nested(
-        CvssV4SubsequentSystemImpactMetrics, allow_none=True
-    )
+    exploitabilityMetrics = Nested(CvssV4ExploitabilityMetrics)
+    vulnerableSystemImpactMetrics = Nested(CvssV4VulnerableSystemImpactMetrics)
+    subsequentSystemImpactMetrics = Nested(CvssV4SubsequentSystemImpactMetrics)
 
     class Meta:
         render_module = orjson
@@ -565,15 +559,9 @@ class CvssV4SupplementalMetrics(Schema):
 
 
 class CvssV4ModifiedBaseMetrics(Schema):
-    exploitabilityMetrics = Nested(
-        CvssV4ExploitabilityMetrics, allow_none=True
-    )
-    vulnerableSystemImpactMetrics = Nested(
-        CvssV4VulnerableSystemImpactMetrics, allow_none=True
-    )
-    subsequentSystemImpactMetrics = Nested(
-        CvssV4SubsequentSystemImpactMetrics, allow_none=True
-    )
+    exploitabilityMetrics = Nested(CvssV4ExploitabilityMetrics)
+    vulnerableSystemImpactMetrics = Nested(CvssV4VulnerableSystemImpactMetrics)
+    subsequentSystemImpactMetrics = Nested(CvssV4SubsequentSystemImpactMetrics)
 
     class Meta:
         render_module = orjson
@@ -589,8 +577,8 @@ class CvssV4SecurityRequirements(Schema):
 
 
 class CvssV4EnvironmentalMetrics(Schema):
-    modifiedBaseMetrics = Nested(CvssV4ModifiedBaseMetrics, allow_none=True)
-    securityRequirements = Nested(CvssV4SecurityRequirements, allow_none=True)
+    modifiedBaseMetrics = Nested(CvssV4ModifiedBaseMetrics)
+    securityRequirements = Nested(CvssV4SecurityRequirements)
 
     class Meta:
         render_module = orjson
@@ -607,10 +595,10 @@ class CvssV4(Schema):
     version = String(allow_none=True)
     vectorString = String(allow_none=True)
 
-    baseMetrics = Nested(CvssV4BaseMetrics, allow_none=True)
-    supplementalMetrics = Nested(CvssV4SupplementalMetrics, allow_none=True)
-    environmentalMetrics = Nested(CvssV4EnvironmentalMetrics, allow_none=True)
-    threatMetrics = Nested(CvssV4ThreatMetrics, allow_none=True)
+    baseMetrics = Nested(CvssV4BaseMetrics)
+    supplementalMetrics = Nested(CvssV4SupplementalMetrics)
+    environmentalMetrics = Nested(CvssV4EnvironmentalMetrics)
+    threatMetrics = Nested(CvssV4ThreatMetrics)
 
     baseScore = Float(allow_none=True)
     baseSeverity = String(allow_none=True)
@@ -629,7 +617,7 @@ class CvssV4(Schema):
 
 
 class CveBaseMetricV4(Schema):
-    cvssV4 = Nested(CvssV4, allow_none=True)
+    cvssV4 = Nested(CvssV4)
 
     class Meta:
         render_module = orjson
