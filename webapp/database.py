@@ -26,6 +26,7 @@ both `app.py` and `models.py`, and then inside `app.py` we do:
 To add the application context
 """
 
+from flask import jsonify
 from flask_migrate import Migrate
 from canonicalwebteam.flask_base.env import get_flask_env
 from flask_sqlalchemy import SQLAlchemy
@@ -34,7 +35,6 @@ from sqlalchemy import create_engine
 from sqlalchemy import exc
 from sqlalchemy.sql import Update, Delete, Insert
 import os
-
 
 PRIMARY_DATABASE_URL = get_flask_env("DATABASE_URL", error=True)
 # Use the primary as the default
@@ -114,8 +114,10 @@ def init_db(app):
         # log the error:
         app.logger.error(error)
         db.session.rollback()
+        return jsonify({"message": "Database error, please retry"}), 503
 
     @app.errorhandler(exc.SQLAlchemyError)
     def rollback_failed_transactoins(error):
         app.logger.error(error)
         db.session.rollback()
+        return jsonify({"message": "Database error, please retry"}), 503
