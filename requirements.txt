@@ -1,5 +1,5 @@
 canonicalwebteam.flask-base @ git+https://github.com/canonical/canonicalwebteam.flask-base@add-compression-override-option
-setuptools<81
+setuptools<84
 alchemy-mock==0.4.3
 apispec==4.7.1
 cryptography==46.0.5
