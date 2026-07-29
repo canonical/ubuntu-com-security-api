@@ -11,7 +11,17 @@ from flask import (
     stream_with_context,
 )
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import asc, case, desc, distinct, func, or_, exists, tuple_
+from sqlalchemy import (
+    asc,
+    case,
+    desc,
+    distinct,
+    exists,
+    func,
+    nullslast,
+    or_,
+    tuple_,
+)
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Query, aliased, load_only, selectinload, undefer
 
@@ -195,13 +205,19 @@ def get_cves(**kwargs):
             "Invalid sort value. Please use 'published' or 'updated'."
         )
 
+    # nullslast() rather than a CASE expression: the CASE is not indexable, so
+    # it forced a full sort of the matched set on every request. This ordering
+    # can be served directly by an index on (status, published, id).
     cves_query = cves_query.order_by(
-        case([(sort_field.is_(None), 1)], else_=0),
-        sort(sort_field),
+        nullslast(sort(sort_field)),
         sort(CVE.id),
     )
 
-    total_results = cves_query.order_by(None).count()
+    # Query.count() wraps the whole statement in a subquery; counting the PK
+    # directly lets the planner use an index-only scan instead of a heap scan.
+    total_results = (
+        cves_query.order_by(None).with_entities(func.count(CVE.id)).scalar()
+    )
 
     cves_query = cves_query.options(
         selectinload(CVE.statuses),

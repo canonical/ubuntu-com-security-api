@@ -47,9 +47,60 @@ REPLICA_TWO_DATABASE_URL = get_flask_env(
     PRIMARY_DATABASE_URL,
 )
 
+# Explicit pool sizing keeps the total connection count predictable across
+# the fleet (8 pods x 3 gunicorn workers x 3 engines). Validate against the
+# replicas' `max_connections` before raising these.
+#
+# pool_timeout is deliberately short: when the pool is exhausted a request
+# now fails fast instead of blocking on the default 30s, which previously
+# lined up with gunicorn's --timeout 30 and turned a slow query into a
+# WORKER TIMEOUT cascade (every worker stuck waiting for a connection).
+# libpq-level hardening applied to every engine.
+#
+# connect_timeout: after a primary failover the old host can accept packets but
+# never complete a handshake. Without this, psycopg2 blocks for the OS TCP
+# timeout (minutes) and pins a gunicorn worker for the whole time.
+#
+# keepalives: when gunicorn SIGKILLs a worker at --timeout, the server side of
+# its connections is stranded as "idle in transaction" and keeps holding a
+# connection slot. Keepalives let the server notice the dead peer and reap it.
+BASE_CONNECT_ARGS = {
+    "connect_timeout": 5,
+    "keepalives": 1,
+    "keepalives_idle": 30,
+    "keepalives_interval": 10,
+    "keepalives_count": 3,
+}
+
+# idle_in_transaction_session_timeout is the server-side backstop for the same
+# stranded-backend problem. Both values sit well above gunicorn's --timeout 30,
+# so they can never abort a live HTTP request - only abandoned ones.
+#
+# NOTE: long-running CLI import commands also use the primary engine. If one
+# does Python work for more than 5 minutes between statements inside a single
+# transaction, it will be aborted. Raise PRIMARY_PG_OPTIONS if that happens.
+READ_PG_OPTIONS = (
+    "-c statement_timeout=10000 -c idle_in_transaction_session_timeout=60000"
+)
+PRIMARY_PG_OPTIONS = "-c idle_in_transaction_session_timeout=300000"
+
 SQLALCHEMY_ENGINE_OPTIONS = {
     "pool_recycle": 3600,
     "pool_pre_ping": True,
+    "pool_size": 5,
+    "max_overflow": 5,
+    "pool_timeout": 5,
+    "connect_args": {**BASE_CONNECT_ARGS, "options": PRIMARY_PG_OPTIONS},
+}
+
+# Read replicas additionally cap query runtime at the database level. A slow
+# CVE query (e.g. an unindexed ILIKE scan) is aborted by Postgres after 10s,
+# releasing its worker and connection, instead of pinning both until gunicorn
+# SIGKILLs the worker at 30s. Writes (bulk CVE imports) use the primary and
+# are intentionally left without a statement_timeout since they run long.
+READ_ENGINE_OPTIONS = {
+    **SQLALCHEMY_ENGINE_OPTIONS,
+    "connect_args": {**BASE_CONNECT_ARGS, "options": READ_PG_OPTIONS},
 }
 
 # Bind names
@@ -59,11 +110,11 @@ REPLICA_TWO = "replicatwo"
 engines = {
     REPLICA_ONE: create_engine(
         url=REPLICA_ONE_DATABASE_URL,
-        **SQLALCHEMY_ENGINE_OPTIONS,
+        **READ_ENGINE_OPTIONS,
     ),
     REPLICA_TWO: create_engine(
         url=REPLICA_TWO_DATABASE_URL,
-        **SQLALCHEMY_ENGINE_OPTIONS,
+        **READ_ENGINE_OPTIONS,
     ),
 }
 

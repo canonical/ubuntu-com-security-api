@@ -125,6 +125,11 @@ if sentry_dsn and environment == "production":
         send_default_pii=False,
         environment=environment,
         integrations=[FlaskIntegration()],
+        # Local variables in these views hold hydrated ORM graphs (thousands of
+        # CVE/Status objects). Serialising them on every gunicorn worker abort
+        # burns CPU on an already-saturated worker and floods Sentry with
+        # sentry.errors.serializer noise instead of the actual exception.
+        include_local_variables=False,
     )
 
 init_db(app)
