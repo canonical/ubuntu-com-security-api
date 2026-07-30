@@ -861,29 +861,34 @@ class FlatNoticesAPISchema(Schema):
         render_module = orjson
 
 
-# Notices nested inside a CVE response carry `cves_ids` - the id of every CVE
-# that notice covers. A large USN covers over 1200, and one CVE can nest dozens
-# of notices, which is what pushes /security/cves.json to 12-24MB and
-# /security/cves/<id>.json to 1MB. Serialising those bytes is what makes
-# get_cve average ~1.3s, and get_cve is ~85% of production traffic.
+# Fields to omit from notices nested inside a CVE response, given as a
+# comma-separated list in NESTED_NOTICE_EXCLUDE. Empty by default, so the API
+# contract is unchanged unless someone deliberately sets it.
 #
-# In this position the data is redundant: it is available from the notice
-# endpoints, keyed by the notice ids already present in the response.
+# Nested notices dominate CVE responses. Measured on CVE-2026-23412 (852KB):
+# `notices` was 77% of the payload across only 13 notices - roughly 50KB each -
+# with `packages` a further 26%. Two notice fields carry that weight:
 #
-# Setting NESTED_NOTICE_CVE_IDS=false drops the field from CVE responses only,
-# cutting those payloads by roughly an order of magnitude. Notice endpoints are
-# unaffected. Default is true, so the existing API contract is preserved unless
-# someone deliberately turns this off - it is an overload kill-switch, not a
-# silent change.
-NESTED_NOTICE_CVE_IDS = os.environ.get(
-    "NESTED_NOTICE_CVE_IDS", "true"
-).lower() not in ("false", "0", "no")
-
-_NESTED_NOTICE_EXCLUDE = () if NESTED_NOTICE_CVE_IDS else ("cves_ids",)
+#   release_packages  the package versions that notice fixed, a Dict of release
+#                     -> package list, which for a kernel USN spans every
+#                     supported release
+#   cves_ids          every CVE the notice covers; a large USN covers 1200+
+#
+# Both are redundant in this position: consumers can fetch them from the notice
+# endpoints using the notice ids already present in the response. Notice
+# endpoints themselves are unaffected by this setting.
+#
+# This is an overload kill-switch, not a tuning knob. Excluding a field IS a
+# breaking change for any consumer reading it, so it stays off by default.
+NESTED_NOTICE_EXCLUDE = tuple(
+    field.strip()
+    for field in os.environ.get("NESTED_NOTICE_EXCLUDE", "").split(",")
+    if field.strip()
+)
 
 
 class CVEAPIDetailedSchema(CVEAPISchema):
-    notices = List(Nested(NoticeAPISchema, exclude=_NESTED_NOTICE_EXCLUDE))
+    notices = List(Nested(NoticeAPISchema, exclude=NESTED_NOTICE_EXCLUDE))
 
     class Meta:
         render_module = orjson
