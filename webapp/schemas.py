@@ -1,3 +1,5 @@
+import os
+
 import dateutil.parser
 import orjson
 
@@ -859,8 +861,29 @@ class FlatNoticesAPISchema(Schema):
         render_module = orjson
 
 
+# Notices nested inside a CVE response carry `cves_ids` - the id of every CVE
+# that notice covers. A large USN covers over 1200, and one CVE can nest dozens
+# of notices, which is what pushes /security/cves.json to 12-24MB and
+# /security/cves/<id>.json to 1MB. Serialising those bytes is what makes
+# get_cve average ~1.3s, and get_cve is ~85% of production traffic.
+#
+# In this position the data is redundant: it is available from the notice
+# endpoints, keyed by the notice ids already present in the response.
+#
+# Setting NESTED_NOTICE_CVE_IDS=false drops the field from CVE responses only,
+# cutting those payloads by roughly an order of magnitude. Notice endpoints are
+# unaffected. Default is true, so the existing API contract is preserved unless
+# someone deliberately turns this off - it is an overload kill-switch, not a
+# silent change.
+NESTED_NOTICE_CVE_IDS = os.environ.get(
+    "NESTED_NOTICE_CVE_IDS", "true"
+).lower() not in ("false", "0", "no")
+
+_NESTED_NOTICE_EXCLUDE = () if NESTED_NOTICE_CVE_IDS else ("cves_ids",)
+
+
 class CVEAPIDetailedSchema(CVEAPISchema):
-    notices = List(Nested(NoticeAPISchema))
+    notices = List(Nested(NoticeAPISchema, exclude=_NESTED_NOTICE_EXCLUDE))
 
     class Meta:
         render_module = orjson

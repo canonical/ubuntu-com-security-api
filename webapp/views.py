@@ -69,6 +69,7 @@ from webapp.schemas import (
     ReleasesAPISchema,
     ReleaseSchema,
     SitemapCVEsAPISchema,
+    NESTED_NOTICE_CVE_IDS,
     SitemapNoticesAPISchema,
     UpdateReleaseSchema,
 )
@@ -183,6 +184,11 @@ def preload_notice_cve_ids(cves):
     touching the ORM. The result is cached on each Notice instance, where the
     `cves_ids` property picks it up.
     """
+    if not NESTED_NOTICE_CVE_IDS:
+        # The field is excluded from CVE responses, so building it would be a
+        # wasted query. See webapp.schemas.NESTED_NOTICE_CVE_IDS.
+        return
+
     notices = {
         notice.id: notice for cve in cves for notice in cve.notices
     }
