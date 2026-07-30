@@ -84,11 +84,25 @@ READ_PG_OPTIONS = (
 )
 PRIMARY_PG_OPTIONS = "-c idle_in_transaction_session_timeout=300000"
 
+# Pool sizing is constrained by the server, not by the app: max_connections on
+# these instances is 100, and `usndbreplica` is shared with the
+# raw-site-updates deployment. With 8 pods x 3 gunicorn workers there are 24
+# processes, so each engine can afford roughly one persistent connection.
+#
+# pool_size caps *idle retention*, not concurrency. Sync workers serve one
+# request at a time, so a process never needs more than a couple of connections
+# at once; max_overflow covers the brief case where a request touches both a
+# replica and the primary.
+#
+# pool_timeout is deliberately short: when the pool is exhausted a request now
+# fails fast instead of blocking on the default 30s, which previously lined up
+# with gunicorn's --timeout 30 and turned a slow query into a WORKER TIMEOUT
+# cascade (every worker stuck waiting for a connection).
 SQLALCHEMY_ENGINE_OPTIONS = {
     "pool_recycle": 3600,
     "pool_pre_ping": True,
-    "pool_size": 5,
-    "max_overflow": 5,
+    "pool_size": 1,
+    "max_overflow": 2,
     "pool_timeout": 5,
     "connect_args": {**BASE_CONNECT_ARGS, "options": PRIMARY_PG_OPTIONS},
 }
@@ -107,15 +121,27 @@ READ_ENGINE_OPTIONS = {
 REPLICA_ONE = "replicaone"
 REPLICA_TWO = "replicatwo"
 
-engines = {
-    REPLICA_ONE: create_engine(
-        url=REPLICA_ONE_DATABASE_URL,
-        **READ_ENGINE_OPTIONS,
-    ),
-    REPLICA_TWO: create_engine(
+_replica_one_engine = create_engine(
+    url=REPLICA_ONE_DATABASE_URL,
+    **READ_ENGINE_OPTIONS,
+)
+
+# REPLICA_ONE/TWO_DATABASE_URL are currently unset in konf/, so both fall back
+# to DATABASE_URL (see above) and all reads land on one server. Building two
+# separate pools against the same URL just doubles the connection count for no
+# benefit, so share the engine when the URLs match. Once the replica URLs are
+# actually configured this transparently becomes two engines again.
+if REPLICA_TWO_DATABASE_URL == REPLICA_ONE_DATABASE_URL:
+    _replica_two_engine = _replica_one_engine
+else:
+    _replica_two_engine = create_engine(
         url=REPLICA_TWO_DATABASE_URL,
         **READ_ENGINE_OPTIONS,
-    ),
+    )
+
+engines = {
+    REPLICA_ONE: _replica_one_engine,
+    REPLICA_TWO: _replica_two_engine,
 }
 
 primary_engine = create_engine(

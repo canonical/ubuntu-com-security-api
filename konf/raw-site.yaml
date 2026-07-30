@@ -76,17 +76,44 @@ spec:
                   key: database-url
                   name: usndbreplica
 
+          # /_status/check returns a static string and touches no database,
+          # but it still needs a free gunicorn worker. With --workers 3 (sync),
+          # three slow requests leave nothing to answer it, and the pod gets
+          # pulled from the Service while perfectly healthy - which is what
+          # nginx surfaced as 503s. These values tolerate transient starvation
+          # instead of ejecting the pod; they are not a substitute for keeping
+          # responses small.
           readinessProbe:
             httpGet:
               path: /_status/check
               port: 80
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
+            periodSeconds: 15
+            timeoutSeconds: 15
+            failureThreshold: 5
 
           resources:
             requests:
               ephemeral-storage: 128Mi
+              # Observed steady-state is 260-510Mi per pod, so reserve enough
+              # that the scheduler accounts for real usage.
+              memory: 512Mi
+              # There was previously no CPU request at all, which makes these
+              # pods best-effort for CPU: under node contention they lose to
+              # any pod that declares one. Serialising 12-24MB of JSON is
+              # CPU-bound, so that directly lengthened the slow requests that
+              # starve the readiness probe. Observed usage is 47-762m.
+              #
+              # Deliberately no CPU *limit* - a limit throttles bursts, which
+              # is the opposite of what a latency-sensitive endpoint needs.
+              cpu: 500m
             limits:
               ephemeral-storage: 1Gi
-              memory: 1G
+              # Raised from 1G after an OOMKill. /security/cves.json can emit
+              # 12-24MB of JSON, and marshmallow's intermediate dicts cost
+              # several times the final payload, so concurrent large responses
+              # exceeded 1G and the kernel killed the container - which then
+              # restarted, turning a slow endpoint into a restart loop.
+              #
+              # 2G is ~4x the observed peak. Sized to measurement rather than
+              # guesswork; revisit if payloads are ever trimmed.
+              memory: 2G
