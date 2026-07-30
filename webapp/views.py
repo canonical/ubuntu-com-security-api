@@ -1,4 +1,9 @@
+import errno
+import fcntl
+import functools
+import os
 from collections import defaultdict
+from contextlib import contextmanager
 from distutils.util import strtobool
 from typing import List, Literal, Optional
 
@@ -72,6 +77,96 @@ from webapp.utils import stream_notices
 SIX_HOURS_IN_SECONDS = 60 * 60 * 6
 TEN_MINUTES_IN_SECONDS = 60 * 10
 MAX_PAGE = 100
+
+
+# Concurrency gate for the expensive CVE list endpoint.
+#
+# /security/cves.json can emit 12-24MB of JSON. With --workers 3 (sync), three
+# of those in flight leave nothing to serve anything else - including
+# /_status/check, which needs a worker even though it only returns a static
+# string. A starved probe gets the whole pod removed from the Service, which
+# nginx surfaces as 503s for every consumer, not just the expensive ones.
+#
+# Capping how many of these run concurrently keeps the remaining workers free
+# for cheap requests and for the probe. Requests that cannot get a slot are
+# rejected immediately with 429 rather than queued - queuing would hold the
+# worker, which is the thing we are trying to avoid.
+#
+# Sync workers are separate processes, so an in-process semaphore cannot bound
+# them. flock on a shared file can. The lock files live in the container's own
+# /tmp, so the limit is per pod: CVE_LIST_SLOTS x number of pods.
+CVE_LIST_SLOTS = int(os.environ.get("CVE_LIST_SLOTS", "1"))
+CVE_LIST_SLOT_DIR = os.environ.get("CVE_LIST_SLOT_DIR", "/tmp")
+
+
+@contextmanager
+def _concurrency_slot(name, slots):
+    """Take one of `slots` named file locks without blocking.
+
+    Yields True if a slot was acquired, False if all of them are held.
+    """
+    handle = None
+    for slot in range(slots):
+        path = os.path.join(CVE_LIST_SLOT_DIR, f"{name}-{slot}.lock")
+        try:
+            candidate = open(path, "w")
+        except OSError:
+            # An unwritable lock directory must not take the endpoint down.
+            break
+        try:
+            fcntl.flock(candidate, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as error:
+            candidate.close()
+            if error.errno in (errno.EAGAIN, errno.EACCES, errno.EWOULDBLOCK):
+                continue  # held by another worker, try the next slot
+            break  # flock unsupported here - fail open rather than 429 all
+        handle = candidate
+        break
+    else:
+        yield False
+        return
+
+    if handle is None:
+        # Locking unavailable: fail open. Better to be slow than to reject
+        # every request because /tmp misbehaved.
+        yield True
+        return
+
+    try:
+        yield True
+    finally:
+        fcntl.flock(handle, fcntl.LOCK_UN)
+        handle.close()
+
+
+def limit_concurrency(name, slots):
+    """Reject with 429 when `slots` copies of this view are already running."""
+
+    def decorator(view):
+        @functools.wraps(view)
+        def wrapper(*args, **kwargs):
+            with _concurrency_slot(name, slots) as acquired:
+                if not acquired:
+                    response = make_response(
+                        jsonify(
+                            {
+                                "message": (
+                                    "Too many concurrent requests for this "
+                                    "endpoint. Retry shortly, or narrow the "
+                                    "query with `package`, `q` or a smaller "
+                                    "`limit`."
+                                )
+                            }
+                        ),
+                        429,
+                    )
+                    response.headers["Retry-After"] = "5"
+                    return response
+                return view(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def preload_notice_cve_ids(cves):
@@ -154,6 +249,7 @@ def get_cve(cve_id, **kwargs):
     return cve
 
 
+@limit_concurrency("cve-list", CVE_LIST_SLOTS)
 @marshal_with(CVEsAPISchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(CVEsParameters, location="query")
