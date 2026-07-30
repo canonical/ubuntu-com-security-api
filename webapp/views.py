@@ -34,6 +34,7 @@ from webapp.models import (
     Release,
     Status,
     convert_cve_id_to_numerical_id,
+    notice_cves,
 )
 from webapp.schemas import (
     CreateNoticeImportSchema,
@@ -71,6 +72,40 @@ from webapp.utils import stream_notices
 SIX_HOURS_IN_SECONDS = 60 * 60 * 6
 TEN_MINUTES_IN_SECONDS = 60 * 10
 MAX_PAGE = 100
+
+
+def preload_notice_cve_ids(cves):
+    """Populate Notice.cves_ids for every notice attached to `cves`.
+
+    NoticeAPISchema serialises `cves_ids` for each notice, and the model
+    property builds that list by walking the `cves` relationship. Eagerly
+    loading that relationship hydrates one ORM object per related CVE, and
+    notices like USN-8606-1 reference over 1200 CVEs each - so a single page
+    of results can instantiate tens of thousands of objects purely to read an
+    id off each one.
+
+    A single query against the association table yields the same ids without
+    touching the ORM. The result is cached on each Notice instance, where the
+    `cves_ids` property picks it up.
+    """
+    notices = {
+        notice.id: notice for cve in cves for notice in cve.notices
+    }
+    if not notices:
+        return
+
+    rows = (
+        db.session.query(notice_cves.c.notice_id, notice_cves.c.cve_id)
+        .filter(notice_cves.c.notice_id.in_(list(notices)))
+        .all()
+    )
+
+    grouped = defaultdict(list)
+    for notice_id, cve_id in rows:
+        grouped[notice_id].append(cve_id)
+
+    for notice_id, notice in notices.items():
+        notice.__dict__["_cves_ids"] = grouped[notice_id]
 
 
 @marshal_with(CVEAPIDetailedSchema, code=200)
@@ -233,11 +268,13 @@ def get_cves(**kwargs):
                 Notice.is_hidden,
                 Notice.release_packages,
             ),
-            selectinload(Notice.cves).options(load_only(CVE.id)),
         ),
     )
 
     cves = cves_query.limit(limit).offset(offset).all()
+
+    # Cheap replacement for the selectinload(Notice.cves) this used to carry.
+    preload_notice_cve_ids(cves)
 
     result = CVEsAPISchema().dumps(
         {

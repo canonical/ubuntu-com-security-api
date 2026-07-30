@@ -193,6 +193,15 @@ class Notice(db.Model):
 
     @hybrid_property
     def cves_ids(self):
+        # Reading this off the `cves` relationship hydrates one ORM object per
+        # related CVE, and a single USN can reference well over a thousand of
+        # them. Callers listing many notices should pre-populate this in bulk
+        # from the association table instead - see
+        # webapp.views.preload_notice_cve_ids - which produces the same list
+        # without the hydration cost.
+        preloaded = self.__dict__.get("_cves_ids")
+        if preloaded is not None:
+            return preloaded
         return [cve.id for cve in self.cves]
 
     @hybrid_property
