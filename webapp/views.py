@@ -136,7 +136,6 @@ def get_cve(cve_id, **kwargs):
                     Notice.is_hidden,
                     Notice.release_packages,
                 ),
-                selectinload(Notice.cves).options(load_only(CVE.id)),
             )
         )
         .options(selectinload(CVE.statuses))
@@ -148,6 +147,9 @@ def get_cve(cve_id, **kwargs):
             jsonify({"message": f"CVE with id '{cve_id}' does not exist"}),
             404,
         )
+
+    # Cheap replacement for the selectinload(Notice.cves) this used to carry.
+    preload_notice_cve_ids([cve])
 
     return cve
 
