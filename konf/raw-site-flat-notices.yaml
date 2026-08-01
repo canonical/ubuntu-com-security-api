@@ -73,16 +73,28 @@ spec:
             - name: SENTRY_DSN
               value: "https://88233b54cb8e9f8d8df4ace2349e0b8b@o4510662863749120.ingest.de.sentry.io/4511652407345232"
 
+          # /_status/check returns a static string and touches no database, but it
+          # still needs a free gunicorn worker. Three slow requests with
+          # --workers 3 (sync) leave nothing to answer it, and the pod is then
+          # pulled from the Service while perfectly healthy. These values
+          # tolerate transient starvation rather than ejecting the pod.
           readinessProbe:
             httpGet:
               path: /_status/check
               port: 80
-            periodSeconds: 5
-            timeoutSeconds: 3
+            periodSeconds: 15
+            timeoutSeconds: 15
+            failureThreshold: 5
 
           resources:
             requests:
               ephemeral-storage: 128Mi
+              memory: 512Mi
+              # There was previously no CPU request, making these pods
+              # best-effort for CPU: under node contention they lose to any pod
+              # that declares one. Serialising large JSON responses is
+              # CPU-bound. No CPU *limit* on purpose - a limit throttles bursts.
+              cpu: 500m
             limits:
               ephemeral-storage: 1Gi
               memory: 2G
