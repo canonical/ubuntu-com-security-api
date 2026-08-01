@@ -26,6 +26,7 @@ both `app.py` and `models.py`, and then inside `app.py` we do:
 To add the application context
 """
 
+from flask import jsonify, make_response
 from flask_migrate import Migrate
 from canonicalwebteam.flask_base.env import get_flask_env
 from flask_sqlalchemy import SQLAlchemy
@@ -47,14 +48,6 @@ REPLICA_TWO_DATABASE_URL = get_flask_env(
     PRIMARY_DATABASE_URL,
 )
 
-# Explicit pool sizing keeps the total connection count predictable across
-# the fleet (8 pods x 3 gunicorn workers x 3 engines). Validate against the
-# replicas' `max_connections` before raising these.
-#
-# pool_timeout is deliberately short: when the pool is exhausted a request
-# now fails fast instead of blocking on the default 30s, which previously
-# lined up with gunicorn's --timeout 30 and turned a slow query into a
-# WORKER TIMEOUT cascade (every worker stuck waiting for a connection).
 # libpq-level hardening applied to every engine.
 #
 # connect_timeout: after a primary failover the old host can accept packets but
@@ -186,13 +179,36 @@ def init_db(app):
     db.init_app(app)
     Migrate(app, db)
 
-    @app.errorhandler(exc.PendingRollbackError)
-    def handle_db_exceptions(error):
-        # log the error:
+    # These handlers must RETURN a response. Returning None makes Flask raise
+    #
+    #   TypeError: The view function for '<view>' did not return a valid
+    #   response. The function either returned None or ended without a return
+    #   statement.
+    #
+    # which reports the view as broken and hides the database error that
+    # actually occurred. That matters more now that the read engines carry a
+    # statement_timeout: Postgres cancelling a slow query raises
+    # OperationalError, a SQLAlchemyError, so this path is reached routinely
+    # under load rather than only in exceptional cases.
+    #
+    # 503 with Retry-After is the honest status: the request failed for a
+    # transient server-side reason and retrying is reasonable.
+    def _database_unavailable(error):
         app.logger.error(error)
         db.session.rollback()
+        response = make_response(
+            jsonify(
+                {
+                    "message": (
+                        "The database is temporarily unavailable. "
+                        "Please retry shortly."
+                    )
+                }
+            ),
+            503,
+        )
+        response.headers["Retry-After"] = "5"
+        return response
 
-    @app.errorhandler(exc.SQLAlchemyError)
-    def rollback_failed_transactoins(error):
-        app.logger.error(error)
-        db.session.rollback()
+    app.register_error_handler(exc.PendingRollbackError, _database_unavailable)
+    app.register_error_handler(exc.SQLAlchemyError, _database_unavailable)
