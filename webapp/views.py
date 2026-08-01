@@ -96,7 +96,14 @@ MAX_PAGE = 100
 # Sync workers are separate processes, so an in-process semaphore cannot bound
 # them. flock on a shared file can. The lock files live in the container's own
 # /tmp, so the limit is per pod: CVE_LIST_SLOTS x number of pods.
-CVE_LIST_SLOTS = int(os.environ.get("CVE_LIST_SLOTS", "1"))
+# Default 2 of the 3 sync workers, leaving one free for cheap requests and the
+# probe. 1 is tighter and was needed while a single response could reach 24MB;
+# it is too aggressive once payloads are trimmed and rejects requests that now
+# complete in milliseconds.
+#
+# 0 (or any value below it) disables the gate entirely. A misconfigured
+# environment variable must fail open, not reject every request.
+CVE_LIST_SLOTS = int(os.environ.get("CVE_LIST_SLOTS", "2"))
 CVE_LIST_SLOT_DIR = os.environ.get("CVE_LIST_SLOT_DIR", "/tmp")
 
 
@@ -105,7 +112,13 @@ def _concurrency_slot(name, slots):
     """Take one of `slots` named file locks without blocking.
 
     Yields True if a slot was acquired, False if all of them are held.
+    A non-positive `slots` disables the gate: fail open rather than reject
+    everything because a value was misconfigured.
     """
+    if slots <= 0:
+        yield True
+        return
+
     handle = None
     for slot in range(slots):
         path = os.path.join(CVE_LIST_SLOT_DIR, f"{name}-{slot}.lock")

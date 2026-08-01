@@ -8,6 +8,7 @@ how many run at once and rejects the excess with 429 instead of queuing.
 
 import fcntl
 import os
+from unittest import mock
 
 from tests import BaseTestCase
 from webapp import views
@@ -61,3 +62,18 @@ class ConcurrencyGate(BaseTestCase):
             for handle in handles:
                 fcntl.flock(handle, fcntl.LOCK_UN)
                 handle.close()
+
+
+class ConcurrencyGateDisabled(BaseTestCase):
+    """A non-positive slot count must fail open, not reject everything."""
+
+    def test_zero_slots_serves_normally(self):
+        with mock.patch.object(views, "CVE_LIST_SLOTS", 0):
+            for _ in range(3):
+                response = self.client.get("/security/cves.json?limit=10")
+                self.assertEqual(response.status_code, 200)
+
+    def test_negative_slots_serves_normally(self):
+        with mock.patch.object(views, "CVE_LIST_SLOTS", -1):
+            response = self.client.get("/security/cves.json?limit=10")
+            self.assertEqual(response.status_code, 200)
