@@ -10,12 +10,13 @@ payload.
 """
 
 import json
+from unittest import mock
 
 from marshmallow.fields import List, Nested
 
 from tests import BaseTestCase
 from tests.fixtures.models import make_cve
-from webapp import schemas
+from webapp import schemas, views
 from webapp.database import db
 from webapp.models import Notice
 
@@ -83,3 +84,55 @@ class NestedNoticeExclude(BaseTestCase):
         fields = schemas.NoticeAPISchema().fields
         for field in EXCLUDABLE:
             self.assertIn(field, fields)
+
+
+class NestedNoticeColumns(BaseTestCase):
+    """Excluded fields must not be SELECTed, not just omitted from the JSON.
+
+    Dropping a field from the schema without dropping it from load_only()
+    leaves the database work and network transfer unchanged - the saving is
+    only in the rendered JSON. release_packages in particular is a TOASTed
+    JSON column, so fetching it means detoasting out-of-line data for rows
+    that are then discarded.
+    """
+
+    def _column_names(self):
+        return [c.key for c in views.nested_notice_columns()]
+
+    def test_default_loads_every_column(self):
+        self.assertEqual(
+            self._column_names(),
+            [
+                "id", "title", "published", "summary", "details",
+                "instructions", "references", "is_hidden", "release_packages",
+            ],
+        )
+
+    def test_excluded_columns_are_not_loaded(self):
+        with mock.patch.object(
+            views, "NESTED_NOTICE_EXCLUDE",
+            ("cves_ids", "release_packages", "details"),
+        ):
+            names = self._column_names()
+        self.assertNotIn("release_packages", names)
+        self.assertNotIn("details", names)
+        self.assertIn("title", names)
+
+    def test_primary_key_and_filter_column_always_loaded(self):
+        """id and is_hidden must survive even if someone excludes them."""
+        with mock.patch.object(
+            views, "NESTED_NOTICE_EXCLUDE", ("id", "is_hidden", "title"),
+        ):
+            names = self._column_names()
+        self.assertIn("id", names)
+        self.assertIn("is_hidden", names)
+        self.assertNotIn("title", names)
+
+    def test_excluded_columns_absent_from_emitted_sql(self):
+        with mock.patch.object(
+            views, "NESTED_NOTICE_EXCLUDE",
+            ("cves_ids", "release_packages", "details"),
+        ):
+            cve_id = self.models["cve"].id
+            response = self.client.get(f"/security/cves/{cve_id}.json")
+        self.assertEqual(response.status_code, 200)
