@@ -153,8 +153,19 @@ def _concurrency_slot(name, slots):
         handle.close()
 
 
-def limit_concurrency(name, slots):
-    """Reject with 429 when `slots` copies of this view are already running."""
+DEFAULT_BUSY_MESSAGE = (
+    "Too many concurrent requests for this endpoint. Retry shortly, or "
+    "narrow the query with `package`, `q` or a smaller `limit`."
+)
+
+
+def limit_concurrency(name, slots, message=None, retry_after=5):
+    """Reject with 429 when `slots` copies of this view are already running.
+
+    `message` should tell the caller what to do about it - the advice differs
+    per endpoint, and generic text on a write endpoint is actively misleading.
+    """
+    message = message or DEFAULT_BUSY_MESSAGE
 
     def decorator(view):
         @functools.wraps(view)
@@ -162,19 +173,9 @@ def limit_concurrency(name, slots):
             with _concurrency_slot(name, slots) as acquired:
                 if not acquired:
                     response = make_response(
-                        jsonify(
-                            {
-                                "message": (
-                                    "Too many concurrent requests for this "
-                                    "endpoint. Retry shortly, or narrow the "
-                                    "query with `package`, `q` or a smaller "
-                                    "`limit`."
-                                )
-                            }
-                        ),
-                        429,
+                        jsonify({"message": message}), 429
                     )
-                    response.headers["Retry-After"] = "5"
+                    response.headers["Retry-After"] = str(retry_after)
                     return response
                 return view(*args, **kwargs)
 
@@ -509,7 +510,22 @@ def get_released_cves(**kwargs):
 #
 # NOTE: a 504 from the proxy does NOT mean the write failed - it may still be
 # in progress. Retrying is not safe. Callers should poll rather than resubmit.
-@limit_concurrency("cve-upsert", 1)
+@limit_concurrency(
+    "cve-upsert",
+    1,
+    message=(
+        "Another bulk CVE upsert is already in progress on this instance. "
+        "Nothing was written by this request - it was rejected before any "
+        "work began, so it is safe to resubmit. Please send one batch at a "
+        "time and wait for each response. If batches are large, prefer "
+        "several small ones (about 5 CVEs) over one big one: a batch "
+        "containing kernel CVEs can take minutes, and the gateway returns "
+        "504 after 50s even though the write is still running for up to "
+        "300s - so a 504 does NOT mean the update failed, and retrying it "
+        "duplicates work that is still in progress."
+    ),
+    retry_after=30,
+)
 @authorization_required
 @marshal_with(MessageSchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=400)
