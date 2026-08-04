@@ -492,6 +492,24 @@ def get_released_cves(**kwargs):
     return response
 
 
+# One bulk upsert at a time per pod.
+#
+# This endpoint holds a write transaction open for minutes: it hydrates every
+# Status row of every CVE in the batch (a kernel CVE has ~3000) and then
+# flushes them one UPDATE at a time, keeping row locks on `cve` throughout.
+#
+# The proxy gives up at 50s and returns 504, but the request keeps running to
+# gunicorn's 300s timeout - so a client that retries on 504 sends a second
+# copy of the same import while the first is still holding those locks. That
+# produced lock chains three deep with waits over 200s, and nothing completed.
+#
+# Rejecting the overlapping request in milliseconds is far better than letting
+# it queue: the in-flight import gets an uncontended run at finishing, and the
+# caller gets an immediate, honest answer.
+#
+# NOTE: a 504 from the proxy does NOT mean the write failed - it may still be
+# in progress. Retrying is not safe. Callers should poll rather than resubmit.
+@limit_concurrency("cve-upsert", 1)
 @authorization_required
 @marshal_with(MessageSchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=400)
