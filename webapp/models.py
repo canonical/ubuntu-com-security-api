@@ -27,19 +27,20 @@ from webapp.types import (
     PRIORITY_OPTIONS,
 )
 
-
 notice_cves = Table(
     "notice_cves",
     db.Model.metadata,
-    Column("notice_id", String, ForeignKey("notice.id")),
-    Column("cve_id", String, ForeignKey("cve.id")),
+    Column("notice_id", String, ForeignKey("notice.id"), index=True),
+    Column("cve_id", String, ForeignKey("cve.id"), index=True),
 )
 
 notice_releases = Table(
     "notice_releases",
     db.Model.metadata,
-    Column("notice_id", String, ForeignKey("notice.id")),
-    Column("release_codename", String, ForeignKey("release.codename")),
+    Column("notice_id", String, ForeignKey("notice.id"), index=True),
+    Column(
+        "release_codename", String, ForeignKey("release.codename"), index=True
+    ),
 )
 
 
