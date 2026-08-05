@@ -77,11 +77,13 @@ spec:
                   name: usndbreplica
 
           # /_status/check returns a static string and touches no database,
-          # but it still needs a free gunicorn worker. With --workers 3 (sync),
-          # three slow requests leave nothing to answer it, and the pod gets
-          # pulled from the Service while perfectly healthy - which is what
-          # nginx surfaced as 503s. These values tolerate transient starvation
-          # instead of ejecting the pod; they are not a substitute for keeping
+          # but it still needs a free gunicorn worker. Sync workers serve one
+          # request each, so enough concurrent slow requests leave nothing to
+          # answer it and the pod gets pulled from the Service while perfectly
+          # healthy - which is what nginx surfaced as 503s. --workers was 3
+          # when that happened and is now 5, which widens the margin but does
+          # not remove it. These values tolerate transient starvation instead
+          # of ejecting the pod; they are not a substitute for keeping
           # responses small.
           readinessProbe:
             httpGet:

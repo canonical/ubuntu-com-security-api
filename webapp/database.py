@@ -79,8 +79,16 @@ PRIMARY_PG_OPTIONS = "-c idle_in_transaction_session_timeout=300000"
 
 # Pool sizing is constrained by the server, not by the app: max_connections on
 # these instances is 100, and `usndbreplica` is shared with the
-# raw-site-updates deployment. With 8 pods x 3 gunicorn workers there are 24
-# processes, so each engine can afford roughly one persistent connection.
+# raw-site-updates deployment. Across all four workloads there are 18 pods x 5
+# gunicorn workers = 90 processes, so each engine can afford at most one
+# persistent connection - pool_size is already at its floor and cannot absorb
+# a further worker increase.
+#
+# The theoretical ceiling (90 processes x 2 engines) exceeds max_connections,
+# but connections are opened lazily and only retained per worker after first
+# use: observed steady state was 27/100 at 3 workers, so expect roughly 45 at
+# 5. If that headroom disappears, the levers are max_overflow, or configuring
+# REPLICA_ONE/TWO_DATABASE_URL so reads no longer all land on one server.
 #
 # pool_size caps *idle retention*, not concurrency. Sync workers serve one
 # request at a time, so a process never needs more than a couple of connections
