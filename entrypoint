@@ -20,4 +20,4 @@ if [ -z "${GUNICORN_TIMEOUT}" ]; then
 else
     WORKER_TIMEOUT="${GUNICORN_TIMEOUT}"
 fi
-talisker.gunicorn webapp.app:app --bind $1 --workers 3 --name talisker-$(hostname) ${DEBUG_ARGS} --timeout $WORKER_TIMEOUT
+talisker.gunicorn webapp.app:app --bind $1 --workers 5 --name talisker-$(hostname) ${DEBUG_ARGS} --timeout $WORKER_TIMEOUT
