@@ -76,15 +76,12 @@ spec:
                   key: database-url
                   name: usndbreplica
 
-          # /_status/check returns a static string and touches no database,
-          # but it still needs a free gunicorn worker. Sync workers serve one
-          # request each, so enough concurrent slow requests leave nothing to
-          # answer it and the pod gets pulled from the Service while perfectly
-          # healthy - which is what nginx surfaced as 503s. --workers was 3
-          # when that happened and is now 5, which widens the margin but does
-          # not remove it. These values tolerate transient starvation instead
-          # of ejecting the pod; they are not a substitute for keeping
-          # responses small.
+          # /_status/check touches no database but still needs a free gunicorn
+          # worker. Sync workers serve one request each, so enough concurrent
+          # slow requests starve the probe and the pod is dropped from the
+          # Service while healthy - the 503s nginx surfaced. --workers 5 (was
+          # 3) widens the margin without removing it. These values tolerate
+          # transient starvation; they do not replace keeping responses small.
           readinessProbe:
             httpGet:
               path: /_status/check
@@ -96,26 +93,18 @@ spec:
           resources:
             requests:
               ephemeral-storage: 128Mi
-              # Observed steady-state is 260-510Mi per pod, so reserve enough
-              # that the scheduler accounts for real usage.
+              # Observed steady state is 260-510Mi per pod.
               memory: 512Mi
-              # There was previously no CPU request at all, which makes these
-              # pods best-effort for CPU: under node contention they lose to
+              # Without a CPU request these pods are best-effort and lose to
               # any pod that declares one. Serialising 12-24MB of JSON is
-              # CPU-bound, so that directly lengthened the slow requests that
-              # starve the readiness probe. Observed usage is 47-762m.
-              #
-              # Deliberately no CPU *limit* - a limit throttles bursts, which
-              # is the opposite of what a latency-sensitive endpoint needs.
+              # CPU-bound, which lengthened the slow requests that starve the
+              # probe. Observed 47-762m. No CPU limit on purpose - a limit
+              # throttles bursts, the opposite of what this needs.
               cpu: 500m
             limits:
               ephemeral-storage: 1Gi
-              # Raised from 1G after an OOMKill. /security/cves.json can emit
-              # 12-24MB of JSON, and marshmallow's intermediate dicts cost
-              # several times the final payload, so concurrent large responses
-              # exceeded 1G and the kernel killed the container - which then
-              # restarted, turning a slow endpoint into a restart loop.
-              #
-              # 2G is ~4x the observed peak. Sized to measurement rather than
-              # guesswork; revisit if payloads are ever trimmed.
+              # Raised from 1G after an OOMKill: marshmallow's intermediate
+              # dicts cost several times the 12-24MB payload, so concurrent
+              # large responses exceeded 1G and the restart turned a slow
+              # endpoint into a restart loop. 2G is ~4x the observed peak.
               memory: 2G

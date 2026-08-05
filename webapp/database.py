@@ -48,15 +48,10 @@ REPLICA_TWO_DATABASE_URL = get_flask_env(
     PRIMARY_DATABASE_URL,
 )
 
-# libpq-level hardening applied to every engine.
-#
-# connect_timeout: after a primary failover the old host can accept packets but
-# never complete a handshake. Without this, psycopg2 blocks for the OS TCP
-# timeout (minutes) and pins a gunicorn worker for the whole time.
-#
-# keepalives: when gunicorn SIGKILLs a worker at --timeout, the server side of
-# its connections is stranded as "idle in transaction" and keeps holding a
-# connection slot. Keepalives let the server notice the dead peer and reap it.
+# libpq hardening for every engine. connect_timeout bounds the handshake: a
+# failed-over host can accept packets but never complete one, blocking for the
+# OS TCP timeout. Keepalives let the server reap backends stranded "idle in
+# transaction" when gunicorn SIGKILLs their worker.
 BASE_CONNECT_ARGS = {
     "connect_timeout": 5,
     "keepalives": 1,
@@ -65,40 +60,27 @@ BASE_CONNECT_ARGS = {
     "keepalives_count": 3,
 }
 
-# idle_in_transaction_session_timeout is the server-side backstop for the same
-# stranded-backend problem. Both values sit well above gunicorn's --timeout 30,
-# so they can never abort a live HTTP request - only abandoned ones.
+# Server-side backstop for the same stranded backends. Both sit well above
+# gunicorn's --timeout, so they abort only abandoned transactions.
 #
-# NOTE: long-running CLI import commands also use the primary engine. If one
-# does Python work for more than 5 minutes between statements inside a single
-# transaction, it will be aborted. Raise PRIMARY_PG_OPTIONS if that happens.
+# NOTE: CLI imports use the primary engine. One that does >5min of Python
+# between statements in a transaction will be aborted; raise PRIMARY_PG_OPTIONS.
 READ_PG_OPTIONS = (
     "-c statement_timeout=10000 -c idle_in_transaction_session_timeout=60000"
 )
 PRIMARY_PG_OPTIONS = "-c idle_in_transaction_session_timeout=300000"
 
-# Pool sizing is constrained by the server, not by the app: max_connections on
-# these instances is 100, and `usndbreplica` is shared with the
-# raw-site-updates deployment. Across all four workloads there are 18 pods x 5
-# gunicorn workers = 90 processes, so each engine can afford at most one
-# persistent connection - pool_size is already at its floor and cannot absorb
-# a further worker increase.
+# Sized against the server, not the app: max_connections is 100 and the fleet
+# is 18 pods x 5 workers = 90 processes, so pool_size 1 is at its floor and
+# cannot absorb another worker increase. Connections open lazily, so the real
+# figure is far below the ceiling (27/100 observed at 3 workers). If headroom
+# runs out, the levers are max_overflow or setting REPLICA_ONE/TWO_DATABASE_URL
+# so reads stop landing on one server.
 #
-# The theoretical ceiling (90 processes x 2 engines) exceeds max_connections,
-# but connections are opened lazily and only retained per worker after first
-# use: observed steady state was 27/100 at 3 workers, so expect roughly 45 at
-# 5. If that headroom disappears, the levers are max_overflow, or configuring
-# REPLICA_ONE/TWO_DATABASE_URL so reads no longer all land on one server.
-#
-# pool_size caps *idle retention*, not concurrency. Sync workers serve one
-# request at a time, so a process never needs more than a couple of connections
-# at once; max_overflow covers the brief case where a request touches both a
-# replica and the primary.
-#
-# pool_timeout is deliberately short: when the pool is exhausted a request now
-# fails fast instead of blocking on the default 30s, which previously lined up
-# with gunicorn's --timeout 30 and turned a slow query into a WORKER TIMEOUT
-# cascade (every worker stuck waiting for a connection).
+# pool_size caps idle retention, not concurrency; max_overflow covers a request
+# touching both a replica and the primary. pool_timeout is short so an
+# exhausted pool fails fast instead of blocking until gunicorn's --timeout and
+# turning a slow query into a WORKER TIMEOUT cascade.
 SQLALCHEMY_ENGINE_OPTIONS = {
     "pool_recycle": 3600,
     "pool_pre_ping": True,
@@ -108,11 +90,10 @@ SQLALCHEMY_ENGINE_OPTIONS = {
     "connect_args": {**BASE_CONNECT_ARGS, "options": PRIMARY_PG_OPTIONS},
 }
 
-# Read replicas additionally cap query runtime at the database level. A slow
-# CVE query (e.g. an unindexed ILIKE scan) is aborted by Postgres after 10s,
-# releasing its worker and connection, instead of pinning both until gunicorn
-# SIGKILLs the worker at 30s. Writes (bulk CVE imports) use the primary and
-# are intentionally left without a statement_timeout since they run long.
+# Replicas also cap query runtime in the database: a slow read is aborted at
+# 10s, releasing its worker and connection rather than pinning both until
+# gunicorn SIGKILLs the worker. The primary has no statement_timeout on
+# purpose - bulk CVE imports legitimately run long.
 READ_ENGINE_OPTIONS = {
     **SQLALCHEMY_ENGINE_OPTIONS,
     "connect_args": {**BASE_CONNECT_ARGS, "options": READ_PG_OPTIONS},
@@ -127,11 +108,9 @@ _replica_one_engine = create_engine(
     **READ_ENGINE_OPTIONS,
 )
 
-# REPLICA_ONE/TWO_DATABASE_URL are currently unset in konf/, so both fall back
-# to DATABASE_URL (see above) and all reads land on one server. Building two
-# separate pools against the same URL just doubles the connection count for no
-# benefit, so share the engine when the URLs match. Once the replica URLs are
-# actually configured this transparently becomes two engines again.
+# The replica URLs are unset in konf/, so both fall back to DATABASE_URL. Two
+# pools against the same URL would double the connection count for nothing, so
+# share the engine while they match; configuring the URLs splits them again.
 if REPLICA_TWO_DATABASE_URL == REPLICA_ONE_DATABASE_URL:
     _replica_two_engine = _replica_one_engine
 else:
@@ -187,20 +166,10 @@ def init_db(app):
     db.init_app(app)
     Migrate(app, db)
 
-    # These handlers must RETURN a response. Returning None makes Flask raise
-    #
-    #   TypeError: The view function for '<view>' did not return a valid
-    #   response. The function either returned None or ended without a return
-    #   statement.
-    #
-    # which reports the view as broken and hides the database error that
-    # actually occurred. That matters more now that the read engines carry a
-    # statement_timeout: Postgres cancelling a slow query raises
-    # OperationalError, a SQLAlchemyError, so this path is reached routinely
-    # under load rather than only in exceptional cases.
-    #
-    # 503 with Retry-After is the honest status: the request failed for a
-    # transient server-side reason and retrying is reasonable.
+    # These handlers must RETURN a response: returning None makes Flask raise
+    # a TypeError blaming the view, which hides the database error that
+    # actually occurred. Routine now that reads carry a statement_timeout -
+    # a cancelled query raises OperationalError, a SQLAlchemyError.
     def _database_unavailable(error):
         app.logger.error(error)
         db.session.rollback()

@@ -82,27 +82,17 @@ MAX_PAGE = 100
 
 # Concurrency gate for the expensive CVE list endpoint.
 #
-# /security/cves.json can emit 12-24MB of JSON. With --workers 3 (sync), three
-# of those in flight leave nothing to serve anything else - including
-# /_status/check, which needs a worker even though it only returns a static
-# string. A starved probe gets the whole pod removed from the Service, which
-# nginx surfaces as 503s for every consumer, not just the expensive ones.
+# /security/cves.json can emit 12-24MB of JSON. Enough of those in flight leave
+# no sync worker for anything else, including /_status/check - and a starved
+# probe drops the whole pod from the Service, which nginx surfaces as 503s for
+# every consumer. Capping them keeps workers free for cheap requests; requests
+# that miss a slot get 429 immediately rather than queueing, since queueing
+# holds the worker we are trying to protect.
 #
-# Capping how many of these run concurrently keeps the remaining workers free
-# for cheap requests and for the probe. Requests that cannot get a slot are
-# rejected immediately with 429 rather than queued - queuing would hold the
-# worker, which is the thing we are trying to avoid.
-#
-# Sync workers are separate processes, so an in-process semaphore cannot bound
-# them. flock on a shared file can. The lock files live in the container's own
-# /tmp, so the limit is per pod: CVE_LIST_SLOTS x number of pods.
-# Default 2 of the 3 sync workers, leaving one free for cheap requests and the
-# probe. 1 is tighter and was needed while a single response could reach 24MB;
-# it is too aggressive once payloads are trimmed and rejects requests that now
-# complete in milliseconds.
-#
-# 0 (or any value below it) disables the gate entirely. A misconfigured
-# environment variable must fail open, not reject every request.
+# Sync workers are separate processes, so this needs flock rather than an
+# in-process semaphore. Lock files are per container, so the real limit is
+# CVE_LIST_SLOTS x pods. 0 or less disables the gate: a misconfigured value
+# must fail open, not reject everything.
 CVE_LIST_SLOTS = int(os.environ.get("CVE_LIST_SLOTS", "2"))
 CVE_LIST_SLOT_DIR = os.environ.get("CVE_LIST_SLOT_DIR", "/tmp")
 
@@ -495,21 +485,15 @@ def get_released_cves(**kwargs):
 
 # One bulk upsert at a time per pod.
 #
-# This endpoint holds a write transaction open for minutes: it hydrates every
-# Status row of every CVE in the batch (a kernel CVE has ~3000) and then
-# flushes them one UPDATE at a time, keeping row locks on `cve` throughout.
+# This endpoint holds a write transaction open for minutes - it hydrates every
+# Status row of every CVE in the batch (~3000 for a kernel CVE) and flushes
+# them one UPDATE at a time, holding row locks throughout. The proxy gives up
+# at 50s but the request runs on to gunicorn's 300s timeout, so a client
+# retrying on 504 stacks a second copy behind the first one's locks. That
+# produced lock chains three deep with nothing completing.
 #
-# The proxy gives up at 50s and returns 504, but the request keeps running to
-# gunicorn's 300s timeout - so a client that retries on 504 sends a second
-# copy of the same import while the first is still holding those locks. That
-# produced lock chains three deep with waits over 200s, and nothing completed.
-#
-# Rejecting the overlapping request in milliseconds is far better than letting
-# it queue: the in-flight import gets an uncontended run at finishing, and the
-# caller gets an immediate, honest answer.
-#
-# NOTE: a 504 from the proxy does NOT mean the write failed - it may still be
-# in progress. Retrying is not safe. Callers should poll rather than resubmit.
+# NOTE: a 504 does NOT mean the write failed - it may still be in progress, so
+# retrying is not safe. Callers should poll rather than resubmit.
 @limit_concurrency(
     "cve-upsert",
     1,

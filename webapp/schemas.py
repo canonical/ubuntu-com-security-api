@@ -861,25 +861,17 @@ class FlatNoticesAPISchema(Schema):
         render_module = orjson
 
 
-# Fields to omit from notices nested inside a CVE response, given as a
-# comma-separated list in NESTED_NOTICE_EXCLUDE. Empty by default, so the API
-# contract is unchanged unless someone deliberately sets it.
+# Comma-separated fields to omit from notices nested inside a CVE response.
+# Empty by default, so the API contract is unchanged unless set.
 #
-# Nested notices dominate CVE responses. Measured on CVE-2026-23412 (852KB):
-# `notices` was 77% of the payload across only 13 notices - roughly 50KB each -
-# with `packages` a further 26%. Two notice fields carry that weight:
+# Nested notices dominate CVE responses: on CVE-2026-23412 (852KB), `notices`
+# was 77% of the payload across 13 notices. The weight is in `release_packages`
+# (a release -> package map spanning every supported release) and `cves_ids`
+# (1200+ for a large USN). Both are reachable from the notice endpoints using
+# ids already in the response; those endpoints are unaffected by this setting.
 #
-#   release_packages  the package versions that notice fixed, a Dict of release
-#                     -> package list, which for a kernel USN spans every
-#                     supported release
-#   cves_ids          every CVE the notice covers; a large USN covers 1200+
-#
-# Both are redundant in this position: consumers can fetch them from the notice
-# endpoints using the notice ids already present in the response. Notice
-# endpoints themselves are unaffected by this setting.
-#
-# This is an overload kill-switch, not a tuning knob. Excluding a field IS a
-# breaking change for any consumer reading it, so it stays off by default.
+# An overload kill-switch, not a tuning knob - excluding a field is a breaking
+# change for anyone reading it, so it stays off by default.
 NESTED_NOTICE_EXCLUDE = tuple(
     field.strip()
     for field in os.environ.get("NESTED_NOTICE_EXCLUDE", "").split(",")
