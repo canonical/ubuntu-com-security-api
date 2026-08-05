@@ -532,9 +532,27 @@ def bulk_upsert_cve(*args, **kwargs):
             413,
         )
 
+    # Only the packages this batch mentions are needed, and only to answer
+    # "does this row already exist?" - the loaded objects are never read, so
+    # loading the whole table moved ~1.5MB per request for a handful of
+    # membership tests. Measured: the query executes in 1.7ms but the rows
+    # take 0.6-3.7s to arrive (14s at worst), because the pod-to-database
+    # link runs at roughly 1MB/s. That is what tripped the 10s
+    # statement_timeout and returned 503 even for single-CVE updates.
+    #
+    # New packages created below are still added to this dict, so they are
+    # reused across CVEs in the same batch exactly as before.
+    wanted_packages = {
+        package_data["name"]
+        for data in cves_data
+        for package_data in data.get("packages", [])
+    }
     packages = {}
-    for package in Package.query.all():
-        packages[package.name] = package
+    if wanted_packages:
+        for package in Package.query.filter(
+            Package.name.in_(wanted_packages)
+        ):
+            packages[package.name] = package
 
     for data in cves_data:
         update_cve = False
