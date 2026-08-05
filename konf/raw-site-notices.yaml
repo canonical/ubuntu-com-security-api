@@ -73,6 +73,15 @@ spec:
                   key: database-url
                   name: usndbreplicatwo
 
+            # Kill-switch for the two notice fields that dominate CVE
+            # responses. Empty in code so the API contract is opt-in, but set
+            # here because production cannot serve them: loading
+            # release_packages and details costs ~1.4MB of TOASTed JSON per
+            # CVE and takes 8-11s, which trips the 10s statement_timeout.
+            # Consumers can fetch both from the notice endpoints.
+            - name: NESTED_NOTICE_EXCLUDE
+              value: "cves_ids,release_packages,details"
+
             - name: SENTRY_DSN
               value: "https://88233b54cb8e9f8d8df4ace2349e0b8b@o4510662863749120.ingest.de.sentry.io/4511652407345232"
 
