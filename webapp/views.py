@@ -326,9 +326,20 @@ def bulk_upsert_cve(*args, **kwargs):
             413,
         )
 
+    # Load only the packages this batch references: the full table is ~1.5MB
+    # of rows fetched for nothing but membership tests. New packages created
+    # below are still added to this dict and reused across the batch.
+    wanted_packages = {
+        package_data["name"]
+        for data in cves_data
+        for package_data in data.get("packages", [])
+    }
     packages = {}
-    for package in Package.query.all():
-        packages[package.name] = package
+    if wanted_packages:
+        for package in Package.query.filter(
+            Package.name.in_(wanted_packages)
+        ):
+            packages[package.name] = package
 
     for data in cves_data:
         update_cve = False
