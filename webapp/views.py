@@ -1,4 +1,9 @@
+import errno
+import fcntl
+import functools
+import os
 from collections import defaultdict
+from contextlib import contextmanager
 from distutils.util import strtobool
 from typing import List, Literal, Optional
 
@@ -63,6 +68,83 @@ TEN_MINUTES_IN_SECONDS = 60 * 10
 MAX_PAGE = 100
 
 
+# Cap concurrent runs of the expensive endpoints: enough 12-24MB responses in
+# flight starve every sync worker, the readiness probe queues behind them, and
+# the pod is dropped from the Service while perfectly healthy.
+CVE_LIST_SLOTS = int(os.environ.get("CVE_LIST_SLOTS", "2"))
+CVE_LIST_SLOT_DIR = os.environ.get("CVE_LIST_SLOT_DIR", "/tmp")
+
+
+@contextmanager
+def _concurrency_slot(name, slots):
+    """Take one of `slots` named file locks without blocking, yielding True
+    on success; flock, because sync workers are separate processes, and a
+    non-positive `slots` fails open rather than reject everything."""
+    if slots <= 0:
+        yield True
+        return
+
+    handle = None
+    for slot in range(slots):
+        path = os.path.join(CVE_LIST_SLOT_DIR, f"{name}-{slot}.lock")
+        try:
+            candidate = open(path, "w")
+        except OSError:
+            # An unwritable lock directory must not take the endpoint down.
+            break
+        try:
+            fcntl.flock(candidate, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as error:
+            candidate.close()
+            if error.errno in (errno.EAGAIN, errno.EACCES, errno.EWOULDBLOCK):
+                continue  # held by another worker, try the next slot
+            break  # flock unsupported here - fail open rather than 429 all
+        handle = candidate
+        break
+    else:
+        yield False
+        return
+
+    if handle is None:
+        # Locking unavailable: fail open rather than 429 everything.
+        yield True
+        return
+
+    try:
+        yield True
+    finally:
+        fcntl.flock(handle, fcntl.LOCK_UN)
+        handle.close()
+
+
+DEFAULT_BUSY_MESSAGE = (
+    "Too many concurrent requests for this endpoint. Retry shortly, or "
+    "narrow the query with `package`, `q` or a smaller `limit`."
+)
+
+
+def limit_concurrency(name, slots, message=None, retry_after=5):
+    """Reject with 429 when `slots` copies of this view are already running;
+    `message` should tell the caller what to do about it."""
+    message = message or DEFAULT_BUSY_MESSAGE
+
+    def decorator(view):
+        @functools.wraps(view)
+        def wrapper(*args, **kwargs):
+            with _concurrency_slot(name, slots) as acquired:
+                if not acquired:
+                    response = make_response(
+                        jsonify({"message": message}), 429
+                    )
+                    response.headers["Retry-After"] = str(retry_after)
+                    return response
+                return view(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 @marshal_with(CVEAPIDetailedSchema, code=200)
 @marshal_with(MessageSchema, code=404)
 @use_kwargs(CVEParameter, location="query")
@@ -107,6 +189,7 @@ def get_cve(cve_id, **kwargs):
     return cve
 
 
+@limit_concurrency("cve-list", CVE_LIST_SLOTS)
 @marshal_with(CVEsAPISchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(CVEsParameters, location="query")
@@ -304,6 +387,26 @@ def get_released_cves(**kwargs):
     return response
 
 
+# One bulk upsert at a time per pod: an upsert can hold row locks for
+# minutes, and a client retrying a proxy 504 otherwise queues a second copy
+# behind the first one's locks. A 504 does not mean the write failed -
+# callers should poll rather than resubmit.
+@limit_concurrency(
+    "cve-upsert",
+    1,
+    message=(
+        "Another bulk CVE upsert is already in progress on this instance. "
+        "Nothing was written by this request - it was rejected before any "
+        "work began, so it is safe to resubmit. Please send one batch at a "
+        "time and wait for each response. If batches are large, prefer "
+        "several small ones (about 5 CVEs) over one big one: a batch "
+        "containing kernel CVEs can take minutes, and the gateway returns "
+        "504 after 50s even though the write is still running for up to "
+        "300s - so a 504 does NOT mean the update failed, and retrying it "
+        "duplicates work that is still in progress."
+    ),
+    retry_after=30,
+)
 @authorization_required
 @marshal_with(MessageSchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=400)
