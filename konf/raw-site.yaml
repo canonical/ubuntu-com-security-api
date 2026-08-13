@@ -76,17 +76,28 @@ spec:
                   key: database-url
                   name: usndbreplica
 
+          # /_status/check touches no database but still needs a free gunicorn
+          # worker, so these values tolerate transient starvation instead of
+          # ejecting a busy-but-healthy pod (the 503s nginx surfaced).
           readinessProbe:
             httpGet:
               path: /_status/check
               port: 80
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
+            periodSeconds: 15
+            timeoutSeconds: 15
+            failureThreshold: 5
 
           resources:
             requests:
               ephemeral-storage: 128Mi
+              # Observed steady state is 260-510Mi per pod.
+              memory: 512Mi
+              # A CPU request stops these pods being best-effort under node
+              # contention (observed 47-762m); deliberately no limit, which
+              # throttles bursts.
+              cpu: 500m
             limits:
               ephemeral-storage: 1Gi
-              memory: 1G
+              # Raised from 1G after an OOMKill under concurrent large
+              # responses; 2G is ~4x the observed peak.
+              memory: 2G
