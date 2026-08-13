@@ -26,6 +26,7 @@ both `app.py` and `models.py`, and then inside `app.py` we do:
 To add the application context
 """
 
+from flask import jsonify, make_response
 from flask_migrate import Migrate
 from canonicalwebteam.flask_base.env import get_flask_env
 from flask_sqlalchemy import SQLAlchemy
@@ -47,24 +48,68 @@ REPLICA_TWO_DATABASE_URL = get_flask_env(
     PRIMARY_DATABASE_URL,
 )
 
+# connect_timeout bounds the handshake against a failed-over host that never
+# completes one; keepalives let the server reap backends stranded by
+# SIGKILLed workers.
+BASE_CONNECT_ARGS = {
+    "connect_timeout": 5,
+    "keepalives": 1,
+    "keepalives_idle": 30,
+    "keepalives_interval": 10,
+    "keepalives_count": 3,
+}
+
+# Server-side backstop for stranded backends; both values sit above
+# gunicorn's --timeout so only abandoned transactions are aborted (a CLI
+# import idling >5min mid-transaction will be too - raise PRIMARY_PG_OPTIONS).
+READ_PG_OPTIONS = (
+    "-c statement_timeout=10000 -c idle_in_transaction_session_timeout=60000"
+)
+PRIMARY_PG_OPTIONS = "-c idle_in_transaction_session_timeout=300000"
+
+# Sized against the server: max_connections is 100 and the fleet is 18 pods
+# x 5 workers = 90 processes, so pool_size 1 is the floor and cannot absorb
+# another worker increase. pool_timeout is short so an exhausted pool fails
+# fast instead of blocking into gunicorn's worker-timeout cascade.
 SQLALCHEMY_ENGINE_OPTIONS = {
     "pool_recycle": 3600,
     "pool_pre_ping": True,
+    "pool_size": 1,
+    "max_overflow": 2,
+    "pool_timeout": 5,
+    "connect_args": {**BASE_CONNECT_ARGS, "options": PRIMARY_PG_OPTIONS},
+}
+
+# Reads are aborted by the database at 10s so a slow query frees its worker
+# and connection; the primary deliberately has no statement_timeout because
+# bulk CVE imports legitimately run long.
+READ_ENGINE_OPTIONS = {
+    **SQLALCHEMY_ENGINE_OPTIONS,
+    "connect_args": {**BASE_CONNECT_ARGS, "options": READ_PG_OPTIONS},
 }
 
 # Bind names
 REPLICA_ONE = "replicaone"
 REPLICA_TWO = "replicatwo"
 
-engines = {
-    REPLICA_ONE: create_engine(
-        url=REPLICA_ONE_DATABASE_URL,
-        **SQLALCHEMY_ENGINE_OPTIONS,
-    ),
-    REPLICA_TWO: create_engine(
+_replica_one_engine = create_engine(
+    url=REPLICA_ONE_DATABASE_URL,
+    **READ_ENGINE_OPTIONS,
+)
+
+# The replica URLs fall back to DATABASE_URL when unset, so share one engine
+# while they match rather than doubling the connection count for one server.
+if REPLICA_TWO_DATABASE_URL == REPLICA_ONE_DATABASE_URL:
+    _replica_two_engine = _replica_one_engine
+else:
+    _replica_two_engine = create_engine(
         url=REPLICA_TWO_DATABASE_URL,
-        **SQLALCHEMY_ENGINE_OPTIONS,
-    ),
+        **READ_ENGINE_OPTIONS,
+    )
+
+engines = {
+    REPLICA_ONE: _replica_one_engine,
+    REPLICA_TWO: _replica_two_engine,
 }
 
 primary_engine = create_engine(
@@ -109,13 +154,24 @@ def init_db(app):
     db.init_app(app)
     Migrate(app, db)
 
-    @app.errorhandler(exc.PendingRollbackError)
-    def handle_db_exceptions(error):
-        # log the error:
+    # These handlers must return a response: returning None makes Flask
+    # raise a TypeError blaming the view, hiding the actual database error.
+    def _database_unavailable(error):
         app.logger.error(error)
         db.session.rollback()
+        response = make_response(
+            jsonify(
+                {
+                    "message": (
+                        "The database is temporarily unavailable. "
+                        "Please retry shortly."
+                    )
+                }
+            ),
+            503,
+        )
+        response.headers["Retry-After"] = "5"
+        return response
 
-    @app.errorhandler(exc.SQLAlchemyError)
-    def rollback_failed_transactoins(error):
-        app.logger.error(error)
-        db.session.rollback()
+    app.register_error_handler(exc.PendingRollbackError, _database_unavailable)
+    app.register_error_handler(exc.SQLAlchemyError, _database_unavailable)
