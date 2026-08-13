@@ -193,6 +193,11 @@ class Notice(db.Model):
 
     @hybrid_property
     def cves_ids(self):
+        # Reading the `cves` relationship hydrates one ORM object per related
+        # CVE, so bulk callers preload via views.preload_notice_cve_ids.
+        preloaded = self.__dict__.get("_cves_ids")
+        if preloaded is not None:
+            return preloaded
         return [cve.id for cve in self.cves]
 
     @hybrid_property
