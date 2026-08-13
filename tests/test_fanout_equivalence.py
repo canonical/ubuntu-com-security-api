@@ -46,7 +46,11 @@ class CvesIdsEquivalence(BaseTestCase):
     def _both_ways(self, fetch):
         """Render `fetch` with the preload active, then with it stubbed out."""
         with_preload = fetch()
-        db.session.expire_all()
+
+        # Expunge, not expire: `_cves_ids` is not a mapped attribute, so
+        # expiry leaves it in place and the second fetch reads the cache the
+        # first one left behind - comparing the preload against itself.
+        db.session.expunge_all()
 
         original = views.preload_notice_cve_ids
         views.preload_notice_cve_ids = lambda cves: None
