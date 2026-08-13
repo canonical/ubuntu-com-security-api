@@ -11,7 +11,17 @@ from flask import (
     stream_with_context,
 )
 from flask_apispec import marshal_with, use_kwargs
-from sqlalchemy import asc, case, desc, distinct, func, or_, exists, tuple_
+from sqlalchemy import (
+    asc,
+    case,
+    desc,
+    distinct,
+    exists,
+    func,
+    nullslast,
+    or_,
+    tuple_,
+)
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Query, aliased, load_only, selectinload, undefer
 
@@ -24,6 +34,7 @@ from webapp.models import (
     Release,
     Status,
     convert_cve_id_to_numerical_id,
+    notice_cves,
 )
 from webapp.schemas import (
     CreateNoticeImportSchema,
@@ -63,6 +74,30 @@ TEN_MINUTES_IN_SECONDS = 60 * 10
 MAX_PAGE = 100
 
 
+def preload_notice_cve_ids(cves):
+    """Populate Notice.cves_ids for every notice attached to `cves` with one
+    association-table query, instead of hydrating one ORM object per related
+    CVE (1200+ for a large USN)."""
+    notices = {
+        notice.id: notice for cve in cves for notice in cve.notices
+    }
+    if not notices:
+        return
+
+    rows = (
+        db.session.query(notice_cves.c.notice_id, notice_cves.c.cve_id)
+        .filter(notice_cves.c.notice_id.in_(list(notices)))
+        .all()
+    )
+
+    grouped = defaultdict(list)
+    for notice_id, cve_id in rows:
+        grouped[notice_id].append(cve_id)
+
+    for notice_id, notice in notices.items():
+        notice.__dict__["_cves_ids"] = grouped[notice_id]
+
+
 @marshal_with(CVEAPIDetailedSchema, code=200)
 @marshal_with(MessageSchema, code=404)
 @use_kwargs(CVEParameter, location="query")
@@ -91,7 +126,6 @@ def get_cve(cve_id, **kwargs):
                     Notice.is_hidden,
                     Notice.release_packages,
                 ),
-                selectinload(Notice.cves).options(load_only(CVE.id)),
             )
         )
         .options(selectinload(CVE.statuses))
@@ -103,6 +137,9 @@ def get_cve(cve_id, **kwargs):
             jsonify({"message": f"CVE with id '{cve_id}' does not exist"}),
             404,
         )
+
+    # Cheap replacement for the selectinload(Notice.cves) this used to carry.
+    preload_notice_cve_ids([cve])
 
     return cve
 
@@ -195,13 +232,18 @@ def get_cves(**kwargs):
             "Invalid sort value. Please use 'published' or 'updated'."
         )
 
+    # nullslast() keeps NULLs last while staying indexable; the previous CASE
+    # expression forced a full sort of the matched set on every request.
     cves_query = cves_query.order_by(
-        case([(sort_field.is_(None), 1)], else_=0),
-        sort(sort_field),
+        nullslast(sort(sort_field)),
         sort(CVE.id),
     )
 
-    total_results = cves_query.order_by(None).count()
+    # Count the PK directly: Query.count() wraps the statement in a subquery
+    # and forces a heap scan instead of an index-only scan.
+    total_results = (
+        cves_query.order_by(None).with_entities(func.count(CVE.id)).scalar()
+    )
 
     cves_query = cves_query.options(
         selectinload(CVE.statuses),
@@ -217,11 +259,13 @@ def get_cves(**kwargs):
                 Notice.is_hidden,
                 Notice.release_packages,
             ),
-            selectinload(Notice.cves).options(load_only(CVE.id)),
         ),
     )
 
     cves = cves_query.limit(limit).offset(offset).all()
+
+    # Cheap replacement for the selectinload(Notice.cves) this used to carry.
+    preload_notice_cve_ids(cves)
 
     result = CVEsAPISchema().dumps(
         {
