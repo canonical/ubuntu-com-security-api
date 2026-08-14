@@ -1,3 +1,5 @@
+import os
+
 import dateutil.parser
 import orjson
 
@@ -859,8 +861,19 @@ class FlatNoticesAPISchema(Schema):
         render_module = orjson
 
 
+# Comma-separated fields to omit from notices nested inside a CVE response -
+# an overload kill-switch, not a tuning knob: excluding a field breaks anyone
+# reading it, so it defaults to empty and the contract is unchanged unless
+# set (the excluded fields stay available from the notice endpoints).
+NESTED_NOTICE_EXCLUDE = tuple(
+    field.strip()
+    for field in os.environ.get("NESTED_NOTICE_EXCLUDE", "").split(",")
+    if field.strip()
+)
+
+
 class CVEAPIDetailedSchema(CVEAPISchema):
-    notices = List(Nested(NoticeAPISchema))
+    notices = List(Nested(NoticeAPISchema, exclude=NESTED_NOTICE_EXCLUDE))
 
     class Meta:
         render_module = orjson

@@ -48,6 +48,7 @@ from webapp.schemas import (
     FlatNoticesParameters,
     MessageSchema,
     MessageWithErrorsSchema,
+    NESTED_NOTICE_EXCLUDE,
     NoticeAPIDetailedSchema,
     NoticeAPIDetailedSchemaV2,
     NoticeImportSchema,
@@ -74,10 +75,42 @@ TEN_MINUTES_IN_SECONDS = 60 * 10
 MAX_PAGE = 100
 
 
+# Columns loaded for notices nested inside a CVE response, in schema order;
+# `id` and `is_hidden` always load - the PK and the hidden-notice filter.
+_NESTED_NOTICE_COLUMNS = (
+    ("id", Notice.id),
+    ("title", Notice.title),
+    ("published", Notice.published),
+    ("summary", Notice.summary),
+    ("details", Notice.details),
+    ("instructions", Notice.instructions),
+    ("references", Notice.references),
+    ("is_hidden", Notice.is_hidden),
+    ("release_packages", Notice.release_packages),
+)
+_ALWAYS_LOAD = frozenset({"id", "is_hidden"})
+
+
+def nested_notice_columns():
+    """Columns to load for notices nested in a CVE response: anything in
+    NESTED_NOTICE_EXCLUDE is dropped from load_only() too, because excluding
+    a field only from the schema still fetches it and saves nothing."""
+    return [
+        column
+        for name, column in _NESTED_NOTICE_COLUMNS
+        if name in _ALWAYS_LOAD or name not in NESTED_NOTICE_EXCLUDE
+    ]
+
+
 def preload_notice_cve_ids(cves):
     """Populate Notice.cves_ids for every notice attached to `cves` with one
     association-table query, instead of hydrating one ORM object per related
     CVE (1200+ for a large USN)."""
+    if "cves_ids" in NESTED_NOTICE_EXCLUDE:
+        # The field is excluded from CVE responses; building it would be a
+        # wasted query.
+        return
+
     notices = {
         notice.id: notice for cve in cves for notice in cve.notices
     }
@@ -115,17 +148,7 @@ def get_cve(cve_id, **kwargs):
         cve_query.filter(CVE.id == cve_id.upper())
         .options(
             selectinload(cve_notices_relation).options(
-                load_only(
-                    Notice.id,
-                    Notice.title,
-                    Notice.published,
-                    Notice.summary,
-                    Notice.details,
-                    Notice.instructions,
-                    Notice.references,
-                    Notice.is_hidden,
-                    Notice.release_packages,
-                ),
+                load_only(*nested_notice_columns()),
             )
         )
         .options(selectinload(CVE.statuses))
@@ -248,17 +271,7 @@ def get_cves(**kwargs):
     cves_query = cves_query.options(
         selectinload(CVE.statuses),
         selectinload(cve_notices_query).options(
-            load_only(
-                Notice.id,
-                Notice.title,
-                Notice.published,
-                Notice.summary,
-                Notice.details,
-                Notice.instructions,
-                Notice.references,
-                Notice.is_hidden,
-                Notice.release_packages,
-            ),
+            load_only(*nested_notice_columns()),
         ),
     )
 

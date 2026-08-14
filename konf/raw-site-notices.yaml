@@ -73,6 +73,12 @@ spec:
                   key: database-url
                   name: usndbreplicatwo
 
+            # Kill-switch for the notice fields that dominate CVE responses;
+            # set here because production cannot serve them - they remain
+            # available from the notice endpoints.
+            - name: NESTED_NOTICE_EXCLUDE
+              value: "cves_ids,release_packages,details"
+
             - name: SENTRY_DSN
               value: "https://88233b54cb8e9f8d8df4ace2349e0b8b@o4510662863749120.ingest.de.sentry.io/4511652407345232"
 
