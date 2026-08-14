@@ -78,9 +78,7 @@ def preload_notice_cve_ids(cves):
     """Populate Notice.cves_ids for every notice attached to `cves` with one
     association-table query, instead of hydrating one ORM object per related
     CVE (1200+ for a large USN)."""
-    notices = {
-        notice.id: notice for cve in cves for notice in cve.notices
-    }
+    notices = {notice.id: notice for cve in cves for notice in cve.notices}
     if not notices:
         return
 
