@@ -43,6 +43,30 @@ class CvesIdsEquivalence(BaseTestCase):
         self.assertEqual(response.status_code, 200)
         return json.loads(response.data)
 
+    @staticmethod
+    def _normalise(payload):
+        """Sort every cves_ids list so comparison ignores their order.
+
+        Neither path specifies one: `Notice.cves` has no order_by and the
+        association query has no ORDER BY, so both return whatever the plan
+        yields. On production-sized data the two happen to agree; on fixture
+        tables the planner picks differently and they do not. The claim under
+        test is that the same ids come back, not that they come back in the
+        same order.
+        """
+        if isinstance(payload, dict):
+            return {
+                key: (
+                    sorted(value)
+                    if key == "cves_ids" and isinstance(value, list)
+                    else CvesIdsEquivalence._normalise(value)
+                )
+                for key, value in payload.items()
+            }
+        if isinstance(payload, list):
+            return [CvesIdsEquivalence._normalise(item) for item in payload]
+        return payload
+
     def _both_ways(self, fetch):
         """Render `fetch` with the preload active, then with it stubbed out."""
         with_preload = fetch()
@@ -67,8 +91,8 @@ class CvesIdsEquivalence(BaseTestCase):
         with_preload, without_preload = self._both_ways(self._fetch)
 
         self.assertEqual(
-            json.dumps(with_preload, sort_keys=True),
-            json.dumps(without_preload, sort_keys=True),
+            json.dumps(self._normalise(with_preload), sort_keys=True),
+            json.dumps(self._normalise(without_preload), sort_keys=True),
             "bulk preload and relationship walk disagree on "
             "/security/cves.json - the optimisation is not "
             "behaviour-preserving",
@@ -83,8 +107,8 @@ class CvesIdsEquivalence(BaseTestCase):
         )
 
         self.assertEqual(
-            json.dumps(with_preload, sort_keys=True),
-            json.dumps(without_preload, sort_keys=True),
+            json.dumps(self._normalise(with_preload), sort_keys=True),
+            json.dumps(self._normalise(without_preload), sort_keys=True),
             "bulk preload and relationship walk disagree on "
             "/security/cves/<id>.json - the optimisation is not "
             "behaviour-preserving",
