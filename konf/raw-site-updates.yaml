@@ -100,8 +100,7 @@ spec:
           resources:
             requests:
               memory: 512Mi
-              # A CPU request stops these pods being best-effort under node
-              # contention; deliberately no limit, which throttles bursts.
+              # CPU request without a limit: avoids best-effort scheduling but lets bursts through.
               cpu: 500m
             limits:
               memory: 2G

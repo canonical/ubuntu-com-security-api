@@ -92,9 +92,7 @@ spec:
               ephemeral-storage: 128Mi
               # Observed steady state is 260-510Mi per pod.
               memory: 512Mi
-              # A CPU request stops these pods being best-effort under node
-              # contention (observed 47-762m); deliberately no limit, which
-              # throttles bursts.
+              # CPU request without a limit: avoids best-effort scheduling but lets bursts through (observed 47-762m).
               cpu: 500m
             limits:
               ephemeral-storage: 1Gi
