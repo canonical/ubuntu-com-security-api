@@ -328,6 +328,90 @@ cve9 = {
     "status": "active",
 }
 
+# Regression fixture for the CVSS4 import schema accepting explicit JSON
+# nulls throughout the nested chain, as some ingestion sources send null
+# rather than omitting these fields.
+cve_cvss4_null = {
+    "id": "CVE-9999-0010",
+    "codename": "testcodename10",
+    "packages": [
+        {
+            "debian": "https://tracker.debian.org/pkg/mysql",
+            "name": "mysql",
+            "source": "https://ubuntu.com/security/cve?package=mysql",
+            "statuses": [
+                {
+                    "description": "",
+                    "release_codename": "testrelease",
+                    "status": "released",
+                    "pocket": "fips",
+                }
+            ],
+            "ubuntu": (
+                "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+                "=any&searchon=sourcenames&keywords=mysql"
+            ),
+        }
+    ],
+    "impact": {
+        "baseMetricV4": {
+            "cvssV4": {
+                "version": "4.0",
+                "vectorString": None,
+                "baseMetrics": {
+                    "exploitabilityMetrics": None,
+                    "vulnerableSystemImpactMetrics": None,
+                    "subsequentSystemImpactMetrics": None,
+                },
+                "supplementalMetrics": None,
+                "environmentalMetrics": {
+                    "modifiedBaseMetrics": None,
+                    "securityRequirements": None,
+                },
+                "threatMetrics": None,
+                "baseScore": None,
+                "baseSeverity": None,
+            }
+        },
+    },
+    "published": "2020-12-01 12:42:54",
+    "priority": "negligible",
+    "status": "active",
+}
+
+# Regression fixture for a top-level explicit JSON null on cvssV4 itself.
+cve_cvss4_top_level_null = {
+    "id": "CVE-9999-0011",
+    "codename": "testcodename11",
+    "packages": [
+        {
+            "debian": "https://tracker.debian.org/pkg/mysql",
+            "name": "mysql",
+            "source": "https://ubuntu.com/security/cve?package=mysql",
+            "statuses": [
+                {
+                    "description": "",
+                    "release_codename": "testrelease",
+                    "status": "released",
+                    "pocket": "fips",
+                }
+            ],
+            "ubuntu": (
+                "https://packages.ubuntu.com/search?suite=all&section=all&arch"
+                "=any&searchon=sourcenames&keywords=mysql"
+            ),
+        }
+    ],
+    "impact": {
+        "baseMetricV4": {
+            "cvssV4": None,
+        },
+    },
+    "published": "2020-12-01 12:42:54",
+    "priority": "negligible",
+    "status": "active",
+}
+
 notice = {
     "cves": ["CVE-9999-0003", "CVE-9999-0004"],
     "id": "USN-9999-01",
