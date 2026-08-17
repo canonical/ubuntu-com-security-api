@@ -1122,9 +1122,10 @@ class TestRoutes(BaseTestCase):
 
     def test_bulk_upsert_cve_accepts_null_cvss4_fields(self):
         """
-        The CVSS4 import schema must keep accepting explicit JSON nulls
-        anywhere in the nested chain, since some ingestion sources send
-        null rather than omitting these fields.
+        The CVSS4 import schema should keep accepting explicit JSON nulls
+        anywhere in the nested chain. Ingestion sources currently omit
+        these fields rather than sending null, but this is a safety net
+        in case that ever changes.
         """
         response = self.client.put(
             "/security/updates/cves.json",

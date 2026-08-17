@@ -328,9 +328,6 @@ cve9 = {
     "status": "active",
 }
 
-# Regression fixture for the CVSS4 import schema accepting explicit JSON
-# nulls throughout the nested chain, as some ingestion sources send null
-# rather than omitting these fields.
 cve_cvss4_null = {
     "id": "CVE-9999-0010",
     "codename": "testcodename10",
@@ -379,7 +376,6 @@ cve_cvss4_null = {
     "status": "active",
 }
 
-# Regression fixture for a top-level explicit JSON null on cvssV4 itself.
 cve_cvss4_top_level_null = {
     "id": "CVE-9999-0011",
     "codename": "testcodename11",
