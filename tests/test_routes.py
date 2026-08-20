@@ -1120,6 +1120,32 @@ class TestRoutes(BaseTestCase):
         )
         assert response.status_code == 200
 
+    def test_bulk_upsert_cve_accepts_null_cvss4_fields(self):
+        """
+        The CVSS4 import schema should keep accepting explicit JSON nulls
+        anywhere in the nested chain. Ingestion sources currently omit
+        these fields rather than sending null, but this is a safety net
+        in case that ever changes.
+        """
+        response = self.client.put(
+            "/security/updates/cves.json",
+            json=[
+                payloads.cve_cvss4_null,
+                payloads.cve_cvss4_top_level_null,
+            ],
+        )
+        assert response.status_code == 200
+
+        response = self.client.get(
+            f"/security/cves/{payloads.cve_cvss4_null['id']}.json"
+        )
+        assert response.status_code == 200
+
+        response = self.client.get(
+            f"/security/cves/{payloads.cve_cvss4_top_level_null['id']}.json"
+        )
+        assert response.status_code == 200
+
     def test_delete_non_existing_cve_returns_404(self):
         response = self.client.delete(
             f"/security/updates/cves/{payloads.cve1['id']}.json"

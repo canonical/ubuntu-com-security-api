@@ -538,6 +538,19 @@ class CvssV4SubsequentSystemImpactMetrics(Schema):
 
 
 class CvssV4BaseMetrics(Schema):
+    exploitabilityMetrics = Nested(CvssV4ExploitabilityMetrics)
+    vulnerableSystemImpactMetrics = Nested(CvssV4VulnerableSystemImpactMetrics)
+    subsequentSystemImpactMetrics = Nested(CvssV4SubsequentSystemImpactMetrics)
+
+    class Meta:
+        render_module = orjson
+
+
+# Import variants of the CVSS4 schemas below restore allow_none=True on the
+# Nested fields so the bulk CVE import endpoint keeps accepting explicit
+# JSON nulls, while the non-import versions above stay non-nullable so
+# Swagger UI renders their nested properties correctly.
+class CvssV4BaseMetricsImport(CvssV4BaseMetrics):
     exploitabilityMetrics = Nested(
         CvssV4ExploitabilityMetrics, allow_none=True
     )
@@ -547,9 +560,6 @@ class CvssV4BaseMetrics(Schema):
     subsequentSystemImpactMetrics = Nested(
         CvssV4SubsequentSystemImpactMetrics, allow_none=True
     )
-
-    class Meta:
-        render_module = orjson
 
 
 class CvssV4SupplementalMetrics(Schema):
@@ -565,6 +575,15 @@ class CvssV4SupplementalMetrics(Schema):
 
 
 class CvssV4ModifiedBaseMetrics(Schema):
+    exploitabilityMetrics = Nested(CvssV4ExploitabilityMetrics)
+    vulnerableSystemImpactMetrics = Nested(CvssV4VulnerableSystemImpactMetrics)
+    subsequentSystemImpactMetrics = Nested(CvssV4SubsequentSystemImpactMetrics)
+
+    class Meta:
+        render_module = orjson
+
+
+class CvssV4ModifiedBaseMetricsImport(CvssV4ModifiedBaseMetrics):
     exploitabilityMetrics = Nested(
         CvssV4ExploitabilityMetrics, allow_none=True
     )
@@ -574,9 +593,6 @@ class CvssV4ModifiedBaseMetrics(Schema):
     subsequentSystemImpactMetrics = Nested(
         CvssV4SubsequentSystemImpactMetrics, allow_none=True
     )
-
-    class Meta:
-        render_module = orjson
 
 
 class CvssV4SecurityRequirements(Schema):
@@ -589,11 +605,18 @@ class CvssV4SecurityRequirements(Schema):
 
 
 class CvssV4EnvironmentalMetrics(Schema):
-    modifiedBaseMetrics = Nested(CvssV4ModifiedBaseMetrics, allow_none=True)
-    securityRequirements = Nested(CvssV4SecurityRequirements, allow_none=True)
+    modifiedBaseMetrics = Nested(CvssV4ModifiedBaseMetrics)
+    securityRequirements = Nested(CvssV4SecurityRequirements)
 
     class Meta:
         render_module = orjson
+
+
+class CvssV4EnvironmentalMetricsImport(CvssV4EnvironmentalMetrics):
+    modifiedBaseMetrics = Nested(
+        CvssV4ModifiedBaseMetricsImport, allow_none=True
+    )
+    securityRequirements = Nested(CvssV4SecurityRequirements, allow_none=True)
 
 
 class CvssV4ThreatMetrics(Schema):
@@ -607,10 +630,10 @@ class CvssV4(Schema):
     version = String(allow_none=True)
     vectorString = String(allow_none=True)
 
-    baseMetrics = Nested(CvssV4BaseMetrics, allow_none=True)
-    supplementalMetrics = Nested(CvssV4SupplementalMetrics, allow_none=True)
-    environmentalMetrics = Nested(CvssV4EnvironmentalMetrics, allow_none=True)
-    threatMetrics = Nested(CvssV4ThreatMetrics, allow_none=True)
+    baseMetrics = Nested(CvssV4BaseMetrics)
+    supplementalMetrics = Nested(CvssV4SupplementalMetrics)
+    environmentalMetrics = Nested(CvssV4EnvironmentalMetrics)
+    threatMetrics = Nested(CvssV4ThreatMetrics)
 
     baseScore = Float(allow_none=True)
     baseSeverity = String(allow_none=True)
@@ -628,11 +651,24 @@ class CvssV4(Schema):
         render_module = orjson
 
 
+class CvssV4Import(CvssV4):
+    baseMetrics = Nested(CvssV4BaseMetricsImport, allow_none=True)
+    supplementalMetrics = Nested(CvssV4SupplementalMetrics, allow_none=True)
+    environmentalMetrics = Nested(
+        CvssV4EnvironmentalMetricsImport, allow_none=True
+    )
+    threatMetrics = Nested(CvssV4ThreatMetrics, allow_none=True)
+
+
 class CveBaseMetricV4(Schema):
-    cvssV4 = Nested(CvssV4, allow_none=True)
+    cvssV4 = Nested(CvssV4)
 
     class Meta:
         render_module = orjson
+
+
+class CveBaseMetricV4Import(CveBaseMetricV4):
+    cvssV4 = Nested(CvssV4Import, allow_none=True)
 
 
 class CveImpact(Schema):
@@ -641,6 +677,10 @@ class CveImpact(Schema):
 
     class Meta:
         render_module = orjson
+
+
+class CveImpactImport(CveImpact):
+    baseMetricV4 = Nested(CveBaseMetricV4Import)
 
 
 class Note(Schema):
@@ -683,6 +723,7 @@ class CVESchema(Schema):
 
 class CVEImportSchema(CVESchema):
     packages = List(Nested(CvePackage))
+    impact = Nested(CveImpactImport)
 
     class Meta:
         render_module = orjson
