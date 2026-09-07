@@ -150,15 +150,32 @@ db = SQLAlchemy(
 )
 
 
+# Failures that a retry can plausibly clear: a dropped or timed-out
+# connection, an exhausted pool, a session left needing a rollback. Everything
+# else under SQLAlchemyError - ProgrammingError from schema drift,
+# IntegrityError from a constraint, DataError from a bad value - is permanent,
+# and telling a client to retry it produces a loop that never terminates.
+TRANSIENT_DB_ERRORS = (
+    exc.DisconnectionError,
+    exc.InterfaceError,
+    exc.OperationalError,
+    exc.PendingRollbackError,
+    exc.TimeoutError,
+)
+
+
 def init_db(app):
     db.init_app(app)
     Migrate(app, db)
 
-    # These handlers must return a response: returning None makes Flask
-    # raise a TypeError blaming the view, hiding the actual database error.
-    def _database_unavailable(error):
+    # Both handlers must return a response: returning None makes Flask raise a
+    # TypeError blaming the view, hiding the actual database error.
+    def _log_and_rollback(error):
         app.logger.error(error)
         db.session.rollback()
+
+    def _database_unavailable(error):
+        _log_and_rollback(error)
         response = make_response(
             jsonify(
                 {
@@ -173,5 +190,16 @@ def init_db(app):
         response.headers["Retry-After"] = "5"
         return response
 
-    app.register_error_handler(exc.PendingRollbackError, _database_unavailable)
-    app.register_error_handler(exc.SQLAlchemyError, _database_unavailable)
+    def _database_error(error):
+        # No Retry-After: these do not clear on their own.
+        _log_and_rollback(error)
+        return make_response(
+            jsonify({"message": "A database error occurred."}), 500
+        )
+
+    for error_type in TRANSIENT_DB_ERRORS:
+        app.register_error_handler(error_type, _database_unavailable)
+
+    # Flask dispatches to the most specific registered handler, so this stays
+    # the catch-all that guarantees a response for any other SQLAlchemyError.
+    app.register_error_handler(exc.SQLAlchemyError, _database_error)
