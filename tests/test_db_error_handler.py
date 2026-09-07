@@ -23,9 +23,7 @@ class DatabaseErrorHandler(BaseTestCase):
             "SELECT 1", {}, Exception("canceling statement due to timeout")
         )
 
-        with mock.patch(
-            "webapp.views.db.session.query", side_effect=boom
-        ):
+        with mock.patch("webapp.views.db.session.query", side_effect=boom):
             response = self.client.get(f"/security/cves/{cve_id}.json")
 
         self.assertEqual(response.status_code, 503)
@@ -38,9 +36,7 @@ class DatabaseErrorHandler(BaseTestCase):
         cve_id = self.models["cve"].id
         boom = exc.PendingRollbackError("rollback required", None, None)
 
-        with mock.patch(
-            "webapp.views.db.session.query", side_effect=boom
-        ):
+        with mock.patch("webapp.views.db.session.query", side_effect=boom):
             response = self.client.get(f"/security/cves/{cve_id}.json")
 
         self.assertEqual(response.status_code, 503)
@@ -52,9 +48,7 @@ class DatabaseErrorHandler(BaseTestCase):
             "SELECT 1", {}, Exception('column "nope" does not exist')
         )
 
-        with mock.patch(
-            "webapp.views.db.session.query", side_effect=boom
-        ):
+        with mock.patch("webapp.views.db.session.query", side_effect=boom):
             response = self.client.get(f"/security/cves/{cve_id}.json")
 
         self.assertEqual(response.status_code, 500)
@@ -67,9 +61,7 @@ class DatabaseErrorHandler(BaseTestCase):
             "INSERT", {}, Exception("violates foreign key constraint")
         )
 
-        with mock.patch(
-            "webapp.views.db.session.query", side_effect=boom
-        ):
+        with mock.patch("webapp.views.db.session.query", side_effect=boom):
             response = self.client.get(f"/security/cves/{cve_id}.json")
 
         self.assertEqual(response.status_code, 500)
