@@ -125,6 +125,9 @@ if sentry_dsn and environment == "production":
         send_default_pii=False,
         environment=environment,
         integrations=[FlaskIntegration()],
+        # View locals hold hydrated ORM graphs: serialising them on aborts
+        # burns CPU and buries the real exception.
+        include_local_variables=False,
     )
 
 init_db(app)
