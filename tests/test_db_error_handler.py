@@ -11,6 +11,12 @@ This matters routinely now that the read engines carry a statement_timeout -
 Postgres cancelling a slow query raises OperationalError, which is a
 SQLAlchemyError, so this path is reached under load rather than only in
 exceptional cases.
+
+The handlers also have to distinguish transient failures from permanent ones.
+A 503 with Retry-After tells a client to come back, which is right for a lost
+connection and wrong for schema drift or a constraint violation: the CVE
+importer retries, and pointing it at a failure that cannot clear produces a
+loop that never terminates.
 """
 
 from unittest import mock
@@ -48,6 +54,36 @@ class DatabaseErrorHandler(BaseTestCase):
             response = self.client.get(f"/security/cves/{cve_id}.json")
 
         self.assertEqual(response.status_code, 503)
+
+    def test_programming_error_is_not_advertised_as_retryable(self):
+        """Schema drift is permanent: 500, and no Retry-After."""
+        cve_id = self.models["cve"].id
+        boom = exc.ProgrammingError(
+            "SELECT 1", {}, Exception('column "nope" does not exist')
+        )
+
+        with mock.patch(
+            "webapp.views.db.session.query", side_effect=boom
+        ):
+            response = self.client.get(f"/security/cves/{cve_id}.json")
+
+        self.assertEqual(response.status_code, 500)
+        self.assertIsNone(response.headers.get("Retry-After"))
+
+    def test_integrity_error_is_not_advertised_as_retryable(self):
+        """A constraint violation will not clear on retry either."""
+        cve_id = self.models["cve"].id
+        boom = exc.IntegrityError(
+            "INSERT", {}, Exception("violates foreign key constraint")
+        )
+
+        with mock.patch(
+            "webapp.views.db.session.query", side_effect=boom
+        ):
+            response = self.client.get(f"/security/cves/{cve_id}.json")
+
+        self.assertEqual(response.status_code, 500)
+        self.assertIsNone(response.headers.get("Retry-After"))
 
     def test_normal_requests_are_unaffected(self):
         cve_id = self.models["cve"].id
