@@ -48,9 +48,8 @@ REPLICA_TWO_DATABASE_URL = get_flask_env(
     PRIMARY_DATABASE_URL,
 )
 
-# connect_timeout bounds the handshake against a failed-over host that never
-# completes one; keepalives let the server reap backends stranded by
-# SIGKILLed workers.
+# connect_timeout bounds the handshake against a failed-over host; keepalives
+# let the server reap backends stranded by SIGKILLed workers.
 BASE_CONNECT_ARGS = {
     "connect_timeout": 5,
     "keepalives": 1,
@@ -59,19 +58,20 @@ BASE_CONNECT_ARGS = {
     "keepalives_count": 3,
 }
 
-# Server-side backstop for stranded backends; both values sit above
-# gunicorn's --timeout so only abandoned transactions are aborted (a CLI
-# import idling >5min mid-transaction will be too - raise PRIMARY_PG_OPTIONS).
+# statement_timeout sits below gunicorn's 30s worker timeout so Postgres
+# cancels the query and frees the connection before the worker is killed.
+# idle_in_transaction sits above it, so only abandoned transactions are
+# reaped. The primary gets no statement_timeout: bulk imports run long.
 READ_PG_OPTIONS = (
     "-c statement_timeout=10000 -c idle_in_transaction_session_timeout=60000"
 )
 PRIMARY_PG_OPTIONS = "-c idle_in_transaction_session_timeout=300000"
 
-# Sized against the server: max_connections is 100 and the fleet is 18 pods
-# x 5 workers = 90 processes, so pool_size 1 is the floor and cannot absorb
-# another worker increase. pool_timeout is short so an exhausted pool fails
-# fast instead of blocking into gunicorn's worker-timeout cascade.
-SQLALCHEMY_ENGINE_OPTIONS = {
+# max_connections is 100 and the fleet is 18 pods x 5 workers = 90
+# processes, so pool_size 1 is the floor and cannot absorb another worker
+# increase. Short pool_timeout fails fast instead of feeding gunicorn's
+# worker-timeout cascade.
+PRIMARY_ENGINE_OPTIONS = {
     "pool_recycle": 3600,
     "pool_pre_ping": True,
     "pool_size": 1,
@@ -80,11 +80,8 @@ SQLALCHEMY_ENGINE_OPTIONS = {
     "connect_args": {**BASE_CONNECT_ARGS, "options": PRIMARY_PG_OPTIONS},
 }
 
-# Reads are aborted by the database at 10s so a slow query frees its worker
-# and connection; the primary deliberately has no statement_timeout because
-# bulk CVE imports legitimately run long.
 READ_ENGINE_OPTIONS = {
-    **SQLALCHEMY_ENGINE_OPTIONS,
+    **PRIMARY_ENGINE_OPTIONS,
     "connect_args": {**BASE_CONNECT_ARGS, "options": READ_PG_OPTIONS},
 }
 
@@ -97,8 +94,8 @@ _replica_one_engine = create_engine(
     **READ_ENGINE_OPTIONS,
 )
 
-# The replica URLs fall back to DATABASE_URL when unset, so share one engine
-# while they match rather than doubling the connection count for one server.
+# Both replica URLs fall back to DATABASE_URL, so share one engine while they
+# match rather than doubling connections to the same server.
 if REPLICA_TWO_DATABASE_URL == REPLICA_ONE_DATABASE_URL:
     _replica_two_engine = _replica_one_engine
 else:
@@ -114,7 +111,7 @@ engines = {
 
 primary_engine = create_engine(
     url=PRIMARY_DATABASE_URL,
-    **SQLALCHEMY_ENGINE_OPTIONS,
+    **PRIMARY_ENGINE_OPTIONS,
 )
 
 
@@ -150,11 +147,9 @@ db = SQLAlchemy(
 )
 
 
-# Failures that a retry can plausibly clear: a dropped or timed-out
-# connection, an exhausted pool, a session left needing a rollback. Everything
-# else under SQLAlchemyError - ProgrammingError from schema drift,
-# IntegrityError from a constraint, DataError from a bad value - is permanent,
-# and telling a client to retry it produces a loop that never terminates.
+# Failures a retry can clear. Everything else under SQLAlchemyError
+# (ProgrammingError, IntegrityError, DataError) is permanent, and telling a
+# retrying client to come back produces a loop that never ends.
 TRANSIENT_DB_ERRORS = (
     exc.DisconnectionError,
     exc.InterfaceError,
@@ -165,11 +160,18 @@ TRANSIENT_DB_ERRORS = (
 
 
 def init_db(app):
+    # Flask-SQLAlchemy builds its own engine from SQLALCHEMY_DATABASE_URI for
+    # migrations and db.engine. RoutedSession never routes queries to it, but
+    # left unsized it defaults to 5+10 connections and no connect timeout.
+    app.config.setdefault(
+        "SQLALCHEMY_ENGINE_OPTIONS", dict(PRIMARY_ENGINE_OPTIONS)
+    )
+
     db.init_app(app)
     Migrate(app, db)
 
     # Both handlers must return a response: returning None makes Flask raise a
-    # TypeError blaming the view, hiding the actual database error.
+    # TypeError blaming the view and hiding the database error.
     def _log_and_rollback(error):
         app.logger.error(error)
         db.session.rollback()
