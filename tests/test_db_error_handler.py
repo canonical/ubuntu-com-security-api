@@ -1,12 +1,8 @@
-"""The SQLAlchemy error handlers must return a response, not None.
+"""Database error handlers must return a response, and only advertise
+Retry-After for failures a retry can clear.
 
-Returning None makes Flask raise a TypeError blaming the view, which hides
-the database error. Dropped connections and replica recovery conflicts reach
-this path under load, not just in edge cases.
-
-The handlers must also separate transient failures from permanent ones. A 503
-with Retry-After is right for a lost connection and wrong for schema drift:
-the CVE importer retries, so a failure that cannot clear becomes a loop.
+Returning None makes Flask raise a TypeError that hides the real error. A
+Retry-After on schema drift makes the retrying CVE importer loop forever.
 """
 
 from unittest import mock

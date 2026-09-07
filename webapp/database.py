@@ -47,8 +47,7 @@ REPLICA_TWO_DATABASE_URL = get_flask_env(
     PRIMARY_DATABASE_URL,
 )
 
-# connect_timeout bounds the handshake against a failed-over host; keepalives
-# let the server reap backends stranded by SIGKILLed workers.
+# Give up on a dead host in 5s and let the server reap dead workers' backends.
 BASE_CONNECT_ARGS = {
     "connect_timeout": 5,
     "keepalives": 1,
@@ -57,16 +56,11 @@ BASE_CONNECT_ARGS = {
     "keepalives_count": 3,
 }
 
-# idle_in_transaction reaps sessions a killed worker left mid-transaction.
-# Both sit above gunicorn's 30s timeout so only abandoned ones are hit.
-# No statement_timeout: reads legitimately run long in production.
+# Above gunicorn's 30s timeout, so only abandoned transactions are reaped.
 READ_PG_OPTIONS = "-c idle_in_transaction_session_timeout=60000"
 PRIMARY_PG_OPTIONS = "-c idle_in_transaction_session_timeout=300000"
 
-# max_connections is 100 and the fleet is 18 pods x 5 workers = 90
-# processes, so pool_size 1 is the floor and cannot absorb another worker
-# increase. Short pool_timeout fails fast instead of feeding gunicorn's
-# worker-timeout cascade.
+# 90 workers share max_connections=100, so pool_size 1 is the ceiling.
 PRIMARY_ENGINE_OPTIONS = {
     "pool_recycle": 3600,
     "pool_pre_ping": True,
@@ -85,24 +79,21 @@ READ_ENGINE_OPTIONS = {
 REPLICA_ONE = "replicaone"
 REPLICA_TWO = "replicatwo"
 
-_replica_one_engine = create_engine(
-    url=REPLICA_ONE_DATABASE_URL,
-    **READ_ENGINE_OPTIONS,
-)
+_read_engines_by_url = {}
 
-# Both replica URLs fall back to DATABASE_URL, so share one engine while they
-# match rather than doubling connections to the same server.
-if REPLICA_TWO_DATABASE_URL == REPLICA_ONE_DATABASE_URL:
-    _replica_two_engine = _replica_one_engine
-else:
-    _replica_two_engine = create_engine(
-        url=REPLICA_TWO_DATABASE_URL,
-        **READ_ENGINE_OPTIONS,
-    )
+
+# Replicas that resolve to the same URL share one engine.
+def _read_engine(url):
+    if url not in _read_engines_by_url:
+        _read_engines_by_url[url] = create_engine(
+            url=url, **READ_ENGINE_OPTIONS
+        )
+    return _read_engines_by_url[url]
+
 
 engines = {
-    REPLICA_ONE: _replica_one_engine,
-    REPLICA_TWO: _replica_two_engine,
+    REPLICA_ONE: _read_engine(REPLICA_ONE_DATABASE_URL),
+    REPLICA_TWO: _read_engine(REPLICA_TWO_DATABASE_URL),
 }
 
 primary_engine = create_engine(
@@ -143,9 +134,7 @@ db = SQLAlchemy(
 )
 
 
-# Failures a retry can clear. Everything else under SQLAlchemyError
-# (ProgrammingError, IntegrityError, DataError) is permanent, and telling a
-# retrying client to come back produces a loop that never ends.
+# Errors a retry can clear; the rest under SQLAlchemyError are permanent.
 TRANSIENT_DB_ERRORS = (
     exc.DisconnectionError,
     exc.InterfaceError,
@@ -156,9 +145,7 @@ TRANSIENT_DB_ERRORS = (
 
 
 def init_db(app):
-    # Flask-SQLAlchemy builds its own engine from SQLALCHEMY_DATABASE_URI for
-    # migrations and db.engine. RoutedSession never routes queries to it, but
-    # left unsized it defaults to 5+10 connections and no connect timeout.
+    # Size Flask-SQLAlchemy's own engine like the others.
     app.config.setdefault(
         "SQLALCHEMY_ENGINE_OPTIONS", dict(PRIMARY_ENGINE_OPTIONS)
     )
@@ -166,8 +153,7 @@ def init_db(app):
     db.init_app(app)
     Migrate(app, db)
 
-    # Both handlers must return a response: returning None makes Flask raise a
-    # TypeError blaming the view and hiding the database error.
+    # Returning None makes Flask raise a TypeError that hides the real error.
     def _log_and_rollback(error):
         app.logger.error(error)
         db.session.rollback()
@@ -189,7 +175,6 @@ def init_db(app):
         return response
 
     def _database_error(error):
-        # No Retry-After: these do not clear on their own.
         _log_and_rollback(error)
         return make_response(
             jsonify({"message": "A database error occurred."}), 500
@@ -198,6 +183,5 @@ def init_db(app):
     for error_type in TRANSIENT_DB_ERRORS:
         app.register_error_handler(error_type, _database_unavailable)
 
-    # Flask dispatches to the most specific registered handler, so this stays
-    # the catch-all that guarantees a response for any other SQLAlchemyError.
+    # Catch-all so every other SQLAlchemyError still gets a response.
     app.register_error_handler(exc.SQLAlchemyError, _database_error)

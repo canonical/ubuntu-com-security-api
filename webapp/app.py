@@ -125,8 +125,7 @@ if sentry_dsn and environment == "production":
         send_default_pii=False,
         environment=environment,
         integrations=[FlaskIntegration()],
-        # View locals hold hydrated ORM graphs: serialising them on aborts
-        # burns CPU and buries the real exception.
+        # Serialising ORM objects in view locals breaks Sentry's reporter.
         include_local_variables=False,
     )
 
