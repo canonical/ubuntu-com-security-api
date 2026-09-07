@@ -24,9 +24,7 @@ class ResponseCompression(BaseTestCase):
 
     def test_body_survives_a_round_trip(self):
         plain = self.client.get(self.URL)
-        packed = self.client.get(
-            self.URL, headers={"Accept-Encoding": "gzip"}
-        )
+        packed = self.client.get(self.URL, headers={"Accept-Encoding": "gzip"})
         self.assertEqual(gzip.decompress(packed.data), plain.data)
 
     def test_pro_client_is_never_compressed(self):
