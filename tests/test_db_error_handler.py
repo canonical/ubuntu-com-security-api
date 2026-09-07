@@ -1,22 +1,12 @@
 """The SQLAlchemy error handlers must return a response, not None.
 
-Returning None makes Flask raise:
+Returning None makes Flask raise a TypeError blaming the view, which hides
+the database error. The read engines carry a statement_timeout, so Postgres
+cancelling a slow query reaches this path under load, not just in edge cases.
 
-    TypeError: The view function for '<view>' did not return a valid
-    response. The function either returned None or ended without a return
-    statement.
-
-which blames the view and hides the database error that actually happened.
-This matters routinely now that the read engines carry a statement_timeout -
-Postgres cancelling a slow query raises OperationalError, which is a
-SQLAlchemyError, so this path is reached under load rather than only in
-exceptional cases.
-
-The handlers also have to distinguish transient failures from permanent ones.
-A 503 with Retry-After tells a client to come back, which is right for a lost
-connection and wrong for schema drift or a constraint violation: the CVE
-importer retries, and pointing it at a failure that cannot clear produces a
-loop that never terminates.
+The handlers must also separate transient failures from permanent ones. A 503
+with Retry-After is right for a lost connection and wrong for schema drift:
+the CVE importer retries, so a failure that cannot clear becomes a loop.
 """
 
 from unittest import mock
