@@ -3,7 +3,7 @@ import os
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from canonicalwebteam.flask_base.app import FlaskBase
-from flask import jsonify, make_response
+from flask import request, jsonify, make_response
 from canonicalwebteam.flask_base.env import get_flask_env
 from sentry_sdk.integrations.flask import FlaskIntegration
 import sentry_sdk
@@ -41,6 +41,21 @@ from webapp.views import (
 # used to pass was that default with application/json deleted, which left
 # every JSON response uncompressed.
 app = FlaskBase(__name__, "ubuntu-com-security-api")
+
+# The Ubuntu Pro client reads the raw body as UTF-8 without honouring
+# Content-Encoding, so a compressed response breaks `pro fix` (WD-23733).
+# Drop its Accept-Encoding before flask-compress sees it; every other client
+# gets negotiated compression as normal.
+UNCOMPRESSED_USER_AGENTS = ("UA-Client/",)
+
+
+@app.before_request
+def _no_compression_for_clients_that_cannot_decode_it():
+    if request.headers.get("User-Agent", "").startswith(
+        UNCOMPRESSED_USER_AGENTS
+    ):
+        request.environ.pop("HTTP_ACCEPT_ENCODING", None)
+
 
 app.config.update(
     {
