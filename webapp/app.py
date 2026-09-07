@@ -36,67 +36,11 @@ from webapp.views import (
     update_release,
 )
 
-# Flask compress options
-COMPRESS_MIMETYPES = [
-    "text/html",
-    "text/css",
-    "text/plain",
-    "text/xml",
-    "text/x-component",
-    "text/javascript",
-    "application/x-javascript",
-    "application/javascript",
-    "application/manifest+json",
-    "application/vnd.api+json",
-    "application/xml",
-    "application/xhtml+xml",
-    "application/rss+xml",
-    "application/atom+xml",
-    "application/vnd.ms-fontobject",
-    "application/x-font-ttf",
-    "application/x-font-opentype",
-    "application/x-font-truetype",
-    "image/svg+xml",
-    "image/x-icon",
-    "image/vnd.microsoft.icon",
-    "font/ttf",
-    "font/eot",
-    "font/otf",
-    "font/opentype",
-]
-
-# Flask compress options
-COMPRESS_MIMETYPES = [
-    "text/html",
-    "text/css",
-    "text/plain",
-    "text/xml",
-    "text/x-component",
-    "text/javascript",
-    "application/x-javascript",
-    "application/javascript",
-    "application/manifest+json",
-    "application/vnd.api+json",
-    "application/xml",
-    "application/xhtml+xml",
-    "application/rss+xml",
-    "application/atom+xml",
-    "application/vnd.ms-fontobject",
-    "application/x-font-ttf",
-    "application/x-font-opentype",
-    "application/x-font-truetype",
-    "image/svg+xml",
-    "image/x-icon",
-    "image/vnd.microsoft.icon",
-    "font/ttf",
-    "font/eot",
-    "font/otf",
-    "font/opentype",
-]
-
-app = FlaskBase(
-    __name__, "ubuntu-com-security-api", compress_mimetypes=COMPRESS_MIMETYPES
-)
+# No compress_mimetypes: flask-compress's default list already covers
+# everything this API serves, application/json included. The list this file
+# used to pass was that default with application/json deleted, which left
+# every JSON response uncompressed.
+app = FlaskBase(__name__, "ubuntu-com-security-api")
 
 app.config.update(
     {
