@@ -1,15 +1,8 @@
-"""JSON responses must be compressed when the client accepts it.
+"""JSON responses are compressed when the client accepts it, except for the
+Ubuntu Pro client, which reads the raw body as UTF-8 (WD-23733).
 
-webapp/app.py used to pass flask-compress a mimetype list that was the
-library's own default with application/json deleted, so every response this
-API serves went out uncompressed. These pin the behaviour back.
-
-Compression is negotiated: a client that sends no Accept-Encoding still gets
-the plain body, so the API contract is unchanged either way.
-
-The Ubuntu Pro client is the one known exception. It reads the raw body as
-UTF-8 without honouring Content-Encoding, which is why compression was
-disabled in the first place (WD-23733). It is exempted by User-Agent.
+A client that sends no Accept-Encoding gets the plain body, so the contract
+is unchanged.
 """
 
 import gzip
@@ -46,7 +39,7 @@ class ResponseCompression(BaseTestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.headers.get("Content-Encoding"))
-        # What `pro fix` does with the body: decode it as UTF-8 directly.
+        # Mirrors what pro fix does with the body.
         json.loads(response.data.decode("utf-8"))
 
     def test_client_without_accept_encoding_gets_plain_json(self):

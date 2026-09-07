@@ -36,21 +36,15 @@ from webapp.views import (
     update_release,
 )
 
-# No compress_mimetypes: flask-compress's default list already covers
-# everything this API serves, application/json included. The list this file
-# used to pass was that default with application/json deleted, which left
-# every JSON response uncompressed.
+# flask-compress's default mimetypes already include application/json.
 app = FlaskBase(__name__, "ubuntu-com-security-api")
 
-# The Ubuntu Pro client reads the raw body as UTF-8 without honouring
-# Content-Encoding, so a compressed response breaks `pro fix` (WD-23733).
-# Drop its Accept-Encoding before flask-compress sees it; every other client
-# gets negotiated compression as normal.
+# The Pro client reads raw bytes as UTF-8, so it cannot take gzip (WD-23733).
 UNCOMPRESSED_USER_AGENTS = ("UA-Client/",)
 
 
 @app.before_request
-def _no_compression_for_clients_that_cannot_decode_it():
+def skip_compression_for_unsupported_clients():
     if request.headers.get("User-Agent", "").startswith(
         UNCOMPRESSED_USER_AGENTS
     ):
