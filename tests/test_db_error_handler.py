@@ -1,8 +1,8 @@
 """The SQLAlchemy error handlers must return a response, not None.
 
 Returning None makes Flask raise a TypeError blaming the view, which hides
-the database error. The read engines carry a statement_timeout, so Postgres
-cancelling a slow query reaches this path under load, not just in edge cases.
+the database error. Dropped connections and replica recovery conflicts reach
+this path under load, not just in edge cases.
 
 The handlers must also separate transient failures from permanent ones. A 503
 with Retry-After is right for a lost connection and wrong for schema drift:
@@ -20,7 +20,9 @@ class DatabaseErrorHandler(BaseTestCase):
     def test_sqlalchemy_error_returns_503_not_none(self):
         cve_id = self.models["cve"].id
         boom = exc.OperationalError(
-            "SELECT 1", {}, Exception("canceling statement due to timeout")
+            "SELECT 1",
+            {},
+            Exception("SSL connection has been closed unexpectedly"),
         )
 
         with mock.patch("webapp.views.db.session.query", side_effect=boom):

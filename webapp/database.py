@@ -57,13 +57,10 @@ BASE_CONNECT_ARGS = {
     "keepalives_count": 3,
 }
 
-# statement_timeout sits below gunicorn's 30s worker timeout so Postgres
-# cancels the query and frees the connection before the worker is killed.
-# idle_in_transaction sits above it, so only abandoned transactions are
-# reaped. The primary gets no statement_timeout: bulk imports run long.
-READ_PG_OPTIONS = (
-    "-c statement_timeout=10000 -c idle_in_transaction_session_timeout=60000"
-)
+# idle_in_transaction reaps sessions a killed worker left mid-transaction.
+# Both sit above gunicorn's 30s timeout so only abandoned ones are hit.
+# No statement_timeout: reads legitimately run long in production.
+READ_PG_OPTIONS = "-c idle_in_transaction_session_timeout=60000"
 PRIMARY_PG_OPTIONS = "-c idle_in_transaction_session_timeout=300000"
 
 # max_connections is 100 and the fleet is 18 pods x 5 workers = 90
