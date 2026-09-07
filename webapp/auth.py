@@ -21,7 +21,6 @@ from macaroonbakery import bakery, checkers, httpbakery
 from canonicalwebteam.flask_base.env import get_flask_env
 from requests_oauthlib import OAuth1Session
 
-
 logger = logging.getLogger()
 logger.addHandler(default_handler)
 
@@ -307,10 +306,8 @@ def oauth_authorization_required(func: Callable) -> Callable:
                     oauth_token,
                     oauth_token_secret,
                 ):
-                    logger.info(
-                        """[AUTHWORKER] User is authorized,
-                          proceeding with request"""
-                    )
+                    logger.info("""[AUTHWORKER] User is authorized,
+                          proceeding with request""")
                     # Save the access token for future use
                     save_access_token(token, access_token)
 

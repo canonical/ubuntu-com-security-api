@@ -36,7 +36,6 @@ from sqlalchemy import exc
 from sqlalchemy.sql import Update, Delete, Insert
 import os
 
-
 PRIMARY_DATABASE_URL = get_flask_env("DATABASE_URL", error=True)
 # Use the primary as the default
 REPLICA_ONE_DATABASE_URL = get_flask_env(
