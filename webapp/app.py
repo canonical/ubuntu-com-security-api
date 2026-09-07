@@ -125,6 +125,8 @@ if sentry_dsn and environment == "production":
         send_default_pii=False,
         environment=environment,
         integrations=[FlaskIntegration()],
+        # Serialising ORM objects in view locals breaks Sentry's reporter.
+        include_local_variables=False,
     )
 
 init_db(app)

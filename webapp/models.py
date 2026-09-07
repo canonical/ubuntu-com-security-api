@@ -27,7 +27,6 @@ from webapp.types import (
     PRIORITY_OPTIONS,
 )
 
-
 notice_cves = Table(
     "notice_cves",
     db.Model.metadata,

@@ -21,7 +21,6 @@ from macaroonbakery import bakery, checkers, httpbakery
 from canonicalwebteam.flask_base.env import get_flask_env
 from requests_oauthlib import OAuth1Session
 
-
 logger = logging.getLogger()
 logger.addHandler(default_handler)
 
