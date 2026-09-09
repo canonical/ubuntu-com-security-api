@@ -3,7 +3,7 @@ import os
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from canonicalwebteam.flask_base.app import FlaskBase
-from flask import jsonify, make_response
+from flask import request, jsonify, make_response
 from canonicalwebteam.flask_base.env import get_flask_env
 from sentry_sdk.integrations.flask import FlaskIntegration
 import sentry_sdk
@@ -36,67 +36,20 @@ from webapp.views import (
     update_release,
 )
 
-# Flask compress options
-COMPRESS_MIMETYPES = [
-    "text/html",
-    "text/css",
-    "text/plain",
-    "text/xml",
-    "text/x-component",
-    "text/javascript",
-    "application/x-javascript",
-    "application/javascript",
-    "application/manifest+json",
-    "application/vnd.api+json",
-    "application/xml",
-    "application/xhtml+xml",
-    "application/rss+xml",
-    "application/atom+xml",
-    "application/vnd.ms-fontobject",
-    "application/x-font-ttf",
-    "application/x-font-opentype",
-    "application/x-font-truetype",
-    "image/svg+xml",
-    "image/x-icon",
-    "image/vnd.microsoft.icon",
-    "font/ttf",
-    "font/eot",
-    "font/otf",
-    "font/opentype",
-]
+# flask-compress's default mimetypes already include application/json.
+app = FlaskBase(__name__, "ubuntu-com-security-api")
 
-# Flask compress options
-COMPRESS_MIMETYPES = [
-    "text/html",
-    "text/css",
-    "text/plain",
-    "text/xml",
-    "text/x-component",
-    "text/javascript",
-    "application/x-javascript",
-    "application/javascript",
-    "application/manifest+json",
-    "application/vnd.api+json",
-    "application/xml",
-    "application/xhtml+xml",
-    "application/rss+xml",
-    "application/atom+xml",
-    "application/vnd.ms-fontobject",
-    "application/x-font-ttf",
-    "application/x-font-opentype",
-    "application/x-font-truetype",
-    "image/svg+xml",
-    "image/x-icon",
-    "image/vnd.microsoft.icon",
-    "font/ttf",
-    "font/eot",
-    "font/otf",
-    "font/opentype",
-]
+# The Pro client reads raw bytes as UTF-8, so it cannot take gzip (WD-23733).
+UNCOMPRESSED_USER_AGENTS = ("UA-Client/",)
 
-app = FlaskBase(
-    __name__, "ubuntu-com-security-api", compress_mimetypes=COMPRESS_MIMETYPES
-)
+
+@app.before_request
+def skip_compression_for_unsupported_clients():
+    if request.headers.get("User-Agent", "").startswith(
+        UNCOMPRESSED_USER_AGENTS
+    ):
+        request.environ.pop("HTTP_ACCEPT_ENCODING", None)
+
 
 app.config.update(
     {
