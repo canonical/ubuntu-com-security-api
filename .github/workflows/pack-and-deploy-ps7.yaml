@@ -1,0 +1,183 @@
+name: Pack and Deploy
+
+on:
+    workflow_dispatch:
+    push:
+        branches:
+            - main
+            - ps7-deployment # remove after QA
+
+concurrency:
+    group: security-api-deploy
+    cancel-in-progress: true
+
+env:
+    CHARMCRAFT_ENABLE_EXPERIMENTAL_EXTENSIONS: true
+    ROCKCRAFT_ENABLE_EXPERIMENTAL_EXTENSIONS: true
+
+jobs:
+    pack-charm:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Charmcraft
+              run: sudo snap install charmcraft --classic --channel=latest/edge
+
+            - name: Resolve charmcraft version
+              id: charmcraft-version
+              run: echo "version=$(charmcraft version)" >> "$GITHUB_OUTPUT"
+
+            - name: Compute cache week bucket
+              id: week
+              # Belt-and-braces: force a rebuild at least once a week even if
+              # nothing under charm/ changed, so the charm can never drift more
+              # than 7 days from upstream base images.
+              run: echo "value=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
+            - name: Restore charm cache
+              id: charm-cache
+              uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ./charm/*.charm
+                  key: charm-${{ steps.charmcraft-version.outputs.version }}-${{ steps.week.outputs.value }}-${{ hashFiles('charm/**', '!charm/*.charm') }}
+
+            - name: Setup LXD
+              if: steps.charm-cache.outputs.cache-hit != 'true'
+              uses: canonical/setup-lxd@main
+
+            - name: Pack charm
+              if: steps.charm-cache.outputs.cache-hit != 'true'
+              run: |
+                  cd charm
+                  charmcraft pack -v --project-dir ./
+
+            - name: Save charm cache
+              if: steps.charm-cache.outputs.cache-hit != 'true'
+              uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ./charm/*.charm
+                  key: charm-${{ steps.charmcraft-version.outputs.version }}-${{ steps.week.outputs.value }}-${{ hashFiles('charm/**', '!charm/*.charm') }}
+
+            - name: Upload charm
+              # Always runs, whether the charm came from cache or was just built,
+              # since the deploy jobs unconditionally download this artifact.
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ vars.CHARM_NAME }}-charm
+                  path: ./charm/*.charm
+                  if-no-files-found: error
+
+    pack-rock:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        outputs:
+            image_url: ${{ steps.image.outputs.image_url }}
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set image URL
+              id: image
+              env:
+                  IMAGE_NAME: ghcr.io/canonical/ubuntu-security-api
+                  SHA: ${{ github.sha }}
+              run: |
+                  echo "image_url=${IMAGE_NAME}:${SHA::7}" >> "$GITHUB_OUTPUT"
+
+            - name: Check if image already exists in GHCR
+              id: check-image
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  IMAGE_URL: ${{ steps.image.outputs.image_url }}
+              run: |
+                  set -e
+                  sudo apt-get update -qq && sudo apt-get install -y skopeo
+                  if skopeo inspect --creds "canonical:${GH_TOKEN}" \
+                    "docker://${IMAGE_URL}" &>/dev/null; then
+                    echo "exists=true" >> "$GITHUB_OUTPUT"
+                    echo "::notice::Image ${IMAGE_URL} already exists in GHCR, skipping rock build."
+                  else
+                    echo "exists=false" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Setup LXD
+              if: steps.check-image.outputs.exists == 'false'
+              uses: canonical/setup-lxd@main
+
+            - name: Setup Rockcraft
+              if: steps.check-image.outputs.exists == 'false'
+              run: sudo snap install rockcraft --classic --channel=latest/edge
+
+            - name: Pack Rock
+              if: steps.check-image.outputs.exists == 'false'
+              run: sudo -E rockcraft pack --destructive-mode -v
+
+            - name: Push rock to GHCR
+              if: steps.check-image.outputs.exists == 'false'
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  IMAGE_URL: ${{ steps.image.outputs.image_url }}
+                  REPO_OWNER: ${{ github.repository_owner }}
+              run: |
+                  sudo rockcraft.skopeo --insecure-policy copy \
+                    oci-archive:"$(ls ./*.rock)" \
+                    docker://"${IMAGE_URL}" \
+                    --dest-creds "${REPO_OWNER}:${GH_TOKEN}"
+
+    deploy-staging:
+        needs: [pack-charm, pack-rock]
+        if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+        runs-on: [self-hosted-linux-amd64-noble-private-endpoint-medium]
+        permissions:
+            contents: read
+        environment:
+            name: staging
+            url: ${{ vars.WEBSITE_URL }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  persist-credentials: false
+            - name: Deploy
+              uses: ./.github/actions/deploy-ps7
+              with:
+                  image-url: ${{ needs.pack-rock.outputs.image_url }}
+                  app-name: ${{ vars.CHARM_NAME }}
+                  controller-name: ${{ vars.JUJU_CONTROLLER_NAME_PS7 }}
+                  controller-address: ${{ vars.JUJU_CONTROLLER_ADDRESS_PS7 }}
+                  model-name: ${{ vars.JUJU_MODEL_NAME_PS7 }}
+                  juju-version: ${{ vars.JUJU_VERSION || '3/stable' }}
+                  juju-client-id: ${{ secrets.JUJU_CLIENT_ID }}
+                  juju-client-secret: ${{ secrets.JUJU_CLIENT_SECRET }}
+
+    deploy-production:
+        needs: [pack-rock, deploy-staging]
+        if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+        runs-on: [self-hosted-linux-amd64-noble-private-endpoint-medium]
+        permissions:
+            contents: read
+        environment:
+            name: production
+            url: ${{ vars.WEBSITE_URL }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  persist-credentials: false
+            - name: Deploy
+              uses: ./.github/actions/deploy-ps7
+              with:
+                  image-url: ${{ needs.pack-rock.outputs.image_url }}
+                  app-name: ${{ vars.CHARM_NAME }}
+                  controller-name: ${{ vars.JUJU_CONTROLLER_NAME_PS7 }}
+                  controller-address: ${{ vars.JUJU_CONTROLLER_ADDRESS_PS7 }}
+                  model-name: ${{ vars.JUJU_MODEL_NAME_PS7 }}
+                  juju-version: ${{ vars.JUJU_VERSION || '3/stable' }}
+                  juju-client-id: ${{ secrets.JUJU_CLIENT_ID }}
+                  juju-client-secret: ${{ secrets.JUJU_CLIENT_SECRET }}
