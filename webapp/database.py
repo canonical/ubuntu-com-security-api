@@ -36,7 +36,11 @@ from sqlalchemy import exc
 from sqlalchemy.sql import Update, Delete, Insert
 import os
 
-PRIMARY_DATABASE_URL = get_flask_env("DATABASE_URL", error=True)
+# On Prodstack 7 the pgbouncer charm injects POSTGRESQL_DB_CONNECT_STRING;
+# older prodstacks provide DATABASE_URL.
+PRIMARY_DATABASE_URL = get_flask_env(
+    "POSTGRESQL_DB_CONNECT_STRING"
+) or get_flask_env("DATABASE_URL", error=True)
 # Use the primary as the default
 REPLICA_ONE_DATABASE_URL = get_flask_env(
     "REPLICA_ONE_DATABASE_URL",

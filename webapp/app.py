@@ -1,5 +1,3 @@
-import os
-
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from canonicalwebteam.flask_base.app import FlaskBase
@@ -10,7 +8,7 @@ import sentry_sdk
 
 from webapp.api_spec import WebappFlaskApiSpec
 from webapp.commands import register_commands
-from webapp.database import init_db
+from webapp.database import PRIMARY_DATABASE_URL, init_db
 from webapp.views import (
     bulk_upsert_cve,
     create_notice,
@@ -61,10 +59,7 @@ app.config.update(
         ),
         "APISPEC_SWAGGER_URL": "/security/api/spec.json",
         "APISPEC_SWAGGER_UI_URL": "/security/api/docs",
-        "SQLALCHEMY_DATABASE_URI": os.environ.get(
-            "POSTGRESQL_DB_CONNECT_STRING",
-            os.environ.get("DATABASE_URL", "sqlite:///security.db"),
-        ),
+        "SQLALCHEMY_DATABASE_URI": PRIMARY_DATABASE_URL,
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
     },
 )
