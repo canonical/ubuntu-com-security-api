@@ -38,7 +38,7 @@ runs:
           run: sudo snap install juju --channel="$JUJU_VERSION"
 
         - name: Download charm artifact
-          uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+          uses: actions/download-artifact@v8
           with:
               name: ${{ inputs.app-name }}-charm
 
@@ -56,15 +56,15 @@ runs:
         - name: Switch to model
           shell: bash
           env:
-              JUJU_CLIENT_ID: ${{ inputs.juju-client-id }}
-              JUJU_CLIENT_SECRET: ${{ inputs.juju-client-secret }}
-              JUJU_CONTROLLER_NAME: ${{ inputs.controller-name }}
-              JUJU_MODEL_NAME: ${{ inputs.model-name }}
+            JUJU_CLIENT_ID: ${{ inputs.juju-client-id }}
+            JUJU_CLIENT_SECRET: ${{ inputs.juju-client-secret }}
+            JUJU_CONTROLLER_NAME: ${{ inputs.controller-name }}
+            JUJU_MODEL_NAME: ${{ inputs.model-name }}
           run: |
-              set -euo pipefail
-               FULL_MODEL=$(juju models -c "$JUJU_CONTROLLER_NAME" --format json | jq -r --arg model "$JUJU_MODEL_NAME" '.models[] | select(."short-name" == $model) | .name' | head -n1)
-               if [ -z "$FULL_MODEL" ]; then echo "::error::Model '$JUJU_MODEL_NAME' not found on controller '$JUJU_CONTROLLER_NAME'."; exit 1; fi
-              juju switch "$JUJU_CONTROLLER_NAME:${FULL_MODEL}"
+            set -euo pipefail
+            FULL_MODEL=$(juju models -c "$JUJU_CONTROLLER_NAME" --format json | jq -r --arg model "$JUJU_MODEL_NAME" '.models[] | select(."short-name" == $model) | .name' | head -n1)
+            if [ -z "$FULL_MODEL" ]; then echo "::error::Model '$JUJU_MODEL_NAME' not found on controller '$JUJU_CONTROLLER_NAME'."; exit 1; fi
+            juju switch "$JUJU_CONTROLLER_NAME:${FULL_MODEL}"
 
         - name: Deploy charm
           shell: bash
