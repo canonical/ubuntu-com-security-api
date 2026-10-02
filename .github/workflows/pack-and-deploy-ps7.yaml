@@ -5,7 +5,6 @@ on:
     push:
         branches:
             - main
-            - ps7-deployment # remove after QA
 
 concurrency:
     group: security-api-deploy-${{ github.ref }}
