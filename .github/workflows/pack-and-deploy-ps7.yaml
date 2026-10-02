@@ -8,7 +8,7 @@ on:
             - ps7-deployment # remove after QA
 
 concurrency:
-    group: security-api-deploy
+    group: security-api-deploy-${{ github.ref }}
     cancel-in-progress: false
 
 env:
@@ -139,6 +139,9 @@ jobs:
         environment:
             name: staging
             url: ${{ vars.WEBSITE_URL }}
+        concurrency:
+            group: security-api-deploy-staging
+            cancel-in-progress: false
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -165,6 +168,9 @@ jobs:
         environment:
             name: production
             url: ${{ vars.WEBSITE_URL }}
+        concurrency:
+            group: security-api-deploy-production
+            cancel-in-progress: false
         steps:
             - name: Checkout
               uses: actions/checkout@v4
