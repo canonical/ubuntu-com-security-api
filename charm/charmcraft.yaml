@@ -40,9 +40,13 @@ config:
     replica-two:
       type: secret
       description: "Second read-replica connection string"
-    oauth-token-salt:
+    oauth-token:
       type: secret
-      description: "Salt used to encode and decode OAuth tokens"
+      description: |
+        Secret holding OAuth token settings. Expected keys:
+          salt: Fernet key (32-byte url-safe base64) used to encrypt/decrypt
+                OAuth tokens. Exposed to the app as FLASK_OAUTH_TOKEN_SALT.
+        Create with: juju add-secret oauth-token salt=<key>
     sentry-dsn:
       type: string
       description: "Sentry DSN for error tracking"
