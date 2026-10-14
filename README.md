@@ -94,7 +94,7 @@ python scripts/create-cves.py --auth oauth --host http://0.0.0.0:8030 scripts/pa
 
 You can also use regular http requests to upload CVES e.g with [`curl`](https://curl.se/docs/manpage.html). To use a long running token, pass the following header 
 ```bash
-curl -v -H "Auth-Type: oauth" -X PUT --data @<file_path> http://0.0.0.0:8030/security/updates/cves.json
+curl -v -H "Auth-Type: oauth" -H "Content-Type: application/json" -X PUT --data @<file_path> http://0.0.0.0:8030/security/updates/cves.json
 
 . . .
 < HTTP/1.1 302 FOUND
@@ -119,5 +119,5 @@ https://launchpad.net/+authorize-token?oauth_token=jTWTQD0r58FbTHN4VSrH
 You'll get a 302 link which you should open to grant authorization, as well as a token in the response header `Auth-Token`. Save this token, as it will be used to sign future requests
 To use the token, pass the following header: 
 ```bash
-curl -v -H "Auth-Type: oauth" -H "Authorization: Bearer <Auth-Token>" -X PUT --data @<file_path> http://0.0.0.0:8030/security/updates/cves.json
+curl -v -H "Auth-Type: oauth" -H "Authorization: Bearer <Auth-Token>" -H "Content-Type: application/json" -X PUT --data @<file_path> http://0.0.0.0:8030/security/updates/cves.json
 ```
