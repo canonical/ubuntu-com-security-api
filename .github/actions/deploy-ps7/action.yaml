@@ -3,7 +3,7 @@ description: Deploy the ubuntu-com-security-api charm to a ProdStack 7 Juju mode
 
 inputs:
     image-url:
-        description: "Full GHCR image URL to deploy as the app-image resource"
+        description: "Full GHCR image URL to deploy as the flask-app-image resource"
         required: true
     app-name:
         description: "Juju application name"
@@ -77,8 +77,8 @@ runs:
               set -e
               CHARM_FILE=$(ls ./*.charm | head -1)
               if juju show-application "$APP_NAME" &>/dev/null; then
-                juju refresh "$APP_NAME" --path="./$CHARM_FILE" --resource app-image="$IMAGE_URL"
+                juju refresh "$APP_NAME" --path="./$CHARM_FILE" --resource flask-app-image="$IMAGE_URL"
               else
-                juju deploy "./$CHARM_FILE" "$APP_NAME" --resource app-image="$IMAGE_URL"
+                juju deploy "./$CHARM_FILE" "$APP_NAME" --resource flask-app-image="$IMAGE_URL"
               fi
               juju wait-for application "$APP_NAME" --query="name=='$APP_NAME' && (status=='active' || status=='idle')"
