@@ -66,6 +66,8 @@ class CVE(db.Model):
     status = Column(
         Enum("not-in-ubuntu", "active", "rejected", name="cve_statuses")
     )
+    # Package names in source "order of interest"; see package_statuses.
+    ordered_packages = Column(JSON)
     statuses = relationship("Status", cascade="all, delete-orphan")
     notices = relationship(
         "Notice", secondary=notice_cves, back_populates="cves"
@@ -93,14 +95,28 @@ class CVE(db.Model):
     @hybrid_property
     def package_statuses(self):
         package_statuses = {}
-        ordered_statuses = sorted(
-            self.statuses,
-            key=lambda status: (
-                status.package_order is None,
-                status.package_order or 0,
-                status.package_name,
-            ),
-        )
+        if self.ordered_packages:
+            order_index = {
+                name: position
+                for position, name in enumerate(self.ordered_packages)
+            }
+            ordered_statuses = sorted(
+                self.statuses,
+                key=lambda status: (
+                    order_index.get(status.package_name, len(order_index)),
+                    status.package_name,
+                ),
+            )
+        else:
+            # Fallback for CVEs not yet re-imported with ordered_packages.
+            ordered_statuses = sorted(
+                self.statuses,
+                key=lambda status: (
+                    status.package_order is None,
+                    status.package_order or 0,
+                    status.package_name,
+                ),
+            )
         for status in ordered_statuses:
             if not package_statuses.get(status.package_name):
                 package_statuses[status.package_name] = {

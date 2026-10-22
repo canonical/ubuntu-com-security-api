@@ -1,7 +1,9 @@
 import unittest
+from sqlalchemy import event
 from tests import BaseTestCase
 from tests.fixtures import payloads
 from tests.fixtures.models import make_cve, make_notice, make_release
+from webapp.database import primary_engine
 from collections import defaultdict
 from datetime import datetime
 
@@ -66,6 +68,113 @@ class TestRoutes(BaseTestCase):
             pkg["name"] for pkg in payloads.cve_package_order["packages"]
         ]
         assert returned_names == expected_names
+
+    def test_reimport_does_not_rewrite_status_rows(self):
+        """
+        Re-importing an unchanged CVE must not write to the status table.
+        This guards against the per-row package_order write that used to
+        rewrite every status row on every import (bulk upsert timeouts).
+        """
+        packages = [
+            payloads._kernel_package(f"linux-pkg-{i:03d}") for i in range(60)
+        ]
+        cve = {
+            "id": "CVE-9999-2000",
+            "codename": "many_packages",
+            "priority": "critical",
+            "published": "2020-08-01 12:42:54",
+            "status": "active",
+            "packages": packages,
+        }
+
+        first = self.client.put("/security/updates/cves.json", json=[cve])
+        assert first.status_code == 200
+
+        statements = []
+
+        def record(conn, cursor, statement, params, context, executemany):
+            statements.append(statement)
+
+        event.listen(primary_engine, "before_cursor_execute", record)
+        try:
+            second = self.client.put("/security/updates/cves.json", json=[cve])
+        finally:
+            event.remove(primary_engine, "before_cursor_execute", record)
+
+        assert second.status_code == 200
+
+        status_writes = [
+            s
+            for s in statements
+            if "UPDATE status" in s or "INSERT INTO status" in s
+        ]
+        assert not status_writes, f"status writes: {len(status_writes)}"
+
+    def test_changing_package_order_reorders_output(self):
+        """
+        Re-importing a CVE with a new package order updates the stored
+        order and the serialized output.
+        """
+        base = {
+            "id": "CVE-9999-2001",
+            "codename": "reorder",
+            "priority": "critical",
+            "published": "2020-08-01 12:42:54",
+            "status": "active",
+            "packages": [
+                payloads._kernel_package("linux"),
+                payloads._kernel_package("linux-hwe"),
+                payloads._kernel_package("linux-aws"),
+            ],
+        }
+        first = self.client.put("/security/updates/cves.json", json=[base])
+        assert first.status_code == 200
+
+        response = self.client.get(f"/security/cves/{base['id']}.json")
+        names = [pkg["name"] for pkg in response.json["packages"]]
+        assert names == ["linux", "linux-hwe", "linux-aws"]
+
+        reordered = dict(base)
+        reordered["packages"] = [
+            payloads._kernel_package("linux-aws"),
+            payloads._kernel_package("linux"),
+            payloads._kernel_package("linux-hwe"),
+        ]
+        second = self.client.put(
+            "/security/updates/cves.json", json=[reordered]
+        )
+        assert second.status_code == 200
+
+        response = self.client.get(f"/security/cves/{base['id']}.json")
+        names = [pkg["name"] for pkg in response.json["packages"]]
+        assert names == ["linux-aws", "linux", "linux-hwe"]
+
+    def test_package_order_fallback_uses_status_package_order(self):
+        """
+        CVEs without ordered_packages (not yet re-imported) fall back to
+        the legacy per-status package_order for sorting.
+        """
+        from webapp.models import CVE, Status
+
+        cve = CVE(id="CVE-9999-2002")
+        cve.ordered_packages = None
+        cve.statuses = [
+            Status(
+                package_name="linux-aws",
+                release_codename="testrelease",
+                status="released",
+                package_order=1,
+            ),
+            Status(
+                package_name="linux",
+                release_codename="testrelease",
+                status="released",
+                package_order=0,
+            ),
+        ]
+
+        names = [pkg["name"] for pkg in cve.package_statuses]
+        assert names == ["linux", "linux-aws"]
 
     def test_cves_query_no_500(self):
         response = self.client.get("/security/cves.json?q=firefox")
