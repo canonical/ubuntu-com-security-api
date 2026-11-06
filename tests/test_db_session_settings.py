@@ -11,7 +11,6 @@ from webapp.database import (
     ENGINE_OPTIONS,
     PRIMARY_IDLE_IN_TRANSACTION_TIMEOUT_MS,
     READ_IDLE_IN_TRANSACTION_TIMEOUT_MS,
-    db,
     engines,
     primary_engine,
     REPLICA_ONE,
@@ -31,6 +30,8 @@ def idle_timeout_ms(engine):
 
 class DatabaseSessionSettings(BaseTestCase):
     def test_no_startup_options(self):
+        # PgBouncer drops `options` with no error, and these tests connect
+        # without PgBouncer. So guard against adding it back.
         self.assertNotIn("options", ENGINE_OPTIONS["connect_args"])
 
     def test_primary_engine_sets_timeout(self):
@@ -43,12 +44,6 @@ class DatabaseSessionSettings(BaseTestCase):
         self.assertEqual(
             idle_timeout_ms(engines[REPLICA_ONE]),
             READ_IDLE_IN_TRANSACTION_TIMEOUT_MS,
-        )
-
-    def test_flask_sqlalchemy_engine_sets_timeout(self):
-        self.assertEqual(
-            idle_timeout_ms(db.engine),
-            PRIMARY_IDLE_IN_TRANSACTION_TIMEOUT_MS,
         )
 
     def test_timeout_survives_rollback_on_return(self):

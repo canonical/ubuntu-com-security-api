@@ -25,7 +25,9 @@ extensions:
 
 requires:
   # Optional so a second app can share another app's database through the
-  # `database` secret. The relation requests a database named after the app.
+  # `database` secret. The relation requests a database named after the app,
+  # and its connection string wins over the `database` secret. So an app that
+  # uses the `database` secret must not have this relation.
   postgresql:
     interface: postgresql_client
     optional: true
@@ -53,8 +55,11 @@ config:
       type: boolean
       default: true
       description: |
-        Run database migrations on this application. Set to false when another
-        application that shares the database runs them.
+        Run database migrations on this application. When several
+        applications share one database, set this to true on exactly one of
+        them and false on the others. An application that shares another
+        application's database through the `database` secret must also not
+        have the postgresql relation, because the relation's database wins.
     sentry-dsn:
       type: string
       description: "Sentry DSN for error tracking"

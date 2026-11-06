@@ -75,25 +75,25 @@ ENGINE_OPTIONS = {
 }
 
 
-def set_idle_in_transaction_timeout(engine, timeout_ms):
-    """Set the timeout with SET on each new connection.
+def _make_engine(url, idle_in_transaction_timeout_ms):
+    """Create an engine that sets the idle-in-transaction timeout with SET on
+    each new connection.
 
-    Connection poolers such as PgBouncer drop the libpq `options` startup
-    parameter, so a plain SET is the portable way. It persists for the
-    connection when the pooler runs in session mode.
+    Poolers such as PgBouncer drop the libpq `options` startup parameter, so
+    SET is the portable way. It lasts for the connection when the pooler runs
+    in session mode. A database-level default is the backup for other modes.
     """
+    engine = create_engine(url=url, **ENGINE_OPTIONS)
 
     @event.listens_for(engine, "connect")
     def _set_timeout(dbapi_connection, _connection_record):
-        # Autocommit, so the pool's rollback-on-return does not undo the SET.
-        autocommit = dbapi_connection.autocommit
-        dbapi_connection.autocommit = True
         with dbapi_connection.cursor() as cursor:
             cursor.execute(
                 "SET idle_in_transaction_session_timeout = %s",
-                (timeout_ms,),
+                (idle_in_transaction_timeout_ms,),
             )
-        dbapi_connection.autocommit = autocommit
+        # Commit, so the pool's rollback-on-return does not undo the SET.
+        dbapi_connection.commit()
 
     return engine
 
@@ -108,9 +108,8 @@ _read_engines_by_url = {}
 # Replicas that resolve to the same URL share one engine.
 def _read_engine(url):
     if url not in _read_engines_by_url:
-        _read_engines_by_url[url] = set_idle_in_transaction_timeout(
-            create_engine(url=url, **ENGINE_OPTIONS),
-            READ_IDLE_IN_TRANSACTION_TIMEOUT_MS,
+        _read_engines_by_url[url] = _make_engine(
+            url, READ_IDLE_IN_TRANSACTION_TIMEOUT_MS
         )
     return _read_engines_by_url[url]
 
@@ -120,9 +119,8 @@ engines = {
     REPLICA_TWO: _read_engine(REPLICA_TWO_DATABASE_URL),
 }
 
-primary_engine = set_idle_in_transaction_timeout(
-    create_engine(url=PRIMARY_DATABASE_URL, **ENGINE_OPTIONS),
-    PRIMARY_IDLE_IN_TRANSACTION_TIMEOUT_MS,
+primary_engine = _make_engine(
+    PRIMARY_DATABASE_URL, PRIMARY_IDLE_IN_TRANSACTION_TIMEOUT_MS
 )
 
 
@@ -173,10 +171,6 @@ def init_db(app):
     app.config.setdefault("SQLALCHEMY_ENGINE_OPTIONS", dict(ENGINE_OPTIONS))
 
     db.init_app(app)
-    with app.app_context():
-        set_idle_in_transaction_timeout(
-            db.engine, PRIMARY_IDLE_IN_TRANSACTION_TIMEOUT_MS
-        )
     Migrate(app, db)
 
     # Returning None makes Flask raise a TypeError that hides the real error.
