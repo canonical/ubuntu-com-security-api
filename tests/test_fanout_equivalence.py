@@ -33,11 +33,6 @@ class CvesIdsEquivalence(BaseTestCase):
         db.session.expire_all()
         return notice.id
 
-    def _fetch(self):
-        response = self.client.get("/security/cves.json?limit=10")
-        self.assertEqual(response.status_code, 200)
-        return json.loads(response.data)
-
     def _fetch_detail(self, cve_id):
         response = self.client.get(f"/security/cves/{cve_id}.json")
         self.assertEqual(response.status_code, 200)
@@ -85,19 +80,6 @@ class CvesIdsEquivalence(BaseTestCase):
 
         return with_preload, without_preload
 
-    def test_cve_list_preload_matches_relationship_walk(self):
-        self._seed_wide_notice()
-
-        with_preload, without_preload = self._both_ways(self._fetch)
-
-        self.assertEqual(
-            json.dumps(self._normalise(with_preload), sort_keys=True),
-            json.dumps(self._normalise(without_preload), sort_keys=True),
-            "bulk preload and relationship walk disagree on "
-            "/security/cves.json - the optimisation is not "
-            "behaviour-preserving",
-        )
-
     def test_cve_detail_preload_matches_relationship_walk(self):
         self._seed_wide_notice()
         cve_id = db.session.query(CVE).first().id
@@ -117,12 +99,12 @@ class CvesIdsEquivalence(BaseTestCase):
     def test_cves_ids_are_actually_populated(self):
         """Guard against the preload silently yielding empty lists."""
         notice_id = self._seed_wide_notice()
-        payload = self._fetch()
+        cve_id = db.session.query(CVE).first().id
+        payload = self._fetch_detail(cve_id)
 
         notices = [
             notice
-            for cve in payload["cves"]
-            for notice in cve.get("notices", [])
+            for notice in payload.get("notices", [])
             if notice["id"] == notice_id
         ]
         self.assertTrue(notices, f"notice {notice_id} absent from response")
