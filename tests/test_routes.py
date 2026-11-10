@@ -201,9 +201,10 @@ class TestRoutes(BaseTestCase):
             assert response.json["total_results"] == 1
 
         # Anything short of a full CVE ID still uses the substring search
-        response = self.client.get("/security/cves.json?q=2026-123")
-        ids = {c["id"] for c in response.json["cves"]}
-        assert {"CVE-2026-1234", "CVE-2026-12345"} <= ids
+        for q in ("CVE-2026-123", "2026-123"):
+            response = self.client.get(f"/security/cves.json?q={q}")
+            ids = {c["id"] for c in response.json["cves"]}
+            assert {"CVE-2026-1234", "CVE-2026-12345"} <= ids
 
     def test_cves_returns_200_for_non_existing_package_name(self):
         response = self.client.get("/security/cves.json?package=no-exist")
