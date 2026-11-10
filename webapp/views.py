@@ -258,19 +258,12 @@ def get_cves(**kwargs):
                 Notice.title,
                 Notice.published,
                 Notice.summary,
-                Notice.details,
-                Notice.instructions,
-                Notice.references,
                 Notice.is_hidden,
-                Notice.release_packages,
             ),
         ),
     )
 
     cves = cves_query.limit(limit).offset(offset).all()
-
-    # Cheap replacement for the selectinload(Notice.cves) this used to carry.
-    preload_notice_cve_ids(cves)
 
     result = CVEsAPISchema().dumps(
         {
