@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict
 from distutils.util import strtobool
 from typing import List, Literal, Optional
@@ -72,6 +73,7 @@ from webapp.utils import stream_notices
 SIX_HOURS_IN_SECONDS = 60 * 60 * 6
 TEN_MINUTES_IN_SECONDS = 60 * 10
 MAX_PAGE = 100
+CVE_ID_PATTERN = re.compile(r"^CVE-\d{4}-\d+$", re.IGNORECASE)
 
 
 def preload_notice_cve_ids(cves):
@@ -178,7 +180,12 @@ def get_cves(**kwargs):
     if priorities:
         cves_query = cves_query.filter(CVE.priority.in_(priorities))
 
-    if query:
+    if query and CVE_ID_PATTERN.match(query):
+        # A bare CVE ID gets a primary-key lookup. The substring search below
+        # returns up to `limit` loosely related CVEs, which for kernel CVEs
+        # means megabytes of notice data per request.
+        cves_query = cves_query.filter(CVE.id == query.upper())
+    elif query:
         lowered_query = f"%{query.lower()}%"
         cves_query = cves_query.filter(
             or_(
