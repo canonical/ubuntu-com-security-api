@@ -73,7 +73,7 @@ from webapp.utils import stream_notices
 SIX_HOURS_IN_SECONDS = 60 * 60 * 6
 TEN_MINUTES_IN_SECONDS = 60 * 10
 MAX_PAGE = 100
-CVE_ID_PATTERN = re.compile(r"^CVE-\d{4}-\d+$", re.IGNORECASE)
+CVE_ID_PATTERN = re.compile(r"^CVE-\d{4}-\d{4,}$", re.IGNORECASE)
 
 
 def preload_notice_cve_ids(cves):
