@@ -49,6 +49,33 @@ def skip_compression_for_unsupported_clients():
         request.environ.pop("HTTP_ACCEPT_ENCODING", None)
 
 
+# Temporary block for a scraper whose cves.json?q=CVE-... requests (~6/s,
+# ~2 MB each) starved every worker on 2026-11-10. Remove once it is blocked
+# at the edge.
+BLOCKED_CVE_SEARCH_USER_AGENTS = ("python-urllib3/1.26.19",)
+
+
+@app.before_request
+def block_cve_search_scraper():
+    if (
+        request.path == "/security/cves.json"
+        and request.args.get("q", "").strip().upper().startswith("CVE-")
+        and request.headers.get("User-Agent", "")
+        in BLOCKED_CVE_SEARCH_USER_AGENTS
+    ):
+        response = make_response(
+            jsonify(
+                message=(
+                    "Too many requests. Use /security/cves/<cve_id>.json "
+                    "for single CVE lookups."
+                )
+            ),
+            429,
+        )
+        response.headers["Retry-After"] = "3600"
+        return response
+
+
 app.config.update(
     {
         "APISPEC_SPEC": APISpec(
