@@ -160,7 +160,12 @@ def init_db(app):
     # Returning None makes Flask raise a TypeError that hides the real error.
     def _log_and_rollback(error):
         app.logger.error(error)
-        db.session.rollback()
+        try:
+            db.session.rollback()
+        except exc.SQLAlchemyError:
+            # The connection is already gone, so there is nothing to roll
+            # back. Raising here would turn the response into a bare 500.
+            db.session.close()
 
     def _database_unavailable(error):
         _log_and_rollback(error)
