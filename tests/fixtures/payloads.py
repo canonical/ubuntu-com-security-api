@@ -408,6 +408,50 @@ cve_cvss4_top_level_null = {
     "status": "active",
 }
 
+cve_multi_source_cvss = {
+    "id": "CVE-9999-0012",
+    "codename": "testcodename12",
+    "packages": [],
+    "headline_cvss": {
+        "version": "4.0",
+        "source": "ubuntu",
+        "baseScore": 8.9,
+        "baseSeverity": "HIGH",
+    },
+    "cvss3": 7.0,
+    "impact": {
+        "baseMetricV3": {
+            "cvssV3": {"version": "3.1", "baseScore": 7.0},
+            "sources": [
+                {
+                    "source": "nvd",
+                    "cvssV3": {"version": "3.1", "baseScore": 7.0},
+                },
+                {
+                    "source": "ubuntu",
+                    "cvssV3": {"version": "3.1", "baseScore": 5.5},
+                },
+            ],
+        },
+        "baseMetricV4": {
+            "cvssV4": None,
+            "sources": [
+                {
+                    "source": "ubuntu",
+                    "cvssV4": {
+                        "version": "4.0",
+                        "baseScore": 8.9,
+                        "baseSeverity": "HIGH",
+                    },
+                }
+            ],
+        },
+    },
+    "published": "2020-12-01 12:42:54",
+    "priority": "high",
+    "status": "active",
+}
+
 notice = {
     "cves": ["CVE-9999-0003", "CVE-9999-0004"],
     "id": "USN-9999-01",
