@@ -1,5 +1,6 @@
 import unittest
 from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from tests import BaseTestCase
 from tests.fixtures import payloads
 from tests.fixtures.models import make_cve, make_notice, make_release
@@ -211,6 +212,34 @@ class TestRoutes(BaseTestCase):
 
         assert response.status_code == 200
         assert "No CVEs with package" not in response.json.get("errors", [])
+
+    def test_cves_package_filter_also_matches_status_by_exact_name(self):
+        """
+        The package substring is resolved to exact names, so the large
+        status table can be filtered without a substring test per row.
+        """
+        statements = []
+
+        def record(conn, cursor, statement, params, context, executemany):
+            statements.append(statement)
+
+        event.listen(Engine, "before_cursor_execute", record)
+        try:
+            response = self.client.get("/security/cves.json?package=STPACK")
+            no_match = self.client.get("/security/cves.json?package=no-exist")
+        finally:
+            event.remove(Engine, "before_cursor_execute", record)
+
+        assert response.status_code == 200
+        assert [cve["id"] for cve in response.json["cves"]] == [
+            self.models["cve"].id
+        ]
+        assert no_match.json["total_results"] == 0
+
+        status_filters = [s for s in statements if "package_name ILIKE" in s]
+        assert status_filters
+        for statement in status_filters:
+            assert "package_name IN" in statement
 
     def test_cves_returns_200_for_non_existing_version(self):
         response = self.client.get("/security/cves.json?version=no-exist")

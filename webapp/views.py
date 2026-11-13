@@ -205,7 +205,21 @@ def get_cves(**kwargs):
         if versions:
             status_preds.append(StatusAlias.release_codename.in_(versions))
         if package:
-            status_preds.append(StatusAlias.package_name.ilike(f"%{package}%"))
+            # The substring match alone makes Postgres test every status row
+            # of every active CVE when the pattern is too short or too common
+            # for the trigram index (30s+ for "jq"). Resolving the matching
+            # names in the small package table first lets it reject those
+            # rows with a cheap exact comparison. The substring match stays
+            # so that selective patterns can still use the trigram index.
+            pattern = f"%{package}%"
+            package_names = [
+                name
+                for (name,) in db.session.query(Package.name).filter(
+                    Package.name.ilike(pattern)
+                )
+            ]
+            status_preds.append(StatusAlias.package_name.ilike(pattern))
+            status_preds.append(StatusAlias.package_name.in_(package_names))
         if component:
             status_preds.append(StatusAlias.component == component)
         if statuses:
