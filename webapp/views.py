@@ -80,7 +80,16 @@ def preload_notice_cve_ids(cves):
     """Populate Notice.cves_ids for every notice attached to `cves` with one
     association-table query, instead of hydrating one ORM object per related
     CVE (1200+ for a large USN)."""
-    notices = {notice.id: notice for cve in cves for notice in cve.notices}
+    preload_cve_ids_for_notices(
+        [notice for cve in cves for notice in cve.notices]
+    )
+
+
+def preload_cve_ids_for_notices(notices):
+    """Populate Notice.cves_ids for `notices` with one association-table
+    query. Without it, serialising cves_ids loads every related CVE row in
+    full, one query per notice (20s+ for a kernel USN in production)."""
+    notices = {notice.id: notice for notice in notices}
     if not notices:
         return
 
@@ -258,19 +267,12 @@ def get_cves(**kwargs):
                 Notice.title,
                 Notice.published,
                 Notice.summary,
-                Notice.details,
-                Notice.instructions,
-                Notice.references,
                 Notice.is_hidden,
-                Notice.release_packages,
             ),
         ),
     )
 
     cves = cves_query.limit(limit).offset(offset).all()
-
-    # Cheap replacement for the selectinload(Notice.cves) this used to carry.
-    preload_notice_cve_ids(cves)
 
     result = CVEsAPISchema().dumps(
         {
@@ -818,6 +820,7 @@ def get_page_notices(**kwargs):
         .limit(limit)
         .all()
     )
+    preload_cve_ids_for_notices(notices)
 
     return {
         "notices": notices,
@@ -867,6 +870,7 @@ def get_flat_notices(**kwargs):
         .limit(limit)
         .all()
     )
+    preload_cve_ids_for_notices(notices)
 
     return {
         "notices": notices,

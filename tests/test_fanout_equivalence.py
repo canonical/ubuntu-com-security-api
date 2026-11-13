@@ -33,11 +33,6 @@ class CvesIdsEquivalence(BaseTestCase):
         db.session.expire_all()
         return notice.id
 
-    def _fetch(self):
-        response = self.client.get("/security/cves.json?limit=10")
-        self.assertEqual(response.status_code, 200)
-        return json.loads(response.data)
-
     def _fetch_detail(self, cve_id):
         response = self.client.get(f"/security/cves/{cve_id}.json")
         self.assertEqual(response.status_code, 200)
@@ -76,27 +71,14 @@ class CvesIdsEquivalence(BaseTestCase):
         # first one left behind - comparing the preload against itself.
         db.session.expunge_all()
 
-        original = views.preload_notice_cve_ids
-        views.preload_notice_cve_ids = lambda cves: None
+        original = views.preload_cve_ids_for_notices
+        views.preload_cve_ids_for_notices = lambda notices: None
         try:
             without_preload = fetch()
         finally:
-            views.preload_notice_cve_ids = original
+            views.preload_cve_ids_for_notices = original
 
         return with_preload, without_preload
-
-    def test_cve_list_preload_matches_relationship_walk(self):
-        self._seed_wide_notice()
-
-        with_preload, without_preload = self._both_ways(self._fetch)
-
-        self.assertEqual(
-            json.dumps(self._normalise(with_preload), sort_keys=True),
-            json.dumps(self._normalise(without_preload), sort_keys=True),
-            "bulk preload and relationship walk disagree on "
-            "/security/cves.json - the optimisation is not "
-            "behaviour-preserving",
-        )
 
     def test_cve_detail_preload_matches_relationship_walk(self):
         self._seed_wide_notice()
@@ -114,15 +96,40 @@ class CvesIdsEquivalence(BaseTestCase):
             "behaviour-preserving",
         )
 
+    def test_notice_lists_preload_matches_relationship_walk(self):
+        notice_id = self._seed_wide_notice()
+
+        for url in (
+            "/security/page/notices.json?limit=10",
+            "/security/flat/notices.json?limit=10",
+        ):
+
+            def fetch():
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                return json.loads(response.data)
+
+            with_preload, without_preload = self._both_ways(fetch)
+            db.session.expunge_all()
+
+            self.assertEqual(
+                json.dumps(self._normalise(with_preload), sort_keys=True),
+                json.dumps(self._normalise(without_preload), sort_keys=True),
+                f"bulk preload and relationship walk disagree on {url}",
+            )
+            wide = [n for n in with_preload["notices"] if n["id"] == notice_id]
+            self.assertTrue(wide, f"notice {notice_id} absent from {url}")
+            self.assertGreaterEqual(len(wide[0]["cves_ids"]), EXTRA_CVES)
+
     def test_cves_ids_are_actually_populated(self):
         """Guard against the preload silently yielding empty lists."""
         notice_id = self._seed_wide_notice()
-        payload = self._fetch()
+        cve_id = db.session.query(CVE).first().id
+        payload = self._fetch_detail(cve_id)
 
         notices = [
             notice
-            for cve in payload["cves"]
-            for notice in cve.get("notices", [])
+            for notice in payload.get("notices", [])
             if notice["id"] == notice_id
         ]
         self.assertTrue(notices, f"notice {notice_id} absent from response")

@@ -206,6 +206,31 @@ class TestRoutes(BaseTestCase):
             ids = {c["id"] for c in response.json["cves"]}
             assert {"CVE-2026-1234", "CVE-2026-12345"} <= ids
 
+    def test_cves_list_returns_notice_summaries_only(self):
+        cve = make_cve("CVE-2026-4321")
+        notice = make_notice("USN-9999-01", cves=[cve])
+        self.db.session.add_all([cve, notice])
+        self.db.session.commit()
+
+        response = self.client.get("/security/cves.json?q=CVE-2026-4321")
+
+        assert response.status_code == 200
+        listed = response.json["cves"][0]
+        assert listed["notices_ids"] == ["USN-9999-01"]
+        assert set(listed["notices"][0]) == {
+            "id",
+            "title",
+            "summary",
+            "published",
+            "is_hidden",
+            "type",
+        }
+
+        # The single-CVE endpoint still carries the full notice
+        detail = self.client.get("/security/cves/CVE-2026-4321.json").json
+        assert "release_packages" in detail["notices"][0]
+        assert "cves_ids" in detail["notices"][0]
+
     def test_cves_returns_200_for_non_existing_package_name(self):
         response = self.client.get("/security/cves.json?package=no-exist")
 
