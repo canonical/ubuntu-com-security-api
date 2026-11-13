@@ -1682,6 +1682,53 @@ class TestRoutes(BaseTestCase):
         response_3 = self.client.get(f"/security/notices/{notice['id']}.json")
         assert response_3.json["instructions"] == instructions
 
+    def test_create_usn_with_existing_and_new_cves(self):
+        existing_cve = self.models["cve"]
+
+        notice = payloads.notice.copy()
+        notice["cves"] = [existing_cve.id, "CVE-9999-0003", "CVE-9999-0004"]
+        response_1 = self.client.post(
+            "/security/updates/notices.json", json=notice
+        )
+        assert response_1.status_code == 200
+
+        # Get
+        response_2 = self.client.get(f"/security/notices/{notice['id']}.json")
+        assert sorted(response_2.json["cves_ids"]) == sorted(notice["cves"])
+
+        # The existing CVE keeps its data and gains the notice
+        response_3 = self.client.get(f"/security/cves/{existing_cve.id}.json")
+        assert response_3.json["priority"] == existing_cve.priority
+        assert sorted(response_3.json["notices_ids"]) == sorted(
+            [self.models["notice"].id, notice["id"]]
+        )
+
+    def test_update_usn_replaces_cves(self):
+        existing_cve = self.models["cve"]
+
+        # Create first
+        notice = payloads.notice.copy()
+        notice["cves"] = [existing_cve.id, "CVE-9999-0003", "CVE-9999-0004"]
+        response_1 = self.client.post(
+            "/security/updates/notices.json", json=notice
+        )
+        assert response_1.status_code == 200
+
+        # Update
+        notice["cves"] = ["CVE-9999-0004", "CVE-9999-0005"]
+        response_2 = self.client.put(
+            f"/security/updates/notices/{notice['id']}.json", json=notice
+        )
+        assert response_2.status_code == 200
+
+        # Get
+        response_3 = self.client.get(f"/security/notices/{notice['id']}.json")
+        assert sorted(response_3.json["cves_ids"]) == sorted(notice["cves"])
+
+        # The removed CVE loses the notice
+        response_4 = self.client.get(f"/security/cves/{existing_cve.id}.json")
+        assert response_4.json["notices_ids"] == [self.models["notice"].id]
+
     def test_update_usn_returns_404_for_non_existing_id(self):
         response = self.client.put(
             f"/security/updates/notices/{payloads.notice['id']}.json",
