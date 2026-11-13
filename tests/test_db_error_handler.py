@@ -30,6 +30,23 @@ class DatabaseErrorHandler(BaseTestCase):
             "temporarily unavailable", response.get_json()["message"]
         )
 
+    def test_failed_rollback_still_returns_503(self):
+        """A dead connection also fails the handler's own rollback."""
+        cve_id = self.models["cve"].id
+        boom = exc.OperationalError(
+            "SELECT 1",
+            {},
+            Exception("SSL connection has been closed unexpectedly"),
+        )
+
+        with mock.patch(
+            "webapp.views.db.session.query", side_effect=boom
+        ), mock.patch("webapp.database.db.session.rollback", side_effect=boom):
+            response = self.client.get(f"/security/cves/{cve_id}.json")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.headers.get("Retry-After"), "5")
+
     def test_pending_rollback_error_returns_503_not_none(self):
         cve_id = self.models["cve"].id
         boom = exc.PendingRollbackError("rollback required", None, None)
