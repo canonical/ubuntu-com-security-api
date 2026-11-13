@@ -181,6 +181,31 @@ class TestRoutes(BaseTestCase):
 
         assert response.status_code == 200
 
+    def test_cves_query_by_exact_cve_id(self):
+        target = make_cve("CVE-2026-1234")
+        # Would match a substring search for the target ID
+        longer_id = make_cve("CVE-2026-12345")
+        mentions_target = make_cve(
+            "CVE-2026-9999", description="Similar to CVE-2026-1234"
+        )
+        self.db.session.add_all([target, longer_id, mentions_target])
+        self.db.session.commit()
+
+        for q in ("CVE-2026-1234", "cve-2026-1234", "%20CVE-2026-1234%20"):
+            response = self.client.get(f"/security/cves.json?q={q}")
+
+            assert response.status_code == 200
+            assert [c["id"] for c in response.json["cves"]] == [
+                "CVE-2026-1234"
+            ]
+            assert response.json["total_results"] == 1
+
+        # Anything short of a full CVE ID still uses the substring search
+        for q in ("CVE-2026-123", "2026-123"):
+            response = self.client.get(f"/security/cves.json?q={q}")
+            ids = {c["id"] for c in response.json["cves"]}
+            assert {"CVE-2026-1234", "CVE-2026-12345"} <= ids
+
     def test_cves_returns_200_for_non_existing_package_name(self):
         response = self.client.get("/security/cves.json?package=no-exist")
 
