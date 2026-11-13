@@ -1194,9 +1194,16 @@ def _update_notice_object(notice, data):
         for codename in data["release_packages"].keys()
     ]
 
-    notice.cves.clear()
-    for cve_id in set(data["cves"]):
-        notice.cves.append(CVE.query.get(cve_id) or CVE(id=cve_id))
+    cve_ids = set(data["cves"])
+    existing_cves = {
+        cve.id: cve
+        for cve in CVE.query.options(load_only(CVE.id)).filter(
+            CVE.id.in_(cve_ids)
+        )
+    }
+    notice.cves = [
+        existing_cves.get(cve_id) or CVE(id=cve_id) for cve_id in cve_ids
+    ]
 
     return notice
 
