@@ -60,8 +60,19 @@ BASE_CONNECT_ARGS = {
     "keepalives_count": 3,
 }
 
+# gunicorn kills a worker at GUNICORN_TIMEOUT, but Postgres keeps running
+# that worker's query. Cap each read statement just below that, so an
+# abandoned query cannot run for longer than a live request could have
+# waited for it. The limit is per statement, not per request: a query that
+# starts late in a request can still outlive its worker by up to this long.
+GUNICORN_TIMEOUT_S = int(get_flask_env("GUNICORN_TIMEOUT") or 30)
+READ_STATEMENT_TIMEOUT_MS = max(GUNICORN_TIMEOUT_S - 2, 1) * 1000
+
 # Above gunicorn's 30s timeout, so only abandoned transactions are reaped.
-READ_PG_OPTIONS = "-c idle_in_transaction_session_timeout=60000"
+READ_PG_OPTIONS = (
+    "-c idle_in_transaction_session_timeout=60000"
+    f" -c statement_timeout={READ_STATEMENT_TIMEOUT_MS}"
+)
 PRIMARY_PG_OPTIONS = "-c idle_in_transaction_session_timeout=300000"
 
 # 90 workers share max_connections=100, so pool_size 1 is the ceiling.
