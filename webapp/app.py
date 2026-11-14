@@ -4,6 +4,7 @@ from canonicalwebteam.flask_base.app import FlaskBase
 from flask import request, jsonify, make_response
 from canonicalwebteam.flask_base.env import get_flask_env
 from sentry_sdk.integrations.flask import FlaskIntegration
+from sentry_sdk.integrations.logging import ignore_logger
 import sentry_sdk
 
 from webapp.api_spec import WebappFlaskApiSpec
@@ -66,6 +67,11 @@ app.config.update(
 
 sentry_dsn = get_flask_env("SENTRY_DSN")
 environment = get_flask_env("FLASK_ENV", "production")
+
+# flask-base also starts talisker's raven client. raven cannot send on
+# Python 3.12, and logs each failure plus a copy of the event it lost to
+# these loggers, which turned every error into three Sentry events.
+ignore_logger("sentry.errors*")
 
 if sentry_dsn and environment == "production":
     sentry_sdk.init(
