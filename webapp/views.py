@@ -411,6 +411,10 @@ def bulk_upsert_cve(*args, **kwargs):
             update_cve = True
             cve.cvss3 = data.get("cvss3")
 
+        if cve.headline_cvss != data.get("headline_cvss"):
+            update_cve = True
+            cve.headline_cvss = data.get("headline_cvss")
+
         if cve.description != data.get("description"):
             update_cve = True
             cve.description = data.get("description")

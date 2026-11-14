@@ -1280,6 +1280,24 @@ class TestRoutes(BaseTestCase):
         )
         assert response.status_code == 200
 
+    def test_cve_multi_source_cvss_and_headline_round_trip(self):
+        payload = payloads.cve_multi_source_cvss
+        response = self.client.put(
+            "/security/updates/cves.json", json=[payload]
+        )
+        assert response.status_code == 200
+
+        response = self.client.get(f"/security/cves/{payload['id']}.json")
+        assert response.status_code == 200
+        assert response.json["headline_cvss"] == payload["headline_cvss"]
+        assert response.json["cvss3"] == payload["cvss3"]
+
+        v3 = response.json["impact"]["baseMetricV3"]
+        assert [s["source"] for s in v3["sources"]] == ["nvd", "ubuntu"]
+        assert v3["sources"][1]["cvssV3"]["baseScore"] == 5.5
+        v4 = response.json["impact"]["baseMetricV4"]
+        assert v4["sources"][0]["cvssV4"]["baseSeverity"] == "HIGH"
+
     def test_delete_non_existing_cve_returns_404(self):
         response = self.client.delete(
             f"/security/updates/cves/{payloads.cve1['id']}.json"
