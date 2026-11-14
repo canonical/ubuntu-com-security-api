@@ -124,6 +124,8 @@ def authorization_required(func):
                 "ubuntu.com/security",
                 "production",
                 version="devel",
+                # Fail fast instead of holding a worker if Launchpad is down
+                timeout=10,
             )
 
             try:

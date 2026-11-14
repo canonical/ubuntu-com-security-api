@@ -16,7 +16,7 @@ env:
 
 jobs:
     pack-charm:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04 # must match the rock and charm base (24.04)
         permissions:
             contents: read
         steps:
@@ -71,7 +71,7 @@ jobs:
                   if-no-files-found: error
 
     pack-rock:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04 # must match the rock and charm base (24.04)
         permissions:
             contents: read
             packages: write
@@ -131,7 +131,8 @@ jobs:
 
     deploy-staging:
         needs: [pack-charm, pack-rock]
-        if: github.ref_name == 'main'
+        # A manual run from any branch deploys to staging only, for testing.
+        if: github.ref_name == 'main' || github.event_name == 'workflow_dispatch'
         runs-on: [self-hosted-linux-amd64-noble-private-endpoint-medium]
         permissions:
             contents: read
