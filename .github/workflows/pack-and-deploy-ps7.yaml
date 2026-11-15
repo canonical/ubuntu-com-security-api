@@ -152,6 +152,8 @@ jobs:
               with:
                   image-url: ${{ needs.pack-rock.outputs.image_url }}
                   app-name: ${{ vars.CHARM_NAME }}
+                  publish-app-name: ${{ vars.CHARM_NAME }}-updates
+                  smoke-test-url: ${{ vars.WEBSITE_URL }}
                   controller-name: ${{ vars.JUJU_CONTROLLER_NAME_PS7 }}
                   controller-address: ${{ vars.JUJU_CONTROLLER_ADDRESS_PS7 }}
                   model-name: ${{ vars.JUJU_MODEL_NAME_PS7 }}
@@ -181,6 +183,8 @@ jobs:
               with:
                   image-url: ${{ needs.pack-rock.outputs.image_url }}
                   app-name: ${{ vars.CHARM_NAME }}
+                  publish-app-name: ${{ vars.CHARM_NAME }}-updates
+                  smoke-test-url: ${{ vars.WEBSITE_URL }}
                   controller-name: ${{ vars.JUJU_CONTROLLER_NAME_PS7 }}
                   controller-address: ${{ vars.JUJU_CONTROLLER_ADDRESS_PS7 }}
                   model-name: ${{ vars.JUJU_MODEL_NAME_PS7 }}
