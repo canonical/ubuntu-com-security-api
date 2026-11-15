@@ -8,6 +8,22 @@ inputs:
     app-name:
         description: "Juju application name"
         required: true
+    publish-app-name:
+        description: "Juju application that serves /security/updates. It is refreshed if it exists, and never created."
+        required: false
+        default: ""
+    read-app-config:
+        description: "Config (key=value ...) for app-name, applied when the publish app exists"
+        required: false
+        default: "run-migrations=false webserver-timeout=90"
+    publish-app-config:
+        description: "Config (key=value ...) for publish-app-name"
+        required: false
+        default: "run-migrations=true webserver-timeout=300"
+    smoke-test-url:
+        description: "Base URL of the deployed API. Empty skips the smoke test."
+        required: false
+        default: ""
     controller-name:
         description: "Juju controller name"
         required: true
@@ -67,18 +83,22 @@ runs:
             juju switch "$JUJU_CONTROLLER_NAME:${FULL_MODEL}"
 
         - name: Deploy charm
+          id: deploy
           shell: bash
           env:
               JUJU_CLIENT_ID: ${{ inputs.juju-client-id }}
               JUJU_CLIENT_SECRET: ${{ inputs.juju-client-secret }}
               APP_NAME: ${{ inputs.app-name }}
+              PUBLISH_APP_NAME: ${{ inputs.publish-app-name }}
+              READ_APP_CONFIG: ${{ inputs.read-app-config }}
+              PUBLISH_APP_CONFIG: ${{ inputs.publish-app-config }}
               IMAGE_URL: ${{ inputs.image-url }}
-          run: |
-              set -e
-              CHARM_FILE=$(ls ./*.charm | head -1)
-              if juju show-application "$APP_NAME" &>/dev/null; then
-                juju refresh "$APP_NAME" --path="./$CHARM_FILE" --resource flask-app-image="$IMAGE_URL"
-              else
-                juju deploy "./$CHARM_FILE" "$APP_NAME" --resource flask-app-image="$IMAGE_URL"
-              fi
-              juju wait-for application "$APP_NAME" --query="name=='$APP_NAME' && (status=='active' || status=='idle')"
+          run: bash "$GITHUB_ACTION_PATH/deploy.sh"
+
+        - name: Smoke test
+          if: inputs.smoke-test-url != ''
+          shell: bash
+          env:
+              BASE_URL: ${{ inputs.smoke-test-url }}
+              CHECK_PUBLISH: ${{ steps.deploy.outputs.publish-app-deployed }}
+          run: bash "$GITHUB_ACTION_PATH/smoke-test.sh"
