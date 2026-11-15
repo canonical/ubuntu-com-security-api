@@ -71,7 +71,7 @@ jobs:
                   if-no-files-found: error
 
     pack-rock:
-        runs-on: ubuntu-24.04 # must match the rock and charm base (24.04)
+        runs-on: ubuntu-24.04 # pin the runner to Noble; ubuntu-latest is not supported for these builds
         permissions:
             contents: read
             packages: write
