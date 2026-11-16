@@ -56,6 +56,9 @@ class TestRoutes(BaseTestCase):
         assert busted.status_code == 200
         assert busted.json == plain.json
 
+        # Other unknown parameters are still rejected.
+        assert self.client.get(f"{url}?foo=1").status_code == 422
+
     def test_cve_packages_preserve_source_order(self):
         """
         Packages should be returned in the same order they were supplied in
