@@ -181,6 +181,31 @@ class TestRoutes(BaseTestCase):
 
         assert response.status_code == 200
 
+    def test_cves_query_by_exact_cve_id(self):
+        target = make_cve("CVE-2026-1234")
+        # Would match a substring search for the target ID
+        longer_id = make_cve("CVE-2026-12345")
+        mentions_target = make_cve(
+            "CVE-2026-9999", description="Similar to CVE-2026-1234"
+        )
+        self.db.session.add_all([target, longer_id, mentions_target])
+        self.db.session.commit()
+
+        for q in ("CVE-2026-1234", "cve-2026-1234", "%20CVE-2026-1234%20"):
+            response = self.client.get(f"/security/cves.json?q={q}")
+
+            assert response.status_code == 200
+            assert [c["id"] for c in response.json["cves"]] == [
+                "CVE-2026-1234"
+            ]
+            assert response.json["total_results"] == 1
+
+        # Anything short of a full CVE ID still uses the substring search
+        for q in ("CVE-2026-123", "2026-123"):
+            response = self.client.get(f"/security/cves.json?q={q}")
+            ids = {c["id"] for c in response.json["cves"]}
+            assert {"CVE-2026-1234", "CVE-2026-12345"} <= ids
+
     def test_cves_returns_200_for_non_existing_package_name(self):
         response = self.client.get("/security/cves.json?package=no-exist")
 
@@ -1674,6 +1699,53 @@ class TestRoutes(BaseTestCase):
         # Get
         response_3 = self.client.get(f"/security/notices/{notice['id']}.json")
         assert response_3.json["instructions"] == instructions
+
+    def test_create_usn_with_existing_and_new_cves(self):
+        existing_cve = self.models["cve"]
+
+        notice = payloads.notice.copy()
+        notice["cves"] = [existing_cve.id, "CVE-9999-0003", "CVE-9999-0004"]
+        response_1 = self.client.post(
+            "/security/updates/notices.json", json=notice
+        )
+        assert response_1.status_code == 200
+
+        # Get
+        response_2 = self.client.get(f"/security/notices/{notice['id']}.json")
+        assert sorted(response_2.json["cves_ids"]) == sorted(notice["cves"])
+
+        # The existing CVE keeps its data and gains the notice
+        response_3 = self.client.get(f"/security/cves/{existing_cve.id}.json")
+        assert response_3.json["priority"] == existing_cve.priority
+        assert sorted(response_3.json["notices_ids"]) == sorted(
+            [self.models["notice"].id, notice["id"]]
+        )
+
+    def test_update_usn_replaces_cves(self):
+        existing_cve = self.models["cve"]
+
+        # Create first
+        notice = payloads.notice.copy()
+        notice["cves"] = [existing_cve.id, "CVE-9999-0003", "CVE-9999-0004"]
+        response_1 = self.client.post(
+            "/security/updates/notices.json", json=notice
+        )
+        assert response_1.status_code == 200
+
+        # Update
+        notice["cves"] = ["CVE-9999-0004", "CVE-9999-0005"]
+        response_2 = self.client.put(
+            f"/security/updates/notices/{notice['id']}.json", json=notice
+        )
+        assert response_2.status_code == 200
+
+        # Get
+        response_3 = self.client.get(f"/security/notices/{notice['id']}.json")
+        assert sorted(response_3.json["cves_ids"]) == sorted(notice["cves"])
+
+        # The removed CVE loses the notice
+        response_4 = self.client.get(f"/security/cves/{existing_cve.id}.json")
+        assert response_4.json["notices_ids"] == [self.models["notice"].id]
 
     def test_update_usn_returns_404_for_non_existing_id(self):
         response = self.client.put(
