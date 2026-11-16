@@ -16,7 +16,7 @@ env:
 
 jobs:
     pack-charm:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04 # pin the runner to Noble; ubuntu-latest is not supported for these builds
         permissions:
             contents: read
         steps:
@@ -71,7 +71,7 @@ jobs:
                   if-no-files-found: error
 
     pack-rock:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04 # pin the runner to Noble; ubuntu-latest is not supported for these builds
         permissions:
             contents: read
             packages: write
