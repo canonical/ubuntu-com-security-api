@@ -5,6 +5,8 @@ on:
     push:
         branches:
             - main
+    # QA only, remove before merging to main
+    pull_request:
 
 concurrency:
     group: security-api-deploy-${{ github.ref }}
@@ -131,7 +133,13 @@ jobs:
 
     deploy-staging:
         needs: [pack-charm, pack-rock]
-        if: github.ref_name == 'main'
+        # On PRs, only deploy from branches in this repo: fork PRs must never
+        # run with staging secrets on the self-hosted runner.
+        # QA only, revert before merging
+        if: >-
+            github.ref_name == 'main' ||
+            (github.event_name == 'pull_request' &&
+             github.event.pull_request.head.repo.full_name == github.repository)
         runs-on: [self-hosted-linux-amd64-noble-private-endpoint-medium]
         permissions:
             contents: read
@@ -155,8 +163,9 @@ jobs:
                   controller-address: ${{ vars.JUJU_CONTROLLER_ADDRESS_PS7 }}
                   model-name: ${{ vars.JUJU_MODEL_NAME_PS7 }}
                   juju-version: ${{ vars.JUJU_VERSION || '3/stable' }}
-                  juju-client-id: ${{ secrets.JUJU_CLIENT_ID }}
-                  juju-client-secret: ${{ secrets.JUJU_CLIENT_SECRET }}
+                  vault-role-id: ${{ secrets.PS7_VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.PS7_VAULT_SECRET_ID }}
+                  vault-credentials-path: ${{ secrets.PS7_VAULT_JUJU_CREDENTIALS_PATH }}
 
     deploy-production:
         needs: [pack-rock, deploy-staging]
@@ -184,5 +193,6 @@ jobs:
                   controller-address: ${{ vars.JUJU_CONTROLLER_ADDRESS_PS7 }}
                   model-name: ${{ vars.JUJU_MODEL_NAME_PS7 }}
                   juju-version: ${{ vars.JUJU_VERSION || '3/stable' }}
-                  juju-client-id: ${{ secrets.JUJU_CLIENT_ID }}
-                  juju-client-secret: ${{ secrets.JUJU_CLIENT_SECRET }}
+                  vault-role-id: ${{ secrets.PS7_VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.PS7_VAULT_SECRET_ID }}
+                  vault-credentials-path: ${{ secrets.PS7_VAULT_JUJU_CREDENTIALS_PATH }}
