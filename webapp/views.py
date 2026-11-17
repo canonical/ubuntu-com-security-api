@@ -1,5 +1,6 @@
 import re
 from collections import defaultdict
+from functools import wraps
 from distutils.util import strtobool
 from typing import List, Literal, Optional
 
@@ -72,6 +73,7 @@ from webapp.utils import stream_notices
 
 SIX_HOURS_IN_SECONDS = 60 * 60 * 6
 TEN_MINUTES_IN_SECONDS = 60 * 10
+FIVE_MINUTES_IN_SECONDS = 60 * 5
 MAX_PAGE = 100
 CVE_ID_PATTERN = re.compile(r"^CVE-\d{4}-\d{4,}$", re.IGNORECASE)
 
@@ -98,6 +100,29 @@ def preload_notice_cve_ids(cves):
         notice.__dict__["_cves_ids"] = grouped[notice_id]
 
 
+def cache_for(seconds):
+    """
+    Let caches keep a view's successful responses for `seconds`.
+
+    For views that return objects for marshal_with to serialise, and so
+    have no response to set Cache-Control on. Without this they get the
+    60 second default.
+    """
+
+    def decorator(view):
+        @wraps(view)
+        def cached_view(*args, **kwargs):
+            response = make_response(view(*args, **kwargs))
+            if response.status_code == 200:
+                response.cache_control.max_age = seconds
+            return response
+
+        return cached_view
+
+    return decorator
+
+
+@cache_for(FIVE_MINUTES_IN_SECONDS)
 @marshal_with(CVEAPIDetailedSchema, code=200)
 @marshal_with(MessageSchema, code=404)
 @use_kwargs(CVEParameter, location="query")
@@ -776,6 +801,7 @@ def get_notices_v2(**kwargs):
     return response
 
 
+@cache_for(TEN_MINUTES_IN_SECONDS)
 @marshal_with(PageNoticesAPISchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(PageNoticesParameters, location="query")
@@ -827,6 +853,7 @@ def get_page_notices(**kwargs):
     }
 
 
+@cache_for(TEN_MINUTES_IN_SECONDS)
 @marshal_with(FlatNoticesAPISchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(FlatNoticesParameters, location="query")
@@ -1017,6 +1044,7 @@ def delete_notice(notice_id):
     )
 
 
+@cache_for(TEN_MINUTES_IN_SECONDS)
 @marshal_with(ReleaseAPISchema, code=200)
 @marshal_with(MessageSchema, code=404)
 def get_release(release_codename):
@@ -1031,6 +1059,7 @@ def get_release(release_codename):
     return release
 
 
+@cache_for(TEN_MINUTES_IN_SECONDS)
 @marshal_with(ReleasesAPISchema, code=200)
 @marshal_with(MessageSchema, code=404)
 def get_releases():
