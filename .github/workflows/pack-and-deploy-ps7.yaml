@@ -5,8 +5,6 @@ on:
     push:
         branches:
             - main
-    # QA only, remove before merging to main
-    pull_request:
 
 concurrency:
     group: security-api-deploy-${{ github.ref }}
@@ -133,13 +131,7 @@ jobs:
 
     deploy-staging:
         needs: [pack-charm, pack-rock]
-        # On PRs, only deploy from branches in this repo: fork PRs must never
-        # run with staging secrets on the self-hosted runner.
-        # QA only, revert before merging
-        if: >-
-            github.ref_name == 'main' ||
-            (github.event_name == 'pull_request' &&
-             github.event.pull_request.head.repo.full_name == github.repository)
+        if: github.ref_name == 'main'
         runs-on: [self-hosted-linux-amd64-noble-private-endpoint-medium]
         permissions:
             contents: read
