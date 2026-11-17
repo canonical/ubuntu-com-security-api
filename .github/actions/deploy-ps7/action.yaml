@@ -2,83 +2,128 @@ name: Deploy to PS7
 description: Deploy the ubuntu-com-security-api charm to a ProdStack 7 Juju model using JAAS OAuth credentials.
 
 inputs:
-    image-url:
-        description: "Full GHCR image URL to deploy as the flask-app-image resource"
-        required: true
-    app-name:
-        description: "Juju application name"
-        required: true
-    controller-name:
-        description: "Juju controller name"
-        required: true
-    controller-address:
-        description: "Juju controller address for juju login"
-        required: true
-    model-name:
-        description: "Juju model short name"
-        required: true
-    juju-version:
-        description: "Juju snap channel"
-        required: false
-        default: "3/stable"
-    juju-client-id:
-        description: "JAAS OAuth client id"
-        required: true
-    juju-client-secret:
-        description: "JAAS OAuth client secret"
-        required: true
+  image-url:
+    description: "Full GHCR image URL to deploy as the flask-app-image resource"
+    required: true
+  app-name:
+    description: "Juju application name"
+    required: true
+  controller-name:
+    description: "Juju controller name"
+    required: true
+  controller-address:
+    description: "Juju controller address for juju login"
+    required: true
+  model-name:
+    description: "Juju model short name"
+    required: true
+  juju-version:
+    description: "Juju snap channel"
+    required: false
+    default: "3/stable"
+  vault-role-id:
+    description: "Vault AppRole role_id for retrieving JAAS OAuth credentials"
+    required: true
+  vault-secret-id:
+    description: "Vault AppRole secret_id for retrieving JAAS OAuth credentials"
+    required: true
+  vault-credentials-path:
+    description: "Vault path to the JAAS OAuth credentials (e.g., secret/data/juju/credentials)"
+    required: true
 
 runs:
-    using: composite
-    steps:
-        - name: Install Juju
-          shell: bash
-          env:
-              JUJU_VERSION: ${{ inputs.juju-version }}
-          run: sudo snap install juju --channel="$JUJU_VERSION"
+  using: composite
+  steps:
+    - name: Install Juju
+      shell: bash
+      env:
+        JUJU_VERSION: ${{ inputs.juju-version }}
+      run: sudo snap install juju --channel="$JUJU_VERSION"
 
-        - name: Download charm artifact
-          uses: actions/download-artifact@v8
-          with:
-              name: ${{ inputs.app-name }}-charm
+    - name: Install Vault CLI and jq
+      shell: bash
+      run: |
+        set -euo pipefail
+        command -v vault >/dev/null || sudo snap install vault
+        command -v jq >/dev/null || sudo snap install jq
 
-        - name: Authenticate with JAAS
-          shell: bash
-          env:
-              JUJU_CLIENT_ID: ${{ inputs.juju-client-id }}
-              JUJU_CLIENT_SECRET: ${{ inputs.juju-client-secret }}
-              JUJU_CONTROLLER_ADDRESS: ${{ inputs.controller-address }}
-              JUJU_CONTROLLER_NAME: ${{ inputs.controller-name }}
-          run: |
-              set -e
-              juju login "$JUJU_CONTROLLER_ADDRESS" -c "$JUJU_CONTROLLER_NAME"
+    - name: Download charm artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.app-name }}-charm
 
-        - name: Switch to model
-          shell: bash
-          env:
-            JUJU_CLIENT_ID: ${{ inputs.juju-client-id }}
-            JUJU_CLIENT_SECRET: ${{ inputs.juju-client-secret }}
-            JUJU_CONTROLLER_NAME: ${{ inputs.controller-name }}
-            JUJU_MODEL_NAME: ${{ inputs.model-name }}
-          run: |
-            set -euo pipefail
-            FULL_MODEL=$(juju models -c "$JUJU_CONTROLLER_NAME" --format json | jq -r --arg model "$JUJU_MODEL_NAME" '.models[] | select(."short-name" == $model) | .name' | head -n1)
-            if [ -z "$FULL_MODEL" ]; then echo "::error::Model '$JUJU_MODEL_NAME' not found on controller '$JUJU_CONTROLLER_NAME'."; exit 1; fi
-            juju switch "$JUJU_CONTROLLER_NAME:${FULL_MODEL}"
+    - name: Get vault credentials
+      id: get-vault-credentials
+      shell: bash
+      env:
+        VAULT_ADDR: "https://vault.ps7.admin.canonical.com"
+        VAULT_ROLE_ID: ${{ inputs.vault-role-id }}
+        VAULT_SECRET_ID: ${{ inputs.vault-secret-id }}
+        VAULT_CREDENTIALS_PATH: ${{ inputs.vault-credentials-path }}
+      run: |
+        set -euo pipefail
+        echo "::add-mask::$VAULT_ROLE_ID"
+        echo "::add-mask::$VAULT_SECRET_ID"
 
-        - name: Deploy charm
-          shell: bash
-          env:
-              JUJU_CLIENT_ID: ${{ inputs.juju-client-id }}
-              JUJU_CLIENT_SECRET: ${{ inputs.juju-client-secret }}
-              APP_NAME: ${{ inputs.app-name }}
-              IMAGE_URL: ${{ inputs.image-url }}
-          run: |
-              set -e
-              CHARM_FILE=$(ls ./*.charm | head -1)
-              if juju show-application "$APP_NAME" &>/dev/null; then
-                juju refresh "$APP_NAME" --path="./$CHARM_FILE" --resource flask-app-image="$IMAGE_URL"
-              else
-                juju deploy "./$CHARM_FILE" "$APP_NAME" --resource flask-app-image="$IMAGE_URL"
-              fi
-              juju wait-for application "$APP_NAME" --query="name=='$APP_NAME' && (status=='active' || status=='idle')"
+        VAULT_TOKEN=$(vault write -field=token auth/approle/login \
+            role_id="$VAULT_ROLE_ID" \
+            secret_id="$VAULT_SECRET_ID")
+        echo "::add-mask::$VAULT_TOKEN"
+        export VAULT_TOKEN
+        # Revoke the token when the step exits, whether it succeeds or fails.
+        trap 'vault token revoke -self >/dev/null 2>&1 || echo "::warning::Failed to revoke Vault token"' EXIT
+
+        juju_client_id=$(vault kv get -field=juju_client_id "$VAULT_CREDENTIALS_PATH")
+        echo "::add-mask::$juju_client_id"
+        juju_client_secret=$(vault kv get -field=juju_client_secret "$VAULT_CREDENTIALS_PATH")
+        echo "::add-mask::$juju_client_secret"
+
+        echo "juju-client-id=$juju_client_id" >> "$GITHUB_OUTPUT"
+        echo "juju-client-secret=$juju_client_secret" >> "$GITHUB_OUTPUT"
+    - name: Authenticate with JAAS
+      shell: bash
+      env:
+        JUJU_CLIENT_ID: ${{ steps.get-vault-credentials.outputs.juju-client-id }}
+        JUJU_CLIENT_SECRET: ${{ steps.get-vault-credentials.outputs.juju-client-secret }}
+        JUJU_CONTROLLER_ADDRESS: ${{ inputs.controller-address }}
+        JUJU_CONTROLLER_NAME: ${{ inputs.controller-name }}
+      run: |
+        set -e
+        juju login "$JUJU_CONTROLLER_ADDRESS" -c "$JUJU_CONTROLLER_NAME"
+
+    - name: Switch to model
+      shell: bash
+      env:
+        JUJU_CLIENT_ID: ${{ steps.get-vault-credentials.outputs.juju-client-id }}
+        JUJU_CLIENT_SECRET: ${{ steps.get-vault-credentials.outputs.juju-client-secret }}
+        JUJU_CONTROLLER_NAME: ${{ inputs.controller-name }}
+        JUJU_MODEL_NAME: ${{ inputs.model-name }}
+      run: |
+        set -euo pipefail
+        FULL_MODEL=$(juju models -c "$JUJU_CONTROLLER_NAME" --format json | jq -r --arg model "$JUJU_MODEL_NAME" '.models[] | select(."short-name" == $model) | .name' | head -n1)
+        if [ -z "$FULL_MODEL" ]; then echo "::error::Model '$JUJU_MODEL_NAME' not found on controller '$JUJU_CONTROLLER_NAME'."; exit 1; fi
+        juju switch "$JUJU_CONTROLLER_NAME:${FULL_MODEL}"
+
+    - name: Deploy charm
+      shell: bash
+      env:
+        JUJU_CLIENT_ID: ${{ steps.get-vault-credentials.outputs.juju-client-id }}
+        JUJU_CLIENT_SECRET: ${{ steps.get-vault-credentials.outputs.juju-client-secret }}
+        APP_NAME: ${{ inputs.app-name }}
+        IMAGE_URL: ${{ inputs.image-url }}
+      run: |
+        set -e
+        CHARM_FILE=$(ls ./*.charm | head -1)
+        if juju show-application "$APP_NAME" &>/dev/null; then
+          juju refresh "$APP_NAME" --path="./$CHARM_FILE" --resource flask-app-image="$IMAGE_URL"
+        else
+          juju deploy "./$CHARM_FILE" "$APP_NAME" --resource flask-app-image="$IMAGE_URL"
+        fi
+        juju wait-for application "$APP_NAME" --timeout 20m --query="name=='$APP_NAME' && (status=='active' || status=='idle')"
+
+    - name: Clean up Juju credentials
+      # Runs even if an earlier step failed, so the JAAS session token and
+      # cookies are not left behind on the (self-hosted) runner.
+      if: always()
+      shell: bash
+      run: rm -rf "${JUJU_DATA:-$HOME/.local/share/juju}"
