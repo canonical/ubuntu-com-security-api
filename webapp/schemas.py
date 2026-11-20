@@ -927,8 +927,30 @@ class NoticesAPISchemaV2(Schema):
         render_module = orjson
 
 
+class NoticeSummarySchema(Schema):
+    id = String()
+    title = String()
+    summary = String()
+    published = ParsedDateTime()
+    is_hidden = Boolean()
+    notice_type = String(data_key="type")
+
+    class Meta:
+        render_module = orjson
+
+
+class CVEListItemSchema(CVEAPISchema):
+    # The list carries notice summaries only. A kernel USN embedded in full
+    # in every CVE it fixes made single pages of cves.json reach 30+ MB. Full
+    # notices are on /security/notices/<id>.json and /security/cves/<id>.json.
+    notices = List(Nested(NoticeSummarySchema))
+
+    class Meta:
+        render_module = orjson
+
+
 class CVEsAPISchema(Schema):
-    cves = List(Nested(CVEAPIDetailedSchema))
+    cves = List(Nested(CVEListItemSchema))
     offset = Int(allow_none=True)
     limit = Int(allow_none=True)
     total_results = Int()
