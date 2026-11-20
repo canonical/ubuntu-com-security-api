@@ -47,6 +47,18 @@ class TestRoutes(BaseTestCase):
         )
         assert response.json["notices_ids"] == self.models["cve"].notices_ids
 
+    def test_cve_accepts_cache_buster(self):
+        # Uptime monitors add a random ?cb= value to get past the cache.
+        url = f"/security/cves/{self.models['cve'].id}.json"
+        plain = self.client.get(url)
+        busted = self.client.get(f"{url}?cb=a1b2c3")
+
+        assert busted.status_code == 200
+        assert busted.json == plain.json
+
+        # Other unknown parameters are still rejected.
+        assert self.client.get(f"{url}?foo=1").status_code == 422
+
     def test_cve_packages_preserve_source_order(self):
         """
         Packages should be returned in the same order they were supplied in

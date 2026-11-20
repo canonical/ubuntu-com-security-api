@@ -945,6 +945,12 @@ CVEParameter = {
         ),
         allow_none=True,
     ),
+    # Uptime monitors add a random value here to get past the cache. Without
+    # the entry, webargs rejects the unknown parameter with a 422.
+    "cb": String(
+        description="Cache buster. Any value is accepted and ignored.",
+        allow_none=True,
+    ),
 }
 
 CVESitemapParameters = {
