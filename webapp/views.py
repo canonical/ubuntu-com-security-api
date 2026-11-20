@@ -20,12 +20,22 @@ from sqlalchemy import (
     distinct,
     exists,
     func,
+    literal_column,
     nullslast,
     or_,
+    select,
     tuple_,
 )
 from sqlalchemy.exc import DataError, IntegrityError
-from sqlalchemy.orm import Query, aliased, load_only, selectinload, undefer
+from sqlalchemy.orm import (
+    Query,
+    aliased,
+    joinedload,
+    load_only,
+    selectinload,
+    undefer,
+    with_expression,
+)
 
 from webapp.auth import authorization_required, oauth_authorization_required
 from webapp.database import db
@@ -76,6 +86,17 @@ TEN_MINUTES_IN_SECONDS = 60 * 10
 FIVE_MINUTES_IN_SECONDS = 60 * 5
 MAX_PAGE = 100
 CVE_ID_PATTERN = re.compile(r"^CVE-\d{4}-\d{4,}$", re.IGNORECASE)
+
+
+# The ids of every CVE a notice covers, as one array column on the notice
+# row. An empty array, never NULL, so Notice.cves_ids can tell "loaded and
+# empty" from "not loaded".
+NOTICE_CVES_IDS = func.coalesce(
+    select(func.array_agg(notice_cves.c.cve_id))
+    .where(notice_cves.c.notice_id == Notice.id)
+    .scalar_subquery(),
+    literal_column("ARRAY[]::varchar[]"),
+)
 
 
 def preload_notice_cve_ids(cves):
@@ -145,10 +166,14 @@ def get_cve(cve_id, **kwargs):
             Notice.is_hidden.is_(False)
         )
 
+    # Every query here is a round trip to a database in another region, so
+    # the notices and their CVE ids come back with the CVE itself. Statuses
+    # stay in a query of their own: joining them as well would repeat every
+    # notice once per status row.
     cve: CVE = (
         cve_query.filter(CVE.id == cve_id.upper())
         .options(
-            selectinload(cve_notices_relation).options(
+            joinedload(cve_notices_relation).options(
                 load_only(
                     Notice.id,
                     Notice.title,
@@ -160,6 +185,7 @@ def get_cve(cve_id, **kwargs):
                     Notice.is_hidden,
                     Notice.release_packages,
                 ),
+                with_expression(Notice._cves_ids, NOTICE_CVES_IDS),
             )
         )
         .options(selectinload(CVE.statuses))
@@ -171,9 +197,6 @@ def get_cve(cve_id, **kwargs):
             jsonify({"message": f"CVE with id '{cve_id}' does not exist"}),
             404,
         )
-
-    # Cheap replacement for the selectinload(Notice.cves) this used to carry.
-    preload_notice_cve_ids([cve])
 
     return cve
 

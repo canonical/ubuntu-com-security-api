@@ -98,21 +98,26 @@ class CvesIdsEquivalence(BaseTestCase):
             "behaviour-preserving",
         )
 
-    def test_cve_detail_preload_matches_relationship_walk(self):
-        self._seed_wide_notice()
+    def test_cve_detail_cves_ids_match_relationship_walk(self):
+        # The detail view loads cves_ids with the notice row instead of
+        # calling the preload, so compare it to the relationship directly.
+        notice_id = self._seed_wide_notice()
         cve_id = db.session.query(CVE).first().id
+        expected = {
+            notice.id: sorted(cve.id for cve in notice.cves)
+            for notice in db.session.query(Notice)
+        }
+        db.session.expunge_all()
 
-        with_preload, without_preload = self._both_ways(
-            lambda: self._fetch_detail(cve_id)
-        )
+        served = {
+            notice["id"]: sorted(notice["cves_ids"])
+            for notice in self._fetch_detail(cve_id)["notices"]
+        }
 
-        self.assertEqual(
-            json.dumps(self._normalise(with_preload), sort_keys=True),
-            json.dumps(self._normalise(without_preload), sort_keys=True),
-            "bulk preload and relationship walk disagree on "
-            "/security/cves/<id>.json - the optimisation is not "
-            "behaviour-preserving",
-        )
+        self.assertIn(notice_id, served)
+        self.assertGreaterEqual(len(served[notice_id]), EXTRA_CVES)
+        for served_id, cves_ids in served.items():
+            self.assertEqual(cves_ids, expected[served_id])
 
     def test_notice_lists_preload_matches_relationship_walk(self):
         notice_id = self._seed_wide_notice()
