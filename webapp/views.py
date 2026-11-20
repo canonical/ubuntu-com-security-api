@@ -175,7 +175,10 @@ def get_cve(cve_id, **kwargs):
     # Cheap replacement for the selectinload(Notice.cves) this used to carry.
     preload_notice_cve_ids([cve])
 
-    return cve
+    # Encode once with orjson; returning the object would have marshal_with
+    # dump it and Flask encode the result again with the stdlib json module.
+    result = CVEAPIDetailedSchema().dumps(cve)
+    return Response(result, mimetype="application/json")
 
 
 @marshal_with(CVEsAPISchema, code=200)
