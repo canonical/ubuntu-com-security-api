@@ -499,8 +499,17 @@ class CvssV3(Schema):
         render_module = orjson
 
 
+class CveBaseMetricSourceV3(Schema):
+    source = String(required=True)
+    cvssV3 = Nested(CvssV3)
+
+    class Meta:
+        render_module = orjson
+
+
 class CveBaseMetric(Schema):
     cvssV3 = Nested(CvssV3)
+    sources = List(Nested(CveBaseMetricSourceV3))
     exploitabilityScore = Float(allow_none=True)
     impactScore = Float(allow_none=True)
 
@@ -660,8 +669,21 @@ class CvssV4Import(CvssV4):
     threatMetrics = Nested(CvssV4ThreatMetrics, allow_none=True)
 
 
+class CveBaseMetricSourceV4(Schema):
+    source = String(required=True)
+    cvssV4 = Nested(CvssV4)
+
+    class Meta:
+        render_module = orjson
+
+
+class CveBaseMetricSourceV4Import(CveBaseMetricSourceV4):
+    cvssV4 = Nested(CvssV4Import, allow_none=True)
+
+
 class CveBaseMetricV4(Schema):
     cvssV4 = Nested(CvssV4)
+    sources = List(Nested(CveBaseMetricSourceV4))
 
     class Meta:
         render_module = orjson
@@ -669,6 +691,7 @@ class CveBaseMetricV4(Schema):
 
 class CveBaseMetricV4Import(CveBaseMetricV4):
     cvssV4 = Nested(CvssV4Import, allow_none=True)
+    sources = List(Nested(CveBaseMetricSourceV4Import))
 
 
 class CveImpact(Schema):
@@ -691,6 +714,16 @@ class Note(Schema):
         render_module = orjson
 
 
+class HeadlineCvss(Schema):
+    version = String(allow_none=True)
+    source = String(allow_none=True)
+    baseScore = Float(allow_none=True)
+    baseSeverity = String(allow_none=True)
+
+    class Meta:
+        render_module = orjson
+
+
 class CVESchema(Schema):
     id = String(required=True)
     published = ParsedDateTime(allow_none=True)
@@ -701,6 +734,7 @@ class CVESchema(Schema):
     codename = String(allow_none=True)
     priority = String(allow_none=True)
     cvss3 = Float(allow_none=True)
+    headline_cvss = Nested(HeadlineCvss, allow_none=True)
     impact = Nested(CveImpact)
     status = String(allow_none=True)
     mitigation = String(allow_none=True)
