@@ -57,6 +57,7 @@ class CVE(db.Model):
     codename = Column(String)
     priority = Column(PRIORITY_OPTIONS)
     cvss3 = Column(Float)
+    headline_cvss = Column(JSON)
     impact = Column(JSON)
     mitigation = Column(String)
     references = Column(JSON)
