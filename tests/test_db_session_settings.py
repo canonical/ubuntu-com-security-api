@@ -1,5 +1,5 @@
-"""The idle-in-transaction timeout is set with SET on connect, not with the
-libpq `options` startup parameter, because poolers such as PgBouncer drop it.
+"""The session timeouts are set with SET on connect, not with the libpq
+`options` startup parameter, because poolers such as PgBouncer drop it.
 """
 
 import unittest
@@ -11,21 +11,24 @@ from webapp.database import (
     ENGINE_OPTIONS,
     PRIMARY_IDLE_IN_TRANSACTION_TIMEOUT_MS,
     READ_IDLE_IN_TRANSACTION_TIMEOUT_MS,
+    READ_STATEMENT_TIMEOUT_MS,
     engines,
     primary_engine,
     REPLICA_ONE,
 )
 
 
-def idle_timeout_ms(engine):
+def setting_ms(engine, name):
     with engine.connect() as connection:
         value = connection.execute(
-            text(
-                "SELECT setting::int FROM pg_settings"
-                " WHERE name = 'idle_in_transaction_session_timeout'"
-            )
+            text("SELECT setting::int FROM pg_settings WHERE name = :name"),
+            {"name": name},
         ).scalar()
     return value
+
+
+def idle_timeout_ms(engine):
+    return setting_ms(engine, "idle_in_transaction_session_timeout")
 
 
 class DatabaseSessionSettings(BaseTestCase):
@@ -45,6 +48,16 @@ class DatabaseSessionSettings(BaseTestCase):
             idle_timeout_ms(engines[REPLICA_ONE]),
             READ_IDLE_IN_TRANSACTION_TIMEOUT_MS,
         )
+
+    def test_read_engine_caps_statements(self):
+        self.assertEqual(
+            setting_ms(engines[REPLICA_ONE], "statement_timeout"),
+            READ_STATEMENT_TIMEOUT_MS,
+        )
+
+    def test_primary_engine_does_not_cap_statements(self):
+        # Publishes run long statements on the primary.
+        self.assertEqual(setting_ms(primary_engine, "statement_timeout"), 0)
 
     def test_timeout_survives_rollback_on_return(self):
         # The pool rolls back on return; the SET must not be undone.

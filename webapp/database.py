@@ -64,6 +64,14 @@ BASE_CONNECT_ARGS = {
 READ_IDLE_IN_TRANSACTION_TIMEOUT_MS = 60000
 PRIMARY_IDLE_IN_TRANSACTION_TIMEOUT_MS = 300000
 
+# gunicorn kills a worker at GUNICORN_TIMEOUT, but Postgres keeps running
+# that worker's query. Cap each read statement just below that, so an
+# abandoned query cannot run for longer than a live request could have
+# waited for it. The limit is per statement, not per request: a query that
+# starts late in a request can still outlive its worker by up to this long.
+GUNICORN_TIMEOUT_S = int(get_flask_env("GUNICORN_TIMEOUT") or 30)
+READ_STATEMENT_TIMEOUT_MS = max(GUNICORN_TIMEOUT_S - 2, 1) * 1000
+
 # 90 workers share max_connections=100, so pool_size 1 is the ceiling.
 ENGINE_OPTIONS = {
     "pool_recycle": 3600,
@@ -75,9 +83,11 @@ ENGINE_OPTIONS = {
 }
 
 
-def _make_engine(url, idle_in_transaction_timeout_ms):
-    """Create an engine that sets the idle-in-transaction timeout with SET on
-    each new connection.
+def _make_engine(
+    url, idle_in_transaction_timeout_ms, statement_timeout_ms=None
+):
+    """Create an engine that sets its timeouts with SET on each new
+    connection.
 
     Poolers such as PgBouncer drop the libpq `options` startup parameter, so
     SET is the portable way. It lasts for the connection when the pooler runs
@@ -86,12 +96,16 @@ def _make_engine(url, idle_in_transaction_timeout_ms):
     engine = create_engine(url=url, **ENGINE_OPTIONS)
 
     @event.listens_for(engine, "connect")
-    def _set_timeout(dbapi_connection, _connection_record):
+    def _set_timeouts(dbapi_connection, _connection_record):
         with dbapi_connection.cursor() as cursor:
             cursor.execute(
                 "SET idle_in_transaction_session_timeout = %s",
                 (idle_in_transaction_timeout_ms,),
             )
+            if statement_timeout_ms is not None:
+                cursor.execute(
+                    "SET statement_timeout = %s", (statement_timeout_ms,)
+                )
         # Commit, so the pool's rollback-on-return does not undo the SET.
         dbapi_connection.commit()
 
@@ -109,7 +123,9 @@ _read_engines_by_url = {}
 def _read_engine(url):
     if url not in _read_engines_by_url:
         _read_engines_by_url[url] = _make_engine(
-            url, READ_IDLE_IN_TRANSACTION_TIMEOUT_MS
+            url,
+            READ_IDLE_IN_TRANSACTION_TIMEOUT_MS,
+            statement_timeout_ms=READ_STATEMENT_TIMEOUT_MS,
         )
     return _read_engines_by_url[url]
 
@@ -176,7 +192,12 @@ def init_db(app):
     # Returning None makes Flask raise a TypeError that hides the real error.
     def _log_and_rollback(error):
         app.logger.error(error)
-        db.session.rollback()
+        try:
+            db.session.rollback()
+        except exc.SQLAlchemyError:
+            # The connection is already gone, so there is nothing to roll
+            # back. Raising here would turn the response into a bare 500.
+            db.session.close()
 
     def _database_unavailable(error):
         _log_and_rollback(error)

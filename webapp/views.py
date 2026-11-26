@@ -1,4 +1,6 @@
+import re
 from collections import defaultdict
+from functools import wraps
 from distutils.util import strtobool
 from typing import List, Literal, Optional
 
@@ -71,14 +73,25 @@ from webapp.utils import stream_notices
 
 SIX_HOURS_IN_SECONDS = 60 * 60 * 6
 TEN_MINUTES_IN_SECONDS = 60 * 10
+FIVE_MINUTES_IN_SECONDS = 60 * 5
 MAX_PAGE = 100
+CVE_ID_PATTERN = re.compile(r"^CVE-\d{4}-\d{4,}$", re.IGNORECASE)
 
 
 def preload_notice_cve_ids(cves):
     """Populate Notice.cves_ids for every notice attached to `cves` with one
     association-table query, instead of hydrating one ORM object per related
     CVE (1200+ for a large USN)."""
-    notices = {notice.id: notice for cve in cves for notice in cve.notices}
+    preload_cve_ids_for_notices(
+        [notice for cve in cves for notice in cve.notices]
+    )
+
+
+def preload_cve_ids_for_notices(notices):
+    """Populate Notice.cves_ids for `notices` with one association-table
+    query. Without it, serialising cves_ids loads every related CVE row in
+    full, one query per notice (20s+ for a kernel USN in production)."""
+    notices = {notice.id: notice for notice in notices}
     if not notices:
         return
 
@@ -96,6 +109,29 @@ def preload_notice_cve_ids(cves):
         notice.__dict__["_cves_ids"] = grouped[notice_id]
 
 
+def cache_for(seconds):
+    """
+    Let caches keep a view's successful responses for `seconds`.
+
+    For views that return objects for marshal_with to serialise, and so
+    have no response to set Cache-Control on. Without this they get the
+    60 second default.
+    """
+
+    def decorator(view):
+        @wraps(view)
+        def cached_view(*args, **kwargs):
+            response = make_response(view(*args, **kwargs))
+            if response.status_code == 200:
+                response.cache_control.max_age = seconds
+            return response
+
+        return cached_view
+
+    return decorator
+
+
+@cache_for(FIVE_MINUTES_IN_SECONDS)
 @marshal_with(CVEAPIDetailedSchema, code=200)
 @marshal_with(MessageSchema, code=404)
 @use_kwargs(CVEParameter, location="query")
@@ -178,7 +214,12 @@ def get_cves(**kwargs):
     if priorities:
         cves_query = cves_query.filter(CVE.priority.in_(priorities))
 
-    if query:
+    if query and CVE_ID_PATTERN.match(query):
+        # A bare CVE ID gets a primary-key lookup. The substring search below
+        # returns up to `limit` loosely related CVEs, which for kernel CVEs
+        # means megabytes of notice data per request.
+        cves_query = cves_query.filter(CVE.id == query.upper())
+    elif query:
         lowered_query = f"%{query.lower()}%"
         cves_query = cves_query.filter(
             or_(
@@ -403,6 +444,10 @@ def bulk_upsert_cve(*args, **kwargs):
         if cve.cvss3 != data.get("cvss3"):
             update_cve = True
             cve.cvss3 = data.get("cvss3")
+
+        if cve.headline_cvss != data.get("headline_cvss"):
+            update_cve = True
+            cve.headline_cvss = data.get("headline_cvss")
 
         if cve.description != data.get("description"):
             update_cve = True
@@ -769,6 +814,7 @@ def get_notices_v2(**kwargs):
     return response
 
 
+@cache_for(TEN_MINUTES_IN_SECONDS)
 @marshal_with(PageNoticesAPISchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(PageNoticesParameters, location="query")
@@ -811,6 +857,7 @@ def get_page_notices(**kwargs):
         .limit(limit)
         .all()
     )
+    preload_cve_ids_for_notices(notices)
 
     return {
         "notices": notices,
@@ -820,6 +867,7 @@ def get_page_notices(**kwargs):
     }
 
 
+@cache_for(TEN_MINUTES_IN_SECONDS)
 @marshal_with(FlatNoticesAPISchema, code=200)
 @marshal_with(MessageWithErrorsSchema, code=422)
 @use_kwargs(FlatNoticesParameters, location="query")
@@ -860,6 +908,7 @@ def get_flat_notices(**kwargs):
         .limit(limit)
         .all()
     )
+    preload_cve_ids_for_notices(notices)
 
     return {
         "notices": notices,
@@ -1010,6 +1059,7 @@ def delete_notice(notice_id):
     )
 
 
+@cache_for(TEN_MINUTES_IN_SECONDS)
 @marshal_with(ReleaseAPISchema, code=200)
 @marshal_with(MessageSchema, code=404)
 def get_release(release_codename):
@@ -1024,6 +1074,7 @@ def get_release(release_codename):
     return release
 
 
+@cache_for(TEN_MINUTES_IN_SECONDS)
 @marshal_with(ReleasesAPISchema, code=200)
 @marshal_with(MessageSchema, code=404)
 def get_releases():
@@ -1187,9 +1238,16 @@ def _update_notice_object(notice, data):
         for codename in data["release_packages"].keys()
     ]
 
-    notice.cves.clear()
-    for cve_id in set(data["cves"]):
-        notice.cves.append(CVE.query.get(cve_id) or CVE(id=cve_id))
+    cve_ids = set(data["cves"])
+    existing_cves = {
+        cve.id: cve
+        for cve in CVE.query.options(load_only(CVE.id)).filter(
+            CVE.id.in_(cve_ids)
+        )
+    }
+    notice.cves = [
+        existing_cves.get(cve_id) or CVE(id=cve_id) for cve_id in cve_ids
+    ]
 
     return notice
 
