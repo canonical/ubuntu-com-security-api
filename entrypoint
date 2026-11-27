@@ -11,7 +11,7 @@ fi
 
 # Provision database
 # ===
-FLASK_APP=webapp.app flask db upgrade
+bash ./migrate.sh
 
 # Start server
 # ===
