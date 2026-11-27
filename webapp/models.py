@@ -17,7 +17,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
-from sqlalchemy.orm import relationship, deferred
+from sqlalchemy.orm import relationship, deferred, query_expression
 
 from webapp.database import db
 from webapp.types import (
@@ -207,10 +207,15 @@ class Notice(db.Model):
         back_populates="notices",
     )
 
+    # Filled by views that load the ids with the notice itself, through
+    # with_expression(). None when the query did not ask for it.
+    _cves_ids = query_expression()
+
     @hybrid_property
     def cves_ids(self):
         # Reading the `cves` relationship hydrates one ORM object per related
-        # CVE, so bulk callers preload via views.preload_notice_cve_ids.
+        # CVE, so bulk callers preload via views.preload_notice_cve_ids, or
+        # load the ids with the notice.
         preloaded = self.__dict__.get("_cves_ids")
         if preloaded is not None:
             return preloaded
